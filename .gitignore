@@ -1,0 +1,17 @@
+# Extensions live in their own repository (Garryth69/otakio-extensions), cloned into repo/
+repo/
+source/repo/
+
+# build output and local caches
+build/
+probe_cache/
+_ref/
+__pycache__/
+*.pyc
+
+# simulator scratch data and screenshots
+tools/tests/_data/
+tools/tests/screens/
+
+# engine binaries are rebuilt from engine/patches (see docs/ENGINE_REBUILD.md); source/eboot.bin is the shipped one
+engine/*.bin

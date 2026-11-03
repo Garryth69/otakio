@@ -1,0 +1,482 @@
+diff --git a/Makefile b/Makefile
+index 14cb9bc..82d9dcb 100644
+--- a/Makefile
++++ b/Makefile
+@@ -3,13 +3,13 @@ SOURCES		:= source/resources source/include/ftp source/include/autovpk source/in
+ 			
+ INCLUDES	:= include
+ 
+-LIBS = -lcurl -lssl -lcrypto -lvorbisfile -lvorbis -logg -lsndfile -lvita2d -lSceLibKernel_stub -lScePvf_stub \
++LIBS = -lcurl -lssl -lcrypto -lvorbisfile -lvorbis -logg -lsndfile -lFLAC -lmp3lame -lvorbisenc -lvorbis -logg -lvita2d -lSceLibKernel_stub -lScePvf_stub \
+ 	-lSceJpegEnc_stub -lSceAppMgr_stub -lSceCtrl_stub -lSceTouch_stub -lSceMotion_stub \
+ 	-lScePromoterUtil_stub -lm -lSceNet_stub -lSceNetCtl_stub -lSceAppUtil_stub -lScePgf_stub \
+-	-ljpeg -lfreetype -lc -lScePower_stub -lSceCommonDialog_stub -lpng16 -lz -lSceCamera_stub \
++	-ljpeg -lfreetype -lbz2 -lc -lScePower_stub -lSceCommonDialog_stub -lpng16 -lz -lSceCamera_stub \
+ 	-lspeexdsp -lmpg123 -lSceAudio_stub -lSceGxm_stub -lSceDisplay_stub -lSceShellSvc_stub \
+-	-lopusfile -lopus -lSceHttp_stub -lSceAudioIn_stub -lluajit -ldl -ltaihen_stub  -lSceSysmodule_stub \
+-	-lSceVideodec_stub -lSceShutterSound_stub -lSceSsl_stub
++	-lopusfile -lopus -lSceHttp_stub -lSceAudioIn_stub -lwebp -lluajit-5.1 -ltaihen_stub  -lSceSysmodule_stub \
++	-lSceVideodec_stub -lSceShutterSound_stub -lSceSsl_stub -lzstd -lz -lpthread
+ 
+ CFILES   := $(foreach dir,$(SOURCES), $(wildcard $(dir)/*.c))
+ CPPFILES   := $(foreach dir,$(SOURCES), $(wildcard $(dir)/*.cpp))
+@@ -19,7 +19,8 @@ OBJS     := $(addsuffix .o,$(BINFILES)) $(CFILES:.c=.o) $(CPPFILES:.cpp=.o) sour
+ PREFIX  = arm-vita-eabi
+ CC      = $(PREFIX)-gcc
+ CXX      = $(PREFIX)-g++
+-CFLAGS  = -fno-lto -g -Wl,-q -O2 -DWANT_FASTWAV -DHAVE_LIBSPEEXDSP \
++V2D_DIR := /root/otakio-engine/libvita2d/libvita2d
++CFLAGS  = -I$(VITASDK)/arm-vita-eabi/include/opus -D_GNU_SOURCE -include string.h -I$(V2D_DIR)/include -L$(V2D_DIR) -I$(VITASDK)/arm-vita-eabi/include/luajit-2.1 -DSKIP_ERROR_HANDLING -fno-lto -fno-optimize-sibling-calls -g -Wl,-q -O2 -DWANT_FASTWAV -DHAVE_LIBSPEEXDSP \
+ 		-DHAVE_LIBSNDFILE -DHAVE_MPG123 -DWANT_FMMIDI=1 -DWANT_FASTAIFF \
+ 		-DUSE_AUDIO_RESAMPLER -DHAVE_OGGVORBIS -DHAVE_OPUSFILE \
+ 		-DSQLITE_OS_OTHER=1 -DSQLITE_TEMP_STORE=3 -DSQLITE_THREADSAFE=0
+diff --git a/source/include/dl_stubs.c b/source/include/dl_stubs.c
+new file mode 100644
+index 0000000..ed1f29e
+--- /dev/null
++++ b/source/include/dl_stubs.c
+@@ -0,0 +1,5 @@
++#include <stddef.h>
++void *dlopen(const char *file, int mode) { (void)file; (void)mode; return NULL; }
++void *dlsym(void *handle, const char *name) { (void)handle; (void)name; return NULL; }
++int dlclose(void *handle) { (void)handle; return 0; }
++char *dlerror(void) { return (char *)"dynamic libraries are not supported"; }
+diff --git a/source/include/luaplayer.h b/source/include/luaplayer.h
+index 1bad889..a438976 100644
+--- a/source/include/luaplayer.h
++++ b/source/include/luaplayer.h
+@@ -65,7 +65,10 @@ void luaDatabase_init(lua_State *L);
+ void bitlib_init(lua_State *L);
+ 
+ // lua-compat
++#include <luajit.h>
++#if LUAJIT_VERSION_NUM < 20100
+ void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup);
++#endif
+ #define lua_callk(L, na, nr, ctx, cont) ((void)(ctx), (void)(cont), lua_call(L, na, nr))
+ #define lua_rawlen(L, i) lua_objlen(L, i)
+ #define LUA_OK 0
+diff --git a/source/include/piclib.c b/source/include/piclib.c
+index a78a9a9..6a10708 100644
+--- a/source/include/piclib.c
++++ b/source/include/piclib.c
+@@ -1071,6 +1071,13 @@ void get_GIF_resolution(const char *filename, int *dest_width, int *dest_height)
+ 
+ void get_PIC_resolution(const char *filename, int *dest_width, int *dest_height)
+ {
++	*dest_width = -1;
++	*dest_height = -1;
++	if (is_WEBP_file(filename))
++	{
++		get_WEBP_resolution(filename, dest_width, dest_height);
++		return;
++	}
+ 	SceUID file = sceIoOpen(filename, SCE_O_RDONLY, 0777);
+ 	uint16_t magic;
+ 	sceIoRead(file, &magic, 2);
+@@ -1088,6 +1095,8 @@ void get_PIC_resolution(const char *filename, int *dest_width, int *dest_height)
+ 
+ vita2d_texture *load_PIC_file(const char *filename, int x, int y, int width, int height)
+ {
++	if (is_WEBP_file(filename))
++		return load_WEBP_file_part(filename, x, y, width, height);
+ 	SceUID file = sceIoOpen(filename, SCE_O_RDONLY, 0777);
+ 	uint16_t magic;
+ 	sceIoRead(file, &magic, 2);
+@@ -1105,6 +1114,8 @@ vita2d_texture *load_PIC_file(const char *filename, int x, int y, int width, int
+ 
+ vita2d_texture *load_PIC_file_downscaled(const char *filename, int level)
+ {
++	if (is_WEBP_file(filename))
++		return load_WEBP_file_downscaled(filename, level);
+ 	SceUID file = sceIoOpen(filename, SCE_O_RDONLY, 0777);
+ 	uint16_t magic;
+ 	sceIoRead(file, &magic, 2);
+@@ -1122,6 +1133,8 @@ vita2d_texture *load_PIC_file_downscaled(const char *filename, int level)
+ 
+ pic_format get_PIC_format(const char *filename)
+ {
++	if (is_WEBP_file(filename))
++		return PIC_FORMAT_WEBP;
+ 	SceUID file = sceIoOpen(filename, SCE_O_RDONLY, 0777);
+ 	uint16_t magic;
+ 	sceIoRead(file, &magic, 2);
+diff --git a/source/include/piclib.h b/source/include/piclib.h
+index e86e759..34afcf7 100644
+--- a/source/include/piclib.h
++++ b/source/include/piclib.h
+@@ -10,7 +10,8 @@ typedef enum pic_format
+ 	PIC_FORMAT_BMP = 1,
+ 	PIC_FORMAT_JPEG = 2,
+ 	PIC_FORMAT_GIF = 3,
+-	PIC_FORMAT_UNKNOWN = 4
++	PIC_FORMAT_UNKNOWN = 4,
++	PIC_FORMAT_WEBP = 5
+ } pic_format;
+ 
+ struct gif_texture{
+@@ -25,6 +26,10 @@ vita2d_texture *load_PIC_file(const char *filename, int x, int y, int width, int
+ vita2d_texture *load_PIC_file_downscaled(const char *filename, int level);
+ void get_PIC_resolution(const char *filename, int *dest_width, int *dest_height);
+ pic_format get_PIC_format(const char *filename);
++int is_WEBP_file(const char *filename);
++void get_WEBP_resolution(const char *filename, int *dest_width, int *dest_height);
++vita2d_texture *load_WEBP_file_downscaled(const char *filename, int level);
++vita2d_texture *load_WEBP_file_part(const char *filename, int x, int y, int width, int height);
+ struct gif_texture* load_GIF_file(const char *filename);
+ 
+ #endif
+\ No newline at end of file
+diff --git a/source/include/ssl_stubs.c b/source/include/ssl_stubs.c
+new file mode 100644
+index 0000000..536aa21
+--- /dev/null
++++ b/source/include/ssl_stubs.c
+@@ -0,0 +1,4 @@
++/* The SDK's OpenSSL 1.1.1 is built without the console UI (no terminal on the Vita).
++   libcurl only asks for it to prompt for client-certificate passwords, which lpp never uses. */
++#include <openssl/ui.h>
++UI_METHOD *UI_OpenSSL(void) { return (UI_METHOD *)UI_null(); }
+diff --git a/source/include/videodec.cpp b/source/include/videodec.cpp
+index 6d2cd88..17aef5f 100644
+--- a/source/include/videodec.cpp
++++ b/source/include/videodec.cpp
+@@ -1,3 +1,4 @@
++#include <cstring>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <vitasdk.h>
+diff --git a/source/include/webp_pic.c b/source/include/webp_pic.c
+new file mode 100755
+index 0000000..17cc927
+--- /dev/null
++++ b/source/include/webp_pic.c
+@@ -0,0 +1,175 @@
++// Otakio: native WebP support for piclib (libwebp). Sites serve most covers/pages as WebP and
++// the online converters block some domains, so the console decodes them itself.
++#include <stdlib.h>
++#include <string.h>
++#include <vitasdk.h>
++#include <vita2d.h>
++#include <webp/decode.h>
++
++#define WEBP_MAX_TEXTURE_SIZE 4096
++
++int is_WEBP_file(const char *filename)
++{
++	unsigned char head[12];
++	SceUID fd = sceIoOpen(filename, SCE_O_RDONLY, 0777);
++	if (fd < 0)
++		return 0;
++	int n = sceIoRead(fd, head, 12);
++	sceIoClose(fd);
++	return n == 12 && memcmp(head, "RIFF", 4) == 0 && memcmp(head + 8, "WEBP", 4) == 0;
++}
++
++static unsigned char *read_whole(const char *filename, size_t *size)
++{
++	SceUID fd = sceIoOpen(filename, SCE_O_RDONLY, 0777);
++	if (fd < 0)
++		return NULL;
++	SceOff len = sceIoLseek(fd, 0, SCE_SEEK_END);
++	sceIoLseek(fd, 0, SCE_SEEK_SET);
++	if (len <= 0 || len > 64 * 1024 * 1024)
++	{
++		sceIoClose(fd);
++		return NULL;
++	}
++	unsigned char *buf = (unsigned char *)malloc((size_t)len);
++	if (!buf)
++	{
++		sceIoClose(fd);
++		return NULL;
++	}
++	size_t got = 0;
++	while (got < (size_t)len)
++	{
++		int r = sceIoRead(fd, buf + got, (SceSize)((size_t)len - got));
++		if (r <= 0)
++			break;
++		got += (size_t)r;
++	}
++	sceIoClose(fd);
++	if (got != (size_t)len)
++	{
++		free(buf);
++		return NULL;
++	}
++	*size = got;
++	return buf;
++}
++
++void get_WEBP_resolution(const char *filename, int *dest_width, int *dest_height)
++{
++	unsigned char head[64];
++	*dest_width = -1;
++	*dest_height = -1;
++	SceUID fd = sceIoOpen(filename, SCE_O_RDONLY, 0777);
++	if (fd < 0)
++		return;
++	int n = sceIoRead(fd, head, sizeof(head));
++	sceIoClose(fd);
++	int w, h;
++	if (n > 0 && WebPGetInfo(head, (size_t)n, &w, &h))
++	{
++		*dest_width = w;
++		*dest_height = h;
++	}
++}
++
++// Decodes the region (x, y, width, height) scaled down by `denom` straight into a new texture
++static vita2d_texture *decode_webp(const unsigned char *data, size_t size, int x, int y, int width, int height, int denom)
++{
++	WebPDecoderConfig config;
++	if (!WebPInitDecoderConfig(&config))
++		return NULL;
++	int crop = x != 0 || y != 0 || width != 0 || height != 0;
++	if (WebPGetFeatures(data, size, &config.input) != VP8_STATUS_OK)
++		return NULL;
++	int srcW = crop ? width : config.input.width;
++	int srcH = crop ? height : config.input.height;
++	int outW = srcW / denom, outH = srcH / denom;
++	if (outW < 1 || outH < 1)
++		return NULL;
++	if (crop)
++	{
++		config.options.use_cropping = 1;
++		config.options.crop_left = x;
++		config.options.crop_top = y;
++		config.options.crop_width = width;
++		config.options.crop_height = height;
++	}
++	if (denom > 1)
++	{
++		config.options.use_scaling = 1;
++		config.options.scaled_width = outW;
++		config.options.scaled_height = outH;
++	}
++	vita2d_texture *texture = vita2d_create_empty_texture_format(outW, outH, SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ABGR);
++	if (!texture)
++		return NULL;
++	config.output.colorspace = MODE_RGBA;
++	config.output.is_external_memory = 1;
++	config.output.u.RGBA.rgba = (uint8_t *)vita2d_texture_get_datap(texture);
++	config.output.u.RGBA.stride = (int)vita2d_texture_get_stride(texture);
++	config.output.u.RGBA.size = (size_t)config.output.u.RGBA.stride * outH;
++	if (WebPDecode(data, size, &config) != VP8_STATUS_OK)
++	{
++		WebPFreeDecBuffer(&config.output);
++		vita2d_free_texture(texture);
++		return NULL;
++	}
++	WebPFreeDecBuffer(&config.output);
++	return texture;
++}
++
++static int pick_denom(int width, int height, int level)
++{
++	float sw = (float)width / WEBP_MAX_TEXTURE_SIZE, sh = (float)height / WEBP_MAX_TEXTURE_SIZE;
++	float scale = sw > sh ? sw : sh;
++	if (scale < level)
++		scale = (float)level;
++	if (scale <= 1.f)
++		return 1;
++	if (scale <= 2.f)
++		return 2;
++	if (scale <= 4.f)
++		return 4;
++	if (scale <= 8.f)
++		return 8;
++	return 0;
++}
++
++vita2d_texture *load_WEBP_file_downscaled(const char *filename, int level)
++{
++	size_t size = 0;
++	unsigned char *data = read_whole(filename, &size);
++	if (!data)
++		return NULL;
++	int w, h;
++	vita2d_texture *texture = NULL;
++	if (WebPGetInfo(data, size, &w, &h))
++	{
++		int denom = pick_denom(w, h, level);
++		if (denom)
++			texture = decode_webp(data, size, 0, 0, 0, 0, denom);
++	}
++	free(data);
++	return texture;
++}
++
++vita2d_texture *load_WEBP_file_part(const char *filename, int x, int y, int width, int height)
++{
++	if (x < 0 || y < 0 || width <= 0 || height <= 0)
++		return NULL;
++	size_t size = 0;
++	unsigned char *data = read_whole(filename, &size);
++	if (!data)
++		return NULL;
++	int w, h;
++	vita2d_texture *texture = NULL;
++	if (WebPGetInfo(data, size, &w, &h) && x + width <= w && y + height <= h)
++	{
++		int denom = pick_denom(width, height, 1);
++		if (denom)
++			texture = decode_webp(data, size, x, y, width, height, denom);
++	}
++	free(data);
++	return texture;
++}
+diff --git a/source/luaNetwork.cpp b/source/luaNetwork.cpp
+index 0d3f230..3881c2a 100644
+--- a/source/luaNetwork.cpp
++++ b/source/luaNetwork.cpp
+@@ -190,7 +190,7 @@ static int downloadThread(unsigned int args, void* arg)
+ 	curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, asyncUseragent);
+ 	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYHOST, 0L);
+ 	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, 0L);
+-	curl_easy_setopt(curl_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
++	curl_easy_setopt(curl_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_0);
+ 	curl_easy_setopt(curl_handle, CURLOPT_CONNECTTIMEOUT, 10L);
+ 	curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
+ 	curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, header_cb);
+@@ -203,7 +203,7 @@ static int downloadThread(unsigned int args, void* arg)
+ 	switch (asyncMode)
+ 	{
+ 		case FILE_DOWNLOAD:
+-			file = sceIoOpen(asyncDest, SCE_O_WRONLY | SCE_O_CREAT, 0777);
++			file = sceIoOpen(asyncDest, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
+ 			if (!file)
+ 			{
+ 				asyncMode = DOWNLOAD_END;
+@@ -223,8 +223,8 @@ static int downloadThread(unsigned int args, void* arg)
+ 	}
+ 	struct curl_slist *headerchunk = NULL;
+ 	headerchunk = curl_slist_append(headerchunk, "Accept: */*");
+-	switch (asyncContentType)
+-	{	
++	if (asyncMethod == SCE_HTTP_METHOD_POST) switch (asyncContentType)
++	{
+ 	case JSON:
+ 		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/json");
+ 		break;
+@@ -232,9 +232,8 @@ static int downloadThread(unsigned int args, void* arg)
+ 		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/x-www-form-urlencoded");
+ 		break;
+ 	}
+-	headerchunk = curl_slist_append(headerchunk, "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36");
+ 	sprintf(content_length, "Content-Length: %i", asyncMethod == SCE_HTTP_METHOD_POST && asyncPostdata != NULL ? asyncPostsize : 0);
+-	headerchunk = curl_slist_append(headerchunk, content_length);
++	if (strstr(content_length, ": 0") == NULL) headerchunk = curl_slist_append(headerchunk, content_length);
+ 	headerchunk = curl_slist_append(headerchunk, asyncHeader1);
+ 	headerchunk = curl_slist_append(headerchunk, asyncHeader2);
+ 	headerchunk = curl_slist_append(headerchunk, asyncHeader3);
+@@ -259,7 +258,7 @@ static int downloadThread(unsigned int args, void* arg)
+ 		else
+ 		{
+ 			asyncStrRes = buffer->ptr;
+-			asyncResSize = buffer->length;
++			asyncResSize = buffer->length - 1; // length counts the trailing NUL
+ 		}
+ 		delete buffer;
+ 	}
+@@ -642,7 +641,7 @@ static int lua_download(lua_State *L){
+ 	curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, useragent);
+ 	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYHOST, 0L);
+ 	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, 0L);
+-	curl_easy_setopt(curl_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
++	curl_easy_setopt(curl_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_0);
+ 	curl_easy_setopt(curl_handle, CURLOPT_CONNECTTIMEOUT, 10L);
+ 	curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
+ 	curl_easy_setopt(curl_handle, CURLOPT_LOW_SPEED_TIME, 10L);
+@@ -653,8 +652,8 @@ static int lua_download(lua_State *L){
+ 	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &fh);
+ 	struct curl_slist *headerchunk = NULL;
+ 	headerchunk = curl_slist_append(headerchunk, "Accept: */*");
+-	switch (contentType)
+-	{	
++	if (method == SCE_HTTP_METHOD_POST) switch (contentType)
++	{
+ 	case JSON:
+ 		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/json");
+ 		break;
+@@ -662,10 +661,9 @@ static int lua_download(lua_State *L){
+ 		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/x-www-form-urlencoded");
+ 		break;
+ 	}
+-	headerchunk = curl_slist_append(headerchunk, "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36");
+ 	char content_length[32];
+ 	sprintf(content_length, "Content-Length: %i", method == SCE_HTTP_METHOD_POST && postdata != NULL ? asyncPostsize : 0);
+-	headerchunk = curl_slist_append(headerchunk, content_length);
++	if (strstr(content_length, ": 0") == NULL) headerchunk = curl_slist_append(headerchunk, content_length);
+ 	if (header1)
+ 		headerchunk = curl_slist_append(headerchunk, header1);
+ 	if (header2)
+@@ -778,7 +776,7 @@ static int lua_string(lua_State *L){
+ 	curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, useragent);
+ 	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYHOST, 0L);
+ 	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, 0L);
+-	curl_easy_setopt(curl_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
++	curl_easy_setopt(curl_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_0);
+ 	curl_easy_setopt(curl_handle, CURLOPT_CONNECTTIMEOUT, 10L);
+ 	curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
+ 	curl_easy_setopt(curl_handle, CURLOPT_LOW_SPEED_TIME, 10L);
+@@ -789,8 +787,8 @@ static int lua_string(lua_State *L){
+ 	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, buffer);
+ 	struct curl_slist *headerchunk = NULL;
+ 	headerchunk = curl_slist_append(headerchunk, "Accept: */*");
+-	switch (contentType)
+-	{	
++	if (method == SCE_HTTP_METHOD_POST) switch (contentType)
++	{
+ 	case JSON:
+ 		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/json");
+ 		break;
+@@ -798,10 +796,9 @@ static int lua_string(lua_State *L){
+ 		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/x-www-form-urlencoded");
+ 		break;
+ 	}
+-	headerchunk = curl_slist_append(headerchunk, "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36");
+ 	char content_length[32];
+ 	sprintf(content_length, "Content-Length: %i", method == SCE_HTTP_METHOD_POST && postdata != NULL ? asyncPostsize : 0);
+-	headerchunk = curl_slist_append(headerchunk, content_length);
++	if (strstr(content_length, ": 0") == NULL) headerchunk = curl_slist_append(headerchunk, content_length);
+ 	if (header1)
+ 		headerchunk = curl_slist_append(headerchunk, header1);
+ 	if (header2)
+diff --git a/source/luaPlayer.cpp b/source/luaPlayer.cpp
+index ef53513..a9e910f 100644
+--- a/source/luaPlayer.cpp
++++ b/source/luaPlayer.cpp
+@@ -40,7 +40,8 @@
+ static lua_State *L;
+ 
+ char errorMex[1024];
+-// lua-compat
++// lua-compat (LuaJIT 2.1 ships its own)
++#if LUAJIT_VERSION_NUM < 20100
+ void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup) {
+   luaL_checkstack(L, nup+1, "too many upvalues");
+   for (; l->name != NULL; l++) {  /* fill the table with given functions */
+@@ -53,6 +54,7 @@ void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup) {
+   }
+   lua_pop(L, nup);  /* remove upvalues */
+ }
++#endif
+ 
+ const char *runScript(const char* script, bool isStringBuffer)
+ {
+diff --git a/source/luaSystem.cpp b/source/luaSystem.cpp
+index 95cf902..392d63f 100644
+--- a/source/luaSystem.cpp
++++ b/source/luaSystem.cpp
+@@ -1296,6 +1296,9 @@ static int lua_getpicformat(lua_State *L){
+ 	} else if (format == PIC_FORMAT_GIF) {
+ 		lua_pushstring(L, "gif");
+ 		return 1;
++	} else if (format == PIC_FORMAT_WEBP) {
++		lua_pushstring(L, "webp");
++		return 1;
+ 	} else {
+ 		return 0;
+ 	}
