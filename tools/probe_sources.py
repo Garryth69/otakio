@@ -32,6 +32,17 @@ def status_of(r):
     return "dead"
 
 
+_host_locks = {}
+_host_locks_guard = threading.Lock()
+
+
+def host_lock(url):
+    """One request stream per site at a time, whatever the number of workers (be gentle with small sites)"""
+    host = (url.split("//", 1)[-1].split("/", 1)[0]).lower()
+    with _host_locks_guard:
+        return _host_locks.setdefault(host, threading.Lock())
+
+
 def probe_entry(entry):
     """entry: {id, engine: madara|mangathemesia|native|auto, baseUrl, file?, cfg?, guesses?}"""
     e = engine()
@@ -55,10 +66,14 @@ def probe_entry(entry):
         cfg.setdefault("baseUrl", entry["baseUrl"])
         try:
             e.cloudflare = False
-            parser = e.create(path if kind == "file" else kind, cfg)
-            r = e.check(parser)
+            e.blocked = False
+            with host_lock(entry["baseUrl"]):
+                parser = e.create(path if kind == "file" else kind, cfg)
+                r = e.check(parser)
             if e.cloudflare and not r.get("pages"):
                 r["cloudflare"] = True
+            if e.blocked and not r.get("pages"):
+                r["blocked"] = True
         except Exception as ex:
             r = {"popular": 0, "chapters": 0, "pages": 0, "error": str(ex)[:160]}
         if (r.get("pages", 0), r.get("popular", 0)) > (best.get("pages", 0), best.get("popular", 0)):
@@ -100,6 +115,47 @@ def load_health():
     return {}
 
 
+def merge_health(health, results, today=None, ci=False):
+    """Merges probe results into health.json keeping a history per source:
+    lastOk   = last day it worked (ok or partial)
+    deadSince = first day of the current unbroken run of "dead" results (cleared when it works again)
+    tools/prune_repo.py removes sources dead for more than 180 days."""
+    today = today or time.strftime("%Y-%m-%d")
+    for ext_id, r in results.items():
+        old = health.get(ext_id) or {}
+        r = dict(r)
+        if ci and r.get("status") == "dead" and (r.get("cloudflare") or r.get("blocked")) and old.get("status") in ("ok", "partial"):
+            # worked before, blocked now from a CI runner: keep the last real result, flag it, don't start the clock
+            kept = dict(old)
+            kept["unverified"] = today
+            health[ext_id] = kept
+            continue
+        r.pop("unverified", None)
+        if r.get("status") == "dead":
+            r["deadSince"] = old.get("deadSince") if old.get("status") == "dead" and old.get("deadSince") else today
+        else:
+            r.pop("deadSince", None)
+        r["lastOk"] = today if r.get("status") in ("ok", "partial") else old.get("lastOk")
+        if r["lastOk"] is None:
+            r.pop("lastOk")
+        health[ext_id] = r
+    return health
+
+
+def apply_health(entries, health):
+    """Copies health.json results into index entries (health, checked, compat, unverified)"""
+    for e in entries:
+        h = health.get(e["id"])
+        if not h or e.get("relay"):
+            continue
+        e["health"], e["checked"] = h["status"], h.get("checked")
+        e["compat"] = {"dead": "broken", "partial": "partial"}.get(h["status"], "full")
+        if h.get("unverified"):
+            e["unverified"] = h["unverified"]
+        else:
+            e.pop("unverified", None)
+
+
 def save_health(h):
     with open(HEALTH, "w", encoding="utf8", newline="\n") as fh:
         json.dump(h, fh, ensure_ascii=False, indent=0, sort_keys=True)
@@ -126,6 +182,8 @@ def main():
     ap.add_argument("--only", default="")
     ap.add_argument("--ids", help="file with one extension id per line")
     ap.add_argument("--workers", type=int, default=24)
+    ap.add_argument("--ci", action="store_true", help="CI runner: blocks from a datacenter IP don't mark working sources dead")
+    ap.add_argument("--update-index", action="store_true", help="also write the results into repo/index.json")
     args = ap.parse_args()
     index = json.load(open(os.path.join(ROOT, "repo", "index.json"), encoding="utf8"))
     entries = []
@@ -145,8 +203,12 @@ def main():
                 entries.append({"id": e["id"], "engine": "native", "baseUrl": e["baseUrl"], "file": path, "lang": e["lang"]})
     results = run(entries, args.workers)
     health = load_health()
-    health.update(results)
+    merge_health(health, results, ci=args.ci)
     save_health(health)
+    if args.update_index:
+        apply_health(index["extensions"], health)
+        with open(os.path.join(ROOT, "repo", "index.json"), "w", encoding="utf8", newline="\n") as fh:
+            json.dump(index, fh, ensure_ascii=False, separators=(",", ":"))
     counts = {}
     for r in results.values():
         counts[r["status"]] = counts.get(r["status"], 0) + 1

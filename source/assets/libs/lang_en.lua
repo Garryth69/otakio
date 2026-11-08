@@ -41,6 +41,7 @@ Language.English = {
 		LOADING_PAGE = "Loading page", LOADING_SEGMENT = "Loading segment", PREPARING_PAGES = "Preparing pages"
 	},
 	SETTINGS = {
+		SourceLanguages = "Active languages",
 		MainSettingsMenu = "More", Language = "Language", ChangeUI = "Theme", Library = "Library", Catalogs = "Browse",
 		ExtensionsSettings = "Extensions", Reader = "Reader", Network = "Network", Data = "Data", Other = "Other",
 		Controls = "Controls", About = "About",
@@ -77,6 +78,10 @@ Language.English = {
 	THEME = {Otakio = "Otakio (dark purple)", AMOLED = "AMOLED black", Dark = "Dark", Ocean = "Ocean", Matcha = "Matcha", Crimson = "Crimson", Sakura = "Sakura (light)", Light = "Light"},
 	WARNINGS = {NO_CHAPTERS = "No chapters"},
 	OTAKIO = {
+		REPO_UNOFFICIAL_Q = "Add a third-party repository?", REPO_UNOFFICIAL_MSG = "Extensions are code that runs in the app.\nOnly add repositories you trust.",
+		SETUP_INSTALL_RECOMMENDED = "Install recommended sources", SETUP_INSTALL_RECOMMENDED_SUB = "Adds the Garryth69/otakio-extensions repository", RECOMMENDED_QUEUED = "Installing %d recommended sources", RECOMMENDED_NONE = "No recommended sources found (check the connection)",
+		REMOVED_FROM_REPO = "Removed from repository · still works, you can uninstall it",
+		SETUP_STEP = "Setup %d/%d", SETUP_LANG_HINT = "Language of the menus and buttons.", SETUP_EXTLANG_HINT = "Only these languages appear in Extensions and Browse.\nNone ticked = every language.", SETUP_NSFW_HINT = "Adult sources stay hidden unless you allow them.", SETUP_DIRECTION_HINT = "Manga: right to left. Comics: left to right.\nWebtoons: top to bottom.", SETUP_ORIENTATION_HINT = "How you hold the Vita while reading.", SETUP_KEYS_HINT = "Button that confirms (the other one goes back).", SETUP_DONE_TITLE = "All set!", SETUP_DONE = "Now install your sources in Extensions.\nYou can change everything later in More.", SETUP_OPEN_EXTENSIONS = "Open Extensions", SETUP_FINISH = "Done",
 		NAV = {LIBRARY = "Library", UPDATES = "Updates", HISTORY = "History", BROWSE = "Browse", EXTENSIONS = "Extensions", DOWNLOADS = "Downloads", IMPORT = "Import", MORE = "More"},
 		LIBRARY = "Library", UPDATES = "Updates", HISTORY = "History", BROWSE = "Browse", EXTENSIONS = "Extensions",
 		DOWNLOADS = "Downloads", IMPORT = "Import", MORE = "More", GLOBAL_SEARCH = "Global search",
@@ -116,7 +121,7 @@ Language.English = {
 		INSTALLED = "Installed", AVAILABLE = "Available", UPDATES_TAB = "Updates", INSTALL = "Install", UPDATE = "Update", INSTALLED_LABEL = "Installed",
 		UNINSTALL = "Uninstall", UNINSTALL_Q = "Uninstall %s?", OPEN_SOURCE = "Open source", SOURCE_HIDDEN = "Source unavailable (adult content is off or the extension failed to load)",
 		EXT_INSTALLED = "%s installed", EXT_UPDATED = "%s updated", EXT_UNINSTALLED = "%s uninstalled", EXT_INSTALL_FAILED = "Couldn't install %s",
-		EXT_UPDATES_AVAILABLE = "Extension updates available: %d", NO_EXTENSIONS = "No extensions installed", NO_REPOS = "No extension repository", NO_REPOS_HINT = "Otakio has no built-in sources. Select > Add repository.", APP_UP_TO_DATE = "Otakio is up to date", APP_UPDATE_AVAILABLE = "Otakio %s is available", APP_UPDATE_Q = "Download Otakio %s?", APP_UPDATE_HINT = "The VPK goes to ux0:/vpk/. Install it with VitaShell; your library and settings are kept.", APP_UPDATE_DOWNLOADING = "Downloading Otakio %s...", APP_UPDATE_DONE = "Saved to %s. Install it with VitaShell.", APP_UPDATE_FAILED = "Could not check for updates", CHECKING = "Checking...",
+		EXT_UPDATES_AVAILABLE = "Extension updates available: %d", NO_EXTENSIONS = "No extensions installed", NO_PAGES = "This chapter has no pages yet", ERROR_RECOVERED = "Something went wrong, back to the Library (details in log.txt)", NO_REPOS = "No extension repository", NO_REPOS_HINT = "Otakio has no built-in sources. Select > Add repository.", APP_UP_TO_DATE = "Otakio is up to date", APP_UPDATE_AVAILABLE = "Otakio %s is available", APP_UPDATE_Q = "Download Otakio %s?", APP_UPDATE_HINT = "The VPK goes to ux0:/vpk/. Install it with VitaShell; your library and settings are kept.", APP_UPDATE_DOWNLOADING = "Downloading Otakio %s...", APP_UPDATE_DONE = "Saved to %s. Install it with VitaShell.", APP_UPDATE_FAILED = "Could not check for updates", CHECKING = "Checking...",
 		NO_EXTENSIONS_HINT = "Square switches to the Available tab.", ALL_UP_TO_DATE = "Everything is up to date",
 		NOTHING_HERE = "Nothing here", CHANGE_FILTERS_HINT = "Try another language (Start) or search (△).",
 		SEARCH_EXTENSIONS = "Search extensions", ALL_LANGUAGES = "All languages", TAB = "Tab", REPOSITORIES = "Repositories",
@@ -124,6 +129,7 @@ Language.English = {
 		REPO_EXISTS = "Repository already added", REMOVE_REPO_Q = "Remove %s?", REPO_BUILTIN = "Built-in · online", REPO_OFFLINE = "Built-in · offline copy",
 		REPO_MIHON = "Mihon repo · %d of %d sources work in Otakio", REPO_NEEDS_UPDATE = "%s needs a newer Otakio", N_REPOS = "%d repositories",
 		LANG_EN = "English", LANG_PT = "Portuguese", LANG_ES = "Spanish", LANG_FR = "French", LANG_DE = "German", LANG_IT = "Italian",
+		LANG_RU = "Russian", LANG_JA = "Japanese", LANG_ZH = "Chinese",
 		LANG_MULTI = "Multi-language", LANG_OTHER = "Other",
 		PROTECTED_CHAPTER = "This chapter is protected by the site and isn't supported yet",
 		-- import

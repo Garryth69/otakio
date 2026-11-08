@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # the extension catalog lives in its own repository; the simulator bundles it like a test VPK
+      - uses: actions/checkout@v4
+        with:
+          repository: Garryth69/otakio-extensions
+          path: repo
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install lupa pillow
+
+      - name: Bundle the catalog for the simulator
+        run: |
+          python - <<'PY'
+          import shutil
+          shutil.copytree("repo", "source/repo", dirs_exist_ok=True,
+                          ignore=shutil.ignore_patterns("native", "health.json", "removed.json", ".git", ".github", "*.md", "LICENSE"))
+          PY
+
+      - name: Lua syntax
+        run: python tools/check_syntax.py
+
+      - name: Core tests (JSON, HTML, serialization)
+        run: python tools/run_lua.py tools/tests/test_core.lua
+
+      - name: Translations
+        run: python tools/check_lang.py
+
+      - name: Simulated Vita (offline scenarios)
+        run: |
+          for s in tour extensions settings lang about extlang opensrc; do
+            echo "::group::$s"
+            python tools/tests/sim.py "$s"
+            echo "::endgroup::"
+          done
+          echo "::group::setup"
+          python tools/tests/sim.py setup --setup
+          echo "::endgroup::"
+
+      - name: Release VPK builds
+        run: python tools/build_vpk.py --name Otakio-ci.vpk

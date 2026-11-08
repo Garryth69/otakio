@@ -7,6 +7,16 @@ Http = {}
 local concat = table.concat
 local format, gsub, byte, char = string.format, string.gsub, string.byte, string.char
 local co_yield = coroutine.yield
+local co_running = coroutine.running
+
+-- request a coroutine is waiting for, so ParserManager can cancel exactly that one when it drops a job
+local pending = setmetatable({}, {__mode = "k"})
+
+---@param co thread
+---@return table|nil the Threads key of the request `co` is waiting for
+function Http.pendingFor(co)
+	return pending[co]
+end
 
 ---Percent-encodes a string (RFC 3986 unreserved characters are kept)
 ---@param s string
@@ -97,8 +107,15 @@ function Http.request(options)
 	end
 	toHeaderSlots(options.headers, task)
 	Threads.insertTask(result, task)
+	local co = co_running()
+	if co then
+		pending[co] = result
+	end
 	while Threads.check(result) do
 		co_yield(false)
+	end
+	if co then
+		pending[co] = nil
 	end
 	return result.body or ""
 end

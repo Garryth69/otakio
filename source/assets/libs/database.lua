@@ -11,7 +11,7 @@ local listCache = {key = nil, list = {}}
 local doesDirExist = System.doesDirExist
 
 local function getKey(manga)
-	return (manga.ParserID .. manga.Link):gsub("%p", "")
+	return (AsciiKey((manga.ParserID .. manga.Link):gsub("%p", "")))
 end
 Database.getKey = getKey
 

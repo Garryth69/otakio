@@ -17,10 +17,33 @@ local uniques = {}
 
 local doesFileExist = System.doesFileExist
 
+---Cancels the network request the job's coroutine is waiting for (and nothing else)
+local function cancelJobRequest(task)
+	local key = task and task.Update and Http.pendingFor(task.Update)
+	if key then
+		Threads.remove(key)
+	end
+end
+
+local function hasForegroundWaiting()
+	for i = 1, #order do
+		if order[i].Type ~= "Skip" and not order[i].Background then
+			return true
+		end
+	end
+	return false
+end
+
 ---Updates ParserManager functions
 function ParserManager.update()
 	if #order == 0 and not currentTask then
 		return
+	end
+	-- a background job (source health check) gives way as soon as the user asks for something
+	if currentTask and currentTask.Background and hasForegroundWaiting() then
+		cancelJobRequest(currentTask)
+		uniques[currentTask.Table] = nil
+		currentTask = nil
 	end
 	if not currentTask then
 		currentTask = table.remove(order, 1)
@@ -40,9 +63,12 @@ function ParserManager.update()
 			uniques[currentTask.Table] = nil
 			currentTask = nil
 		else
+			-- requests made by background jobs wait behind everything the user is looking at
+			Threads.defaultPriority = currentTask.Background and Threads.BACKGROUND or nil
 			local _, isSafeToleave = coroutine.resume(currentTask.Update)
+			Threads.defaultPriority = nil
 			if currentTask.Stop then
-				Network.stopCurrentDownload()
+				cancelJobRequest(currentTask)
 				uniques[currentTask.Table] = nil
 				currentTask = nil
 			end
@@ -169,6 +195,19 @@ function ParserManager.prepareChapter(chapter, Table, insert)
 		Type = "PrepareChapter",
 		F = function()
 			parser:prepareChapter(chapter, Table)
+			-- some sites list pages they don't host yet (empty image urls): drop them so the reader never requests ""
+			local n = 0
+			for i = 1, #Table do
+				local e = Table[i]
+				local link = type(e) == "table" and e.Link or e
+				if link ~= "" then
+					n = n + 1
+					Table[n] = e
+				end
+			end
+			for i = #Table, n + 1, -1 do
+				Table[i] = nil
+			end
 		end,
 		Table = Table,
 		Parser = parser
@@ -245,7 +284,7 @@ function ParserManager.updateCounters()
 		Type = "UpdateCounters",
 		F = function()
 			local list = Database.getAll()
-			local is_wifi_enabled = Threads.netActionUnSafe(Network.isWifiEnabled)
+			local is_wifi_enabled = Threads.isOnline()
 			if is_wifi_enabled then
 				for j = 1, #list do
 					local v = list[j]
@@ -360,11 +399,18 @@ function ParserManager.remove(Table)
 		if uniques[Table] == currentTask then
 			currentTask.Table = trash
 			currentTask.Stop = true
-			Network.stopCurrentDownload()
+			cancelJobRequest(currentTask)
 		else
 			uniques[Table].Type = "Skip"
 		end
 		uniques[Table] = nil
+	end
+end
+
+---Marks the job filling `Table` as background work (lowest network priority, yields to user requests)
+function ParserManager.setBackground(Table)
+	if uniques[Table] then
+		uniques[Table].Background = true
 	end
 end
 

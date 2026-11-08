@@ -1,0 +1,54 @@
+name: Release
+
+# Push a tag vX.Y.Z (matching VERSION_NAME in source/assets/libs/config.lua) to publish a release:
+# the VPK is built without extensions and the CHANGELOG.md section "## X.Y.Z" becomes the release notes.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install lupa
+
+      - name: Check the tag matches the app version
+        run: |
+          VERSION=$(python -c "import re;print(re.search(r'VERSION_NAME\s*=\s*\"([^\"]+)\"', open('source/assets/libs/config.lua').read()).group(1))")
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "config.lua: $VERSION, tag: $TAG"
+          [ "$VERSION" = "$TAG" ] || { echo "::error::tag $GITHUB_REF_NAME does not match VERSION_NAME $VERSION"; exit 1; }
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Build the VPK (no extensions)
+        run: python tools/build_vpk.py --name "Otakio-$VERSION.vpk"
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          python - <<'PY'
+          import os, re
+          version = os.environ["VERSION"]
+          text = open("CHANGELOG.md", encoding="utf-8").read()
+          m = re.search(r"^## " + re.escape(version) + r"\s*$(.*?)(?=^## |\Z)", text, re.M | re.S)
+          if not m:
+              raise SystemExit("CHANGELOG.md has no '## %s' section" % version)
+          open("notes.md", "w", encoding="utf-8").write(m.group(1).strip() + "\n")
+          PY
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRE=""
+          case "$VERSION" in *-*) PRE="--prerelease";; esac
+          gh release create "$GITHUB_REF_NAME" "build/Otakio-$VERSION.vpk" --title "Otakio $VERSION" --notes-file notes.md $PRE

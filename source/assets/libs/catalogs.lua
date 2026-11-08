@@ -193,9 +193,34 @@ Catalogs.loadMangaImage = loadMangaImage
 
 local KEEP_LOADED = COLS * 6 -- covers kept in VRAM around the viewport
 
-local function UpdateMangas()
+---Frees covers outside items [first - margin, last + margin], except the one open in Details
+local function freeCoversOutside(first, last, margin)
+	local newTable = {}
+	for _, i in ipairs(downloadedImages) do
+		local manga = currentMangaList[i]
+		if (i < first - margin or i > last + margin) and manga and (Details.getFade() == 0 or manga ~= Details.getManga()) then
+			freeMangaImage(manga)
+		else
+			newTable[#newTable + 1] = i
+		end
+	end
+	downloadedImages = newTable
+end
+
+local function visibleRange()
 	local first = max(1, floor((slider.Y) / PITCH_Y) * COLS + 1)
 	local last = min(#currentMangaList, first + COLS * 3 - 1)
+	return first, last
+end
+
+-- texture budget short of memory: covers that are not on screen go first
+Textures.register("covers", 1, function()
+	local first, last = visibleRange()
+	freeCoversOutside(first, last, 0)
+end)
+
+local function UpdateMangas()
+	local first, last = visibleRange()
 	if abs(slider.V) < 6 and Timer.getTime(touchTimer) > 120 then
 		-- preload one extra row below
 		local preloadLast = min(#currentMangaList, last + COLS)
@@ -210,19 +235,7 @@ local function UpdateMangas()
 	end
 	-- free covers far away from the viewport only when we hold too many
 	if #downloadedImages > KEEP_LOADED then
-		local newTable = {}
-		local keepFrom, keepTo = first - COLS * 2, last + COLS * 2
-		for _, i in ipairs(downloadedImages) do
-			if i < keepFrom or i > keepTo then
-				local manga = currentMangaList[i]
-				if manga and (Details.getFade() == 0 or manga ~= Details.getManga()) then
-					freeMangaImage(manga)
-				end
-			else
-				newTable[#newTable + 1] = i
-			end
-		end
-		downloadedImages = newTable
+		freeCoversOutside(first, last, COLS * 2)
 	end
 	-- cancel pending downloads that scrolled away (fast flings)
 	if abs(slider.V) > 20 then
@@ -855,6 +868,8 @@ local function settingInfo(task)
 		return LS.READER[Settings.Orientation]
 	elseif task == "PreferredCatalogLanguage" then
 		return LS.PARSERS[Settings.ParserLanguage] or Settings.ParserLanguage
+	elseif task == "SourceLanguages" then
+		return Settings.sourceLanguagesText()
 	elseif task == "ZoomReader" then
 		return LS.READER[Settings.ZoomReader]
 	elseif task == "ChangeUI" then
@@ -997,7 +1012,7 @@ local function drawCredits(y)
 		{L().CREDITS_BASED_ON, "NOBORU — Creckeryop"},
 		{L().CREDITS_ENGINE, "lpp-vita (Rinnegatamante, Creckeryop) · VitaSDK · vita2d (xerpi)", "LuaJIT · curl · OpenSSL · libwebp"},
 		{L().CREDITS_SOURCES, L().CREDITS_SOURCES_TEXT},
-		{L().CREDITS_TRANSLATIONS, "SamuEDL (ES) · theHeroGAC, Rinnegatamante (IT) · Samilop Iter (FR)", "lukrynka (DE) · rutantan (PT-BR) · " .. L().CREDITS_REVISED},
+		{L().CREDITS_TRANSLATIONS, "SamuEDL (ES) · theHeroGAC, Rinnegatamante (IT) · Samilop Iter (FR)", "lukrynka (DE) · rutantan (PT-BR) · Creckeryop (RU) · " .. L().CREDITS_REVISED},
 	}
 	local ty = y + 100
 	for _, s in ipairs(sections) do

@@ -6,11 +6,9 @@ Sources:
      every site built on a theme Otakio has an engine for (see ENGINES) becomes a tiny Lua
      extension that calls the engine. Simple Kotlin overrides (selectors, paths, flags) are
      copied into the extension config.
-  2. codegeasse1/codegeasse-mihon-extension: hand-written Kotlin sources. Sites that run
-     Madara/MangaThemesia underneath are detected from the code and confirmed live (--probe).
-  3. Creckeryop/NOBORU-parsers: classic NOBORU parsers run unchanged in Otakio, so they are
+  2. Creckeryop/NOBORU-parsers: classic NOBORU parsers run unchanged in Otakio, so they are
      listed with their raw GitHub URL (downloaded on demand, not copied).
-  4. repo/native/*.lua: hand written Otakio extensions (metadata in a header comment).
+  3. repo/native/*.lua: hand written Otakio extensions (metadata in a header comment).
 
 The same site published by several repositories is listed once (highest version wins).
 With --probe every engine-based source is tested against the live site (listing, chapters,
@@ -18,7 +16,7 @@ pages); dead ones are marked "broken" (hidden by default in the app). Results ar
 in repo/health.json and reused by later runs without --probe.
 
 Usage:
-  python tools/gen_repo.py --kei <dir> --noboru <dir> [--yuzono <dir>] [--cursed <dir>] [--codegeasse <dir>] [--probe]
+  python tools/gen_repo.py --kei <dir> --noboru <dir> [--yuzono <dir>] [--cursed <dir>] [--probe]
 
 Output: repo/index.json + repo/extensions/*.lua, and the same tree copied into
 source/repo (bundled in the VPK as the built-in, offline repository).
@@ -33,6 +31,16 @@ ENGINES = {
     "keyoapp": "Keyoapp", "zeistmanga": "ZeistManga", "heancms": "HeanCms", "mangacatalog": "MangaCatalog",
     "foolslide": "FoolSlide", "guya": "Guya", "mangak": "MangaK", "yiimanga": "YiiManga", "yiimadara": "YiiMadara",
     "vinetheme": "VineTheme", "pizzareader": "PizzaReader",
+    # engines_intl.lua (ru / ja / zh)
+    "grouple": "Grouple", "libgroup": "LibGroup", "multichan": "MultiChan", "fmreader": "FMReader", "natsuid": "NatsuId", "mangareader": "MangaReader", "liliana": "Liliana",
+}
+# per-site settings that keiyoushi keeps in Kotlin code instead of build.gradle.kts
+SITE_EXTRA = {
+    # LibGroup: the API tells the sites apart by a Site-Id header
+    "mangalib": {"siteId": 1}, "slashlib": {"siteId": 2}, "hentailib": {"siteId": 4},
+    # MangaReader: page parameter and ajax endpoint are Kotlin functions
+    "jmanga": {"pageParam": "p", "searchPathSegment": "", "searchKeyword": "q", "chapterIdSelect": "ja-chaps", "ajaxPath": "/json/chapter?mode=vertical&id=%s"},
+    "rawotaku": {"pageParam": "p", "searchPathSegment": "", "searchKeyword": "q", "chapterIdSelect": "ja-chaps", "ajaxPath": "/json/chapter?mode=vertical&id=%s"},
 }
 # themes ported in engines_extra.lua take any simple `override val/fun` as config
 EXTRA_THEMES = set(ENGINES) - {"madara", "mangathemesia"}
@@ -67,6 +75,16 @@ def lua_str(s):
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n") + '"'
 
 
+def _blocks(text, keyword):
+    """Bodies of every `keyword { ... }` block, with nested braces (baseUrl { custom(...) }) kept inside."""
+    for m in re.finditer(r"\b%s\s*\{" % keyword, text):
+        depth, i = 1, m.end()
+        while i < len(text) and depth:
+            depth += {"{": 1, "}": -1}.get(text[i], 0)
+            i += 1
+        yield text[m.end():i - 1]
+
+
 def parse_gradle(text):
     """Returns (name, theme, nsfw, version, [sources]) from a keiyoushi-style build.gradle.kts."""
     name = re.search(r'\bname\s*=\s*"([^"]+)"', text)
@@ -74,10 +92,11 @@ def parse_gradle(text):
     cw = re.search(r"contentWarning\s*=\s*ContentWarning\.(\w+)", text)
     version = re.search(r"versionCode\s*=\s*(\d+)", text)
     sources = []
-    for block in re.finditer(r"source\s*\{(.*?)\n\s{4,8}\}", text, re.S):
-        body = block.group(1)
+    for body in _blocks(text, "source"):
         lang = re.search(r'\blang\s*=\s*"([^"]+)"', body)
-        base = re.search(r'\bbaseUrl\s*=\s*"([^"]+)"', body) or re.search(r'mirrors\(\s*"([^"]+)"', body)
+        # baseUrl = "..." | baseUrl { custom("...") } | mirrors("...", ...)
+        base = (re.search(r'\bbaseUrl\s*=\s*"([^"]+)"', body) or re.search(r'custom\(\s*"([^"]+)"', body)
+                or re.search(r'mirrors\(\s*"([^"]+)"', body))
         sname = re.search(r'\bname\s*=\s*"([^"]+)"', body)
         if lang and base:
             sources.append({"lang": lang.group(1), "baseUrl": base.group(1).rstrip("/"), "name": sname.group(1) if sname else None})
@@ -196,85 +215,13 @@ def build_keiyoushi_format(root, out_dir, origin, prefix, repo_label):
                     "nsfw": nsfw,
                     "extension": ext_id,
                 }
+                cfg.update(SITE_EXTRA.get(pkg.lower(), {}))
                 for k, v in overrides.items():
                     if k == "sourceList":
                         # "$baseUrl/manga/x" inside Kotlin string templates
                         v = [[n, u.replace("${baseUrl}", src["baseUrl"]).replace("$baseUrl", src["baseUrl"])] for n, u in v]
                     cfg[k] = v
                 entries.append(make_entry(ext_id, cfg, theme, origin, compat, out_dir, "generated from %s: %s/%s" % (repo_label, lang_dir, pkg)))
-    return entries
-
-
-def build_codegeasse(root, out_dir, probe):
-    """codegeasse1/codegeasse-mihon-extension: standalone HttpSource classes (no theme DSL).
-    Sites that are Madara/MangaThemesia underneath are detected from the Kotlin code and
-    confirmed by running the Lua engines against the live site (engine + listing path)."""
-    candidates = []
-    src_root = os.path.join(root, "src")
-    for lang_dir in sorted(os.listdir(src_root)):
-        if not os.path.isdir(os.path.join(src_root, lang_dir)):
-            continue
-        for pkg in sorted(os.listdir(os.path.join(src_root, lang_dir))):
-            ext_dir = os.path.join(src_root, lang_dir, pkg)
-            gradle = os.path.join(ext_dir, "build.gradle.kts")
-            if not os.path.exists(gradle) or pkg == "example":
-                continue
-            g = open(gradle, encoding="utf8").read()
-            name = re.search(r'extName\s*=\s*"([^"]+)"', g)
-            version = re.search(r"extVersionCode\s*=\s*(\d+)", g)
-            nsfw = re.search(r"isNsfw\s*=\s*(true|false)", g)
-            code = ""
-            for dp, _, files in os.walk(ext_dir):
-                for f in files:
-                    if f.endswith(".kt"):
-                        code += open(os.path.join(dp, f), encoding="utf8").read()
-            base = re.search(r'baseUrl\s*(?::\s*String)?\s*=\s*"(https?://[^"]+)"', code)
-            if not (name and base):
-                continue
-            madara, themesia = bool(MADARA_MARKERS.search(code)), bool(THEMESIA_MARKERS.search(code))
-            if not (madara or themesia):
-                continue
-            segs = {}
-            for seg in re.findall(r"\$baseUrl/([a-z-]+)/", code):
-                if seg not in NOT_LISTING_SEGMENTS:
-                    segs[seg] = segs.get(seg, 0) + 1
-            ordered = list(dict.fromkeys(sorted(segs, key=lambda k: -segs[k]) + ["manga"]))
-            guesses = []
-            if themesia:
-                guesses += [("MangaThemesia", None, {"mangaUrlDirectory": "/" + x}) for x in ordered]
-            guesses += [("Madara", None, {"mangaSubString": x}) for x in ordered]
-            if not themesia:
-                guesses.append(("MangaThemesia", None, {"mangaUrlDirectory": "/manga"}))
-            candidates.append({
-                "id": "cg." + lang_dir + "." + pkg, "engine": "auto", "name": name.group(1), "lang": lang_dir,
-                "baseUrl": base.group(1).rstrip("/"), "guesses": guesses,
-                "version": int(version.group(1)) if version else 1, "nsfw": bool(nsfw and nsfw.group(1) == "true"),
-                "pkg": pkg, "lang_dir": lang_dir,
-            })
-    import probe_sources
-    if probe:
-        results = probe_sources.run(candidates, verbose=False)
-    else:
-        # reuse detections from the last --probe run
-        results = probe_sources.load_health()
-    entries = []
-    for c in candidates:
-        r = results.get(c["id"], {})
-        if not r.get("popular") or "engine" not in r:
-            print("  codegeasse %-16s %-34s skipped (no working Madara/MangaThemesia listing)" % (c["pkg"], c["baseUrl"]))
-            continue
-        engine = "madara" if r["engine"] == "Madara" else "mangathemesia"
-        cfg = {
-            "id": "CG_" + re.sub(r"[^A-Z0-9]", "", (c["lang"] + "_" + c["pkg"]).upper()),
-            "name": c["name"], "baseUrl": c["baseUrl"], "lang": c["lang"], "version": c["version"] + 1,
-            "nsfw": c["nsfw"], "extension": c["id"],
-        }
-        cfg.update(r.get("cfg", {}))
-        entry = make_entry(c["id"], cfg, engine, "codegeasse", "full", out_dir,
-                           "generated from codegeasse1/codegeasse-mihon-extension: %s/%s" % (c["lang_dir"], c["pkg"]))
-        entry["_health"] = dict(r, status=probe_sources.status_of(r))
-        entries.append(entry)
-        print("  codegeasse %-16s -> %s %s (%s)" % (c["pkg"], engine, r.get("cfg"), probe_sources.status_of(r)))
     return entries
 
 
@@ -295,6 +242,18 @@ CLOSED_SITES = {
     "noboru.tmangaonlesp", "noboru.goldenmangas", "noboru.animeregiaptg", "noboru.brmangaspt", "noboru.unionmangaspt",
     "kei.en.anisascans", "kei.en.auntmanhwa", "kei.en.mangahe", "kei.es.esmi2manga", "kei.pt.starlightscan",
 }
+
+
+def hash_entries(entries, repo_dir):
+    """Pins every published file with its SHA-256: the app refuses a download whose hash differs (tampering,
+    corruption). Entries with an external "url" (NOBORU parsers) are not pinned: their upstream may change."""
+    import hashlib
+    for e in entries:
+        path = os.path.join(repo_dir, e.get("file") or "")
+        if e.get("file") and os.path.isfile(path):
+            e["sha256"] = hashlib.sha256(open(path, "rb").read()).hexdigest()
+        else:
+            e.pop("sha256", None)
 
 
 def build_noboru(noboru_root):
@@ -351,6 +310,8 @@ def build_native(out_dir):
             "baseUrl": meta.get("baseUrl", ""),
             "file": "extensions/" + ext_id + ".lua",
             "origin": "otakio",
+            # offered by the app's first-run "Install recommended sources" button (filtered by language and NSFW)
+            "recommended": True,
             "compat": "full",
             "relay": meta.get("relay") == "true",
         })
@@ -385,9 +346,8 @@ def main():
     ap.add_argument("--noboru", required=True, help="Creckeryop/NOBORU-parsers clone")
     ap.add_argument("--yuzono", help="yuzono/tachiyomi-extensions clone")
     ap.add_argument("--cursed", help="yuzono/cursed-manga-extensions clone (source of mojuru/cursed-manga-repo)")
-    ap.add_argument("--codegeasse", help="codegeasse1/codegeasse-mihon-extension clone")
     ap.add_argument("--probe", action="store_true", help="test every source live and mark dead ones (slow)")
-    ap.add_argument("--langs", default="en,pt-BR,pt,es,es-419,fr,de,it,all",
+    ap.add_argument("--langs", default="en,pt-BR,pt,es,es-419,fr,de,it,ru,ja,zh,zh-Hans,zh-Hant,all",
                     help="languages to publish (comma separated, Mihon codes; 'all' = multi-language sources)")
     args = ap.parse_args()
     import probe_sources
@@ -402,9 +362,9 @@ def main():
         entries += build_keiyoushi_format(args.yuzono, out, "yuzono", "yzn", "yuzono/tachiyomi-extensions")
     if args.cursed:
         entries += build_keiyoushi_format(args.cursed, out, "cursed", "cursed", "yuzono/cursed-manga-extensions")
-    if args.codegeasse:
-        entries += build_codegeasse(args.codegeasse, out, args.probe)
-    entries = [e for e in entries if e["id"] not in CLOSED_SITES]
+    import prune_repo  # removed.json: extensions taken out by tools/prune_repo.py stay out
+    skip = CLOSED_SITES | prune_repo.removed_ids()
+    entries = [e for e in entries if e["id"] not in skip]
     allowed = {x.strip().lower() for x in args.langs.split(",") if x.strip()}
     dropped = [e for e in entries if e["lang"].lower() not in allowed]
     entries = [e for e in entries if e["lang"].lower() in allowed]
@@ -425,7 +385,7 @@ def main():
                 # probe the generated extension file itself: exactly what the app will run
                 targets.append({"id": e["id"], "engine": "native", "baseUrl": e["baseUrl"], "lang": e["lang"], "file": e["file"]})
         print("probing %d sources live..." % len(targets))
-        health.update(probe_sources.run(targets, verbose=False))
+        probe_sources.merge_health(health, probe_sources.run(targets, verbose=False))
     for e in entries:
         if "_health" in e:
             health[e["id"]] = e.pop("_health")
@@ -445,6 +405,7 @@ def main():
                 e["compat"] = "full"  # verified working, even if the Kotlin source had custom code
     probe_sources.save_health(health)
 
+    hash_entries(entries, out)
     index = {"name": "Otakio Extensions", "format": 1, "minEngine": 1, "extensions": entries}
     with open(os.path.join(out, "index.json"), "w", encoding="utf8", newline="\n") as fh:
         json.dump(index, fh, ensure_ascii=False, separators=(",", ":"))

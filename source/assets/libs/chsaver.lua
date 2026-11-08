@@ -23,7 +23,7 @@ local removeDirectory = RemoveDirectory
 ---@return string
 ---Creates key for a chapter from it's Manga's `parserID`, `Link` and chapter `Link`
 local function getKey(chapter)
-	return (chapter.Manga.ParserID .. chapter.Manga.Link):gsub("%p", "") .. "_" .. chapter.Link:gsub("%p", "")
+	return AsciiKey((chapter.Manga.ParserID .. chapter.Manga.Link):gsub("%p", "") .. "_" .. chapter.Link:gsub("%p", ""))
 end
 
 ChapterSaver.getKey = getKey
@@ -129,7 +129,7 @@ function ChapterSaver.downloadChapter(chapter, silent)
 					Console.error("error getting pages")
 					retry_get_chptrs = retry_get_chptrs + 1
 					if retry_get_chptrs < 3 then
-						connection = Threads.netActionUnSafe(Network.isWifiEnabled)
+						connection = Threads.isOnline()
 						if not connection then
 							ConnectMessage.show()
 						end
@@ -167,7 +167,9 @@ function ChapterSaver.downloadChapter(chapter, silent)
 						{
 							Type = "FileDownload",
 							Link = link,
-							Path = FolderPath .. k .. "/" .. i .. ".image"
+							Path = FolderPath .. k .. "/" .. i .. ".image",
+							-- chapter downloads never hold up what is on screen
+							Priority = Threads.BACKGROUND
 						}
 					)
 					while Threads.check(result) do
@@ -180,7 +182,7 @@ function ChapterSaver.downloadChapter(chapter, silent)
 							Console.error("error loading picture for " .. k .. " " .. i)
 							retry = retry + 1
 							if retry < 3 then
-								connection = Threads.netActionUnSafe(Network.isWifiEnabled)
+								connection = Threads.isOnline()
 								if not connection then
 									ConnectMessage.show()
 								end
@@ -196,7 +198,7 @@ function ChapterSaver.downloadChapter(chapter, silent)
 						Console.error("download of " .. k .. "/" .. i .. ".image failed")
 						retry = retry + 1
 						if retry < 3 then
-							connection = Threads.netActionUnSafe(Network.isWifiEnabled)
+							connection = Threads.isOnline()
 							if not connection then
 								ConnectMessage.show()
 							end

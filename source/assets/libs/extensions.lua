@@ -6,6 +6,7 @@
 Extensions = {}
 
 local EXT_DIR = Config.DATA .. "extensions/"
+local MANUAL_SUBDIR = "manual/"
 local DB_PATH = Config.DATA .. "extensions.dat"
 local REPOS_PATH = Config.DATA .. "repos.dat"
 
@@ -65,7 +66,14 @@ end
 -------------------------------------------------------------------------------
 
 local function saveInstalled()
-	FS.saveTable(DB_PATH, installed)
+	-- manual extensions are found again on every start (ux0:data/otakio/extensions/manual/), never stored
+	local list = {}
+	for id, meta in pairs(installed) do
+		if not meta.manual then
+			list[id] = meta
+		end
+	end
+	FS.saveTable(DB_PATH, list)
 end
 
 local function saveRepos()
@@ -92,10 +100,11 @@ function Extensions.getRepos()
 	return list
 end
 
-function Extensions.addRepo(url)
+---"user/repo", "github.com/user/repo" or any URL -> the index.json URL the app downloads ("" when empty)
+function Extensions.normalizeRepoUrl(url)
 	url = (url or ""):gsub("^%s+", ""):gsub("%s+$", "")
 	if url == "" then
-		return false
+		return ""
 	end
 	-- GitHub shorthand: "user/repo" or "github.com/user/repo" -> raw index.json on the main branch
 	local owner, name = url:match("^([%w%-_%.]+)/([%w%-_%.]+)/?$")
@@ -113,6 +122,19 @@ function Extensions.addRepo(url)
 	end
 	if not url:find("%.json$") then
 		url = url:gsub("/+$", "") .. "/index.json"
+	end
+	return url
+end
+
+---True for the Otakio extension repository (the one the first-run setup offers)
+function Extensions.isOfficialRepo(url)
+	return Extensions.normalizeRepoUrl(url):lower() == Extensions.normalizeRepoUrl(Config.EXTENSIONS_REPO):lower()
+end
+
+function Extensions.addRepo(url)
+	url = Extensions.normalizeRepoUrl(url)
+	if url == "" then
+		return false
 	end
 	for _, r in ipairs(repos) do
 		if r.url == url then
@@ -191,10 +213,72 @@ end
 -- loading installed extensions
 -------------------------------------------------------------------------------
 
+-------------------------------------------------------------------------------
+-- sandbox: an extension only reads websites and builds manga lists. It gets the app's globals minus everything that
+-- touches files, app data or code loading; Settings is read-only; load/loadstring compile into the same sandbox.
+-------------------------------------------------------------------------------
+
+local BLOCKED = {
+	FS = true, io = true, os = true, dofile = true, loadfile = true, require = true, package = true, debug = true,
+	setfenv = true, getfenv = true, rawset = true, collectgarbage = true,
+	Cache = true, Database = true, ChapterSaver = true, Backup = true, Import = true, Extensions = true,
+	CustomSettings = true, CustomCovers = true, AppUpdate = true, Updates = true, Setup = true,
+	RemoveDirectory = true, CopyFile = true
+}
+
+local readOnlySettings = setmetatable({}, {
+	__index = function(_, k)
+		return Settings[k]
+	end,
+	__newindex = function()
+	end
+})
+
+local function sandboxEnv()
+	local env = {}
+	local function compileHere(chunk, name)
+		local f, err
+		if type(chunk) == "string" then
+			f, err = loadstring(chunk, name)
+		else
+			f, err = load(chunk, name)
+		end
+		if f then
+			setfenv(f, env)
+		end
+		return f, err
+	end
+	env.load, env.loadstring = compileHere, compileHere
+	env.Settings = readOnlySettings
+	env._G = env
+	return setmetatable(env, {
+		__index = function(_, k)
+			if BLOCKED[k] then
+				return nil
+			end
+			return _G[k]
+		end
+	})
+end
+
+---Compiles and runs an extension file inside its own sandbox
+function RunSandboxed(path)
+	local data = FS.read(path)
+	if not data then
+		error("can't read " .. tostring(path))
+	end
+	local f, err = loadstring(data, "@" .. path)
+	if not f then
+		error(err)
+	end
+	setfenv(f, sandboxEnv())
+	return f()
+end
+
 ---Loads an extension file, tagging every Parser it creates with the extension id
 local function loadExtensionFile(id, path)
 	CURRENT_EXTENSION_ID = id
-	local ok, err = pcall(dofile, path)
+	local ok, err = pcall(RunSandboxed, path)
 	CURRENT_EXTENSION_ID = nil
 	if not ok then
 		ExtLog("can't load extension " .. id .. ": " .. tostring(err))
@@ -209,6 +293,51 @@ local function loadExtensionFile(id, path)
 	return true
 end
 
+---Header of a hand-installed extension: "-- @id x", "-- @name x", "-- @lang x", "-- @version n", "-- @nsfw true"
+local function readHeader(data)
+	local h = {}
+	for line in data:sub(1, 2048):gmatch("[^\n]+") do
+		local k, v = line:match("^%-%-%s*@(%w+)%s+(.-)%s*$")
+		if k then
+			h[k] = v
+		elseif not line:match("^%s*%-%-") and not line:match("^%s*$") then
+			break
+		end
+	end
+	return h
+end
+
+---Extensions the user copied by hand to ux0:data/otakio/extensions/manual/ (optional; any repository-free .lua with
+---the header above). They load like installed ones, are labelled "Manual" and are never updated by the app.
+local function loadManual()
+	local dir = EXT_DIR .. MANUAL_SUBDIR
+	for _, f in ipairs(FS.list(dir)) do
+		if not f.directory and f.name:find("%.lua$") then
+			local data = FS.read(dir .. f.name) or ""
+			local h = readHeader(data)
+			local id = h.id or ("manual." .. f.name:gsub("%.lua$", ""):gsub("[^%w]", ""):lower())
+			if not installed[id] then
+				installed[id] = {
+					id = id,
+					name = h.name or f.name:gsub("%.lua$", ""),
+					lang = h.lang or "all",
+					version = tonumber(h.version) or 0,
+					nsfw = h.nsfw == "true",
+					engine = "native",
+					origin = "manual",
+					compat = "full",
+					repo = "Manual",
+					manual = true,
+					file = MANUAL_SUBDIR .. f.name,
+					date = Clock.now()
+				}
+				loadExtensionFile(id, dir .. f.name)
+				ExtLog("manual extension " .. id .. " (" .. f.name .. ")")
+			end
+		end
+	end
+end
+
 function Extensions.loadInstalled()
 	FS.mkdir(EXT_DIR)
 	installed = FS.loadTable(DB_PATH) or {}
@@ -221,6 +350,7 @@ function Extensions.loadInstalled()
 			installed[id] = nil
 		end
 	end
+	loadManual()
 	touch()
 end
 
@@ -243,6 +373,10 @@ end
 -------------------------------------------------------------------------------
 -- repositories
 -------------------------------------------------------------------------------
+
+-- repositories whose index was downloaded in the last refresh (an installed extension missing from one of them
+-- was removed from the repository; offline, nothing is known)
+local onlineRepos = {}
 
 local function mergeIndex(index, repo, base)
 	if type(index) ~= "table" or type(index.extensions) ~= "table" then
@@ -269,6 +403,8 @@ local function mergeIndex(index, repo, base)
 				relay = e.relay and true or nil,
 				health = e.health,
 				checked = e.checked,
+				recommended = e.recommended == true or nil,
+				sha256 = type(e.sha256) == "string" and e.sha256 or nil,
 				repo = repo.name,
 				repoUrl = repo.url
 			}
@@ -380,8 +516,15 @@ local function migrateReplaced()
 	end
 end
 
+local refreshAgain = false
+
 function Extensions.refresh(force)
-	if refreshing or (not force and lastRefresh > 0 and Clock.now() - lastRefresh < 600) then
+	if refreshing then
+		-- a repository was added while a refresh runs: do another pass when this one ends
+		refreshAgain = refreshAgain or force
+		return
+	end
+	if not force and lastRefresh > 0 and Clock.now() - lastRefresh < 600 then
 		return
 	end
 	refreshing = true
@@ -389,6 +532,7 @@ function Extensions.refresh(force)
 		local ok, err = pcall(function()
 		local newCatalog, newById = {}, {}
 		catalog, catalogById = newCatalog, newById
+		onlineRepos = {}
 		local first = Extensions.getRepos()[1]
 		local official = first and first.builtin and first or nil
 		-- 1. the copy bundled in the VPK (test builds) is the baseline (works offline)
@@ -406,13 +550,14 @@ function Extensions.refresh(force)
 			end
 		end
 		co_yield(false)
-		local online = Threads.netActionUnSafe(Network.isWifiEnabled)
+		local online = Threads.isOnline()
 		-- 2. official repo online: only adds newer versions on top of the built-in copy
 		if online and official and official.url ~= "" then
 			local index = fetchIndex(official.url)
 			if index then
 				mergeIndex(index, official, (official.url:gsub("[^/]+$", "")))
 				repoStatus[official.url] = "ok"
+				onlineRepos[official.name] = true
 			end
 		end
 		co_yield(false)
@@ -431,6 +576,7 @@ function Extensions.refresh(force)
 			elseif index then
 				mergeIndex(index, repo, (repo.url:gsub("[^/]+$", "")))
 				repoStatus[repo.url] = "ok"
+				onlineRepos[repo.name] = true
 				if index.name and repo.name ~= index.name then
 					repo.name = index.name
 					saveRepos()
@@ -461,6 +607,10 @@ function Extensions.refresh(force)
 		end
 		refreshing = false
 		touch()
+		if refreshAgain then
+			refreshAgain = false
+			Extensions.refresh(true)
+		end
 	end)
 end
 
@@ -476,9 +626,16 @@ function Extensions.getEntry(id)
 	return catalogById[id]
 end
 
+---Installed extension that its repository no longer lists (closed site, removed upstream, opt-out).
+---It keeps working; the Extensions screen labels it so the user can uninstall it.
+function Extensions.isRemoved(id)
+	local meta = installed[id]
+	return meta ~= nil and not meta.manual and catalogById[id] == nil and meta.repo ~= nil and onlineRepos[meta.repo] == true
+end
+
 function Extensions.hasUpdate(id)
 	local meta, entry = installed[id], catalogById[id]
-	return meta ~= nil and entry ~= nil and entry.version > (meta.version or 0)
+	return meta ~= nil and not meta.manual and entry ~= nil and entry.version > (meta.version or 0)
 end
 
 function Extensions.countUpdates()
@@ -543,6 +700,13 @@ function Extensions.install(entry)
 			ExtLog("install " .. entry.id .. ": download failed from " .. tostring(entry.source))
 		elseif not valid then
 			ExtLog("install " .. entry.id .. ": invalid file (" .. tostring(#(FS.read(tmp) or "")) .. " bytes) from " .. tostring(entry.source))
+		elseif entry.sha256 then
+			-- the repository index pins the file's hash: a changed or corrupted download is never loaded
+			local got = Sha256(FS.read(tmp) or "")
+			if got ~= entry.sha256:lower() then
+				valid = false
+				ExtLog("install " .. entry.id .. ": sha256 mismatch (expected " .. entry.sha256 .. ", got " .. got .. ")")
+			end
 		end
 		if ok and valid then
 			local dest = EXT_DIR .. file
@@ -592,6 +756,26 @@ function Extensions.uninstall(id)
 	saveInstalled()
 	touch()
 	Notifications.push(string.format(L().EXT_UNINSTALLED, meta.name))
+end
+
+---Queues the install of every recommended extension that `accept(entry)` allows (first-run setup).
+---Runs as a job after any pending refresh, so the catalog is loaded by then.
+function Extensions.installRecommended(accept)
+	addJob("recommended", function()
+		local n = 0
+		for _, e in ipairs(catalog) do
+			if e.recommended and not installed[e.id] and (not accept or accept(e)) then
+				Extensions.install(e)
+				n = n + 1
+			end
+		end
+		if n > 0 then
+			Notifications.push(string.format(L().RECOMMENDED_QUEUED, n))
+		else
+			Notifications.push(L().RECOMMENDED_NONE)
+		end
+	end)
+	touch()
 end
 
 function Extensions.updateAll()

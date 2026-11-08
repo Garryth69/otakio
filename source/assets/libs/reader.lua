@@ -225,6 +225,7 @@ local function prefetchFrom(page, direction)
 					ImageFile = true,
 					Link = entry,
 					Path = f.path,
+					Priority = Threads.NORMAL + 1, -- after covers, before background work
 					OnComplete = function()
 						f.done = true
 					end
@@ -262,7 +263,9 @@ local function deletePageImage(page)
 		if type(allPages[page].Image.e or allPages[page].Image) == "table" then
 			Threads.remove(allPages[page])
 			ParserManager.remove(allPages[page])
-			if allPages[page].Image.Parts then
+			if allPages[page].Image.Lazy then
+				allPages[page].Image:free()
+			elseif allPages[page].Image.Parts then
 				for i = 1, allPages[page].Image.Parts do
 					if allPages[page].Image[i] and allPages[page].Image[i].free then
 						allPages[page].Image[i]:free()
@@ -287,6 +290,18 @@ local function deletePageImage(page)
 		Threads.remove(allPages[page])
 	end
 end
+
+-- texture budget short of memory: every decoded page except the one on screen can go (it reloads from disk)
+Textures.register("reader-pages", 2, function()
+	if not allPages or not allPages.Page then
+		return
+	end
+	for i = 1, #allPages do
+		if i ~= allPages.Page and allPages[i] and allPages[i].Image then
+			deletePageImage(i)
+		end
+	end
+end)
 
 local function loadPageImage(page)
 	local PageTable = allPages[page]
@@ -966,8 +981,8 @@ function Reader.update()
 				Console.error("Error loading chapter")
 				ParserManager.remove((((Chapters or {})[currentChapterNumber or 0] or {}).Pages) or 0)
 				collectgarbage("collect")
-				if Threads.netActionUnSafe(Network.isWifiEnabled) then
-					Notifications.push("Unknown error (Parser's)")
+				if Threads.isOnline() then
+					Notifications.push(Language[Settings.Language].OTAKIO.NO_PAGES or "This chapter has no pages yet")
 				else
 					Notifications.push("Unknown error (No Connection?)")
 				end
@@ -1467,6 +1482,27 @@ end
 
 local PI = math.pi
 
+---Tall (webtoon) pages are "lazy": only the slices within a screen of the viewport are decoded, the ones two
+---screens away are freed. `center`/`half` are the slice center and half size on the scroll axis, `axis` the
+---screen size on that axis.
+local function lazySliceTick(image, k, center, half, axis)
+	local slice = image[k]
+	if center + half > -axis and center - half < axis * 2 then
+		if not slice and not (image.Keys[k] and Threads.check(image.Keys[k])) then
+			image.Keys[k] = image.Keys[k] or {}
+			local visible = center + half > 0 and center - half < axis
+			Threads.insertTask(image.Keys[k], {Type = "ImageSlice", Plan = image, Slice = k, Priority = visible and Threads.URGENT or Threads.NORMAL})
+		end
+	elseif center + half < -axis * 2 or center - half > axis * 3 then
+		if slice and slice.free then
+			slice:free()
+			image[k] = nil
+		elseif image.Keys[k] then
+			Threads.remove(image.Keys[k])
+		end
+	end
+end
+
 function Reader.draw()
 	Screen.clear(COLOR_BACK)
 	if currentState == STATE_LOADING then
@@ -1488,6 +1524,14 @@ function Reader.draw()
 			if page and page.Image then
 				if type(page.Image.e or page.Image) == "table" and page.Image.Parts then
 					for k = 1, page.Image.Parts do
+						if page.Image.Lazy then
+							local half = page.Image.SliceHeight / 2 * page.Zoom
+							if orientation == "Horizontal" then
+								lazySliceTick(page.Image, k, currentPageOffset.y + page.y + (k - 1) * page.Image.SliceHeight * page.Zoom - page.Height / 2 * page.Zoom + half, half, 544)
+							else
+								lazySliceTick(page.Image, k, currentPageOffset.x + page.x - (k - 1) * page.Image.SliceHeight * page.Zoom + page.Height / 2 * page.Zoom - half, half, 960)
+							end
+						end
 						if page.Image[k] and page.Image[k].e then
 							local Height = Graphics.getImageHeight(page.Image[k].e)
 							if orientation == "Horizontal" then
@@ -1680,6 +1724,12 @@ function Reader.loadChapter(chapter)
 	end
 	if Chapters and Chapters[currentChapterNumber] then
 		ParserManager.remove(Chapters[currentChapterNumber].Pages)
+	end
+	-- free the previous chapter's textures now: the garbage collector doesn't know how much GPU memory they hold
+	for i = 1, #allPages do
+		if allPages[i] then
+			deletePageImage(i)
+		end
 	end
 	currentChapterNumber = chapter
 	prefetchClear()

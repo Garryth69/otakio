@@ -10,6 +10,8 @@ Config = {
 	-- The app ships without extensions. Sources come from extension repositories the user adds
 	-- (Extensions > Select > Add repository). Test builds may bundle a catalog in app0:repo/.
 	OFFICIAL_REPO_URL = "",
+	-- Extension repository the first-run setup offers to add (only when the user picks "Install recommended sources")
+	EXTENSIONS_REPO = "Garryth69/otakio-extensions",
 	BUILTIN_REPO = "app0:repo/",
 	-- App updates: latest GitHub release of this repository (its .vpk asset)
 	GITHUB_REPO = "Garryth69/otakio",

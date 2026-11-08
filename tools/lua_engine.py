@@ -7,9 +7,15 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))).replace("\\",
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
 
+def vita_url(url):
+    """Like net.lua escapeLink(): raw UTF-8 in links (Japanese/Chinese file names) is percent-encoded"""
+    return "".join(c if ord(c) < 128 else "".join("%%%02X" % x for x in c.encode("utf8")) for c in url)
+
+
 def ua_for(url):
     """Same choice as net.lua userAgentFor(): MangaDex blocks browser user agents, the app identifies itself"""
-    return "Otakio/1.0" if "mangadex" in url.lower() else UA
+    low = url.lower()
+    return "Otakio/1.0" if any(h in low for h in ("mangadex", "desu.uno", "desu.me")) else UA
 _ctx = ssl.create_default_context()
 # OTAKIO_TLS12=1 behaves like the old NOBORU engine: OpenSSL 1.0.2 -> TLS 1.2 at most, no ChaCha20/X25519.
 VITA_CIPHERS = ("ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:"
@@ -50,6 +56,7 @@ dofile(ROOT .. "/source/assets/libs/html.lua")
 dofile(ROOT .. "/source/assets/libs/http.lua")
 dofile(ROOT .. "/source/assets/libs/engines.lua")
 dofile(ROOT .. "/source/assets/libs/engines_extra.lua")
+dofile(ROOT .. "/source/assets/libs/engines_intl.lua")
 -- like the app: os is gone after startup, only Clock keeps os.date/os.time
 Clock = {date = os.date, now = os.time}
 os = nil
@@ -88,10 +95,13 @@ class Engine:
             data = (body or "").encode()
             h.setdefault("Content-Type", "application/x-www-form-urlencoded")
         try:
-            req = urllib.request.Request(url, data=data, headers=h, method=method)
+            req = urllib.request.Request(vita_url(url), data=data, headers=h, method=method)
             with urllib.request.urlopen(req, timeout=self.timeout, context=_ctx) as r:
                 return self._seen(r.read().decode("utf8", "replace"))
         except urllib.error.HTTPError as e:
+            # 403/429/503 from a datacenter IP (CI runners) often means "blocked", not "site down"
+            if e.code in (403, 429, 503):
+                self.blocked = True
             try:
                 return self._seen(e.read().decode("utf8", "replace"))
             except Exception:
@@ -110,7 +120,7 @@ class Engine:
         h = {"User-Agent": ua_for(url)}
         h.update(headers)
         try:
-            req = urllib.request.Request(url, headers=h)
+            req = urllib.request.Request(vita_url(url), headers=h)
             with urllib.request.urlopen(req, timeout=self.timeout, context=_ctx) as r:
                 return r.read(4 * 1024 * 1024)
         except urllib.error.HTTPError as e:

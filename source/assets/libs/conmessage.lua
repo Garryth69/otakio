@@ -30,7 +30,7 @@ function ConnectMessage.update()
 	if is_active then
 		time = math.max(1 - time / 800, 0)
 		if Timer.getTime(connectionTimer) > 1000 then
-			if Threads.netActionUnSafe(Network.isWifiEnabled) then
+			if Threads.isOnline() then
 				is_active = false
 			end
 			Timer.reset(connectionTimer)

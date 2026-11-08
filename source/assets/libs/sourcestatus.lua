@@ -87,7 +87,7 @@ local function backgroundCheck()
 		return
 	end
 	Timer.reset(probeTimer)
-	if not Threads.netActionUnSafe(Network.isWifiEnabled) then
+	if not Threads.isOnline() then
 		return
 	end
 	local p = nextStale()
@@ -95,6 +95,7 @@ local function backgroundCheck()
 		tried[keyOf(p)] = Clock.now()
 		probe = {parser = p, list = {}}
 		ParserManager.getMangaListAsync("Popular", p, 1, probe.list)
+		ParserManager.setBackground(probe.list)
 	end
 end
 

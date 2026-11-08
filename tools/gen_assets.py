@@ -133,64 +133,69 @@ BG = (20, 13, 34)
 
 
 def mascot_mark(size):
-    """Rounded square with an anime chibi mascot: cat-eared head, big shiny eyes, blush, manga speed lines."""
+    """Rounded square with a capital "O" drawn in simple lines: spiky hair on top, a ninja-style headband with a
+    metal plate across the forehead and an open manga at the bottom.
+    One outline width (white) for every shape, one dark fill (hair, band), one light fill (plate, pages)."""
     big = size * S
+    u = big / 100.0
     img = Image.new("RGBA", (big, big), (0, 0, 0, 0))
     grad = gradient((big, big), ACCENT1, ACCENT2)
     mask = Image.new("L", (big, big), 0)
     ImageDraw.Draw(mask).rounded_rectangle([0, 0, big - 1, big - 1], radius=int(big * 0.24), fill=255)
-    # manga speed lines radiating from the face
-    rays = Image.new("RGBA", (big, big), (0, 0, 0, 0))
-    rd = ImageDraw.Draw(rays)
-    cx, cy = big * 0.5, big * 0.56
-    for i in range(28):
-        a = i * math.pi * 2 / 28 + 0.06
-        w = 0.035 if i % 2 else 0.018
-        r1, r2 = big * 0.40, big * 0.95
-        rd.polygon([(cx + math.cos(a - w) * r1, cy + math.sin(a - w) * r1),
-                    (cx + math.cos(a) * r2, cy + math.sin(a) * r2),
-                    (cx + math.cos(a + w) * r1, cy + math.sin(a + w) * r1)], fill=(255, 255, 255, 34))
-    grad = Image.alpha_composite(grad, rays)
     img.paste(grad, (0, 0), mask)
     d = ImageDraw.Draw(img)
-    hr = big * 0.29  # head radius
-    ink = (46, 22, 90, 255)
-    # cat ears (drawn first, the head covers their base)
-    for side in (-1, 1):
-        bx = cx + side * hr * 0.62
-        ear = [(bx - side * hr * 0.42, cy - hr * 0.55), (cx + side * hr * 0.98, cy - hr * 1.30), (bx + side * hr * 0.40, cy - hr * 0.25)]
-        d.polygon(ear, fill=W)
-        inner = [(bx - side * hr * 0.18, cy - hr * 0.62), (cx + side * hr * 0.90, cy - hr * 1.08), (bx + side * hr * 0.26, cy - hr * 0.44)]
-        d.polygon(inner, fill=(255, 170, 205, 255))
-    d.ellipse([cx - hr, cy - hr * 0.92, cx + hr, cy + hr * 0.92], fill=W)
-    # big anime eyes with catchlights
-    ew, eh = hr * 0.25, hr * 0.36
-    for side in (-1, 1):
-        ex, ey = cx + side * hr * 0.42, cy + hr * 0.02
-        d.ellipse([ex - ew, ey - eh, ex + ew, ey + eh], fill=ink)
-        d.ellipse([ex - ew * 0.78, ey - eh * 0.05, ex + ew * 0.78, ey + eh * 0.86], fill=(124, 72, 230, 255))
-        d.ellipse([ex - ew * 0.62, ey - eh * 0.72, ex + ew * 0.05, ey - eh * 0.08], fill=W)
-        d.ellipse([ex + ew * 0.18, ey + eh * 0.30, ex + ew * 0.52, ey + eh * 0.62], fill=W)
-        # blush
-        bx2, by2 = cx + side * hr * 0.70, cy + hr * 0.46
-        d.ellipse([bx2 - hr * 0.15, by2 - hr * 0.07, bx2 + hr * 0.15, by2 + hr * 0.07], fill=(255, 150, 190, 255))
-    # "ω" mouth
-    mw = max(1, int(big * 0.016))
-    my = cy + hr * 0.40
-    d.arc([cx - hr * 0.20, my - hr * 0.10, cx, my + hr * 0.12], 10, 170, fill=ink, width=mw)
-    d.arc([cx, my - hr * 0.10, cx + hr * 0.20, my + hr * 0.12], 10, 170, fill=ink, width=mw)
-    # sparkle
-    sx, sy, sr = big * 0.83, big * 0.83, big * 0.07
-    d.polygon([(sx, sy - sr), (sx + sr * 0.28, sy - sr * 0.28), (sx + sr, sy), (sx + sr * 0.28, sy + sr * 0.28), (sx, sy + sr), (sx - sr * 0.28, sy + sr * 0.28), (sx - sr, sy), (sx - sr * 0.28, sy - sr * 0.28)], fill=W)
+    line = max(2, int(3.4 * u))  # every outline
+    fine = max(1, int(2.0 * u))  # every inner detail
+    dark = (40, 18, 80, 255)
+    light = (236, 232, 250, 255)
+    detail = (88, 56, 160, 255)
+
+    def P(*pts):
+        return [(x * u, y * u) for x, y in pts]
+
+    def shape(pts, fill):
+        d.polygon(pts, fill=fill)
+        d.line(pts + [pts[0], pts[1]], fill=W, width=line, joint="curve")
+
+    # the "O": a thick white ring
+    cx, cy, r, ring = 50, 55, 25, 8
+    d.ellipse([(cx - r - ring / 2) * u, (cy - r - ring / 2) * u, (cx + r + ring / 2) * u, (cy + r + ring / 2) * u], outline=W, width=int(ring * u))
+    # spiky hair
+    shape(P((21, 44), (9, 32), (22, 33), (16, 15), (32, 25), (37, 7), (48, 21), (60, 6), (63, 22), (79, 12), (75, 30),
+            (91, 28), (79, 44)), dark)
+    # headband: knot tails, band, metal plate (two rivets + engraved line)
+    shape(P((78, 38), (92, 43), (90, 48), (77, 44)), dark)
+    shape(P((78, 42), (90, 54), (85, 57), (76, 46)), dark)
+    d.rounded_rectangle([20 * u, 36 * u, 80 * u, 47 * u], radius=int(3 * u), fill=dark, outline=W, width=line)
+    d.rounded_rectangle([38 * u, 33.5 * u, 62 * u, 49.5 * u], radius=int(3 * u), fill=light, outline=W, width=line)
+    for rx in (42, 58):
+        d.ellipse([(rx - 1.5) * u, (41.5 - 1.5) * u, (rx + 1.5) * u, (41.5 + 1.5) * u], fill=detail)
+    d.line(P((46, 41.5), (54, 41.5)), fill=detail, width=fine)
+    # open manga at the bottom (bigger than the band, overlapping the lower ring)
+    shape(P((50, 74), (22, 69), (22, 90), (50, 95)), light)
+    shape(P((50, 74), (78, 69), (78, 90), (50, 95)), light)
+    for k in range(4):
+        y = 75.5 + k * 4.2
+        d.line(P((27, y - 2.6), (45, y + 0.6)), fill=detail, width=fine)
+        d.line(P((55, y + 0.6), (73, y - 2.6)), fill=detail, width=fine)
     return img.resize((size, size), Image.LANCZOS)
 
 
-def text_img(text, size, color=W):
-    font = ImageFont.truetype(BOLD, size * S)
+TITLE_FONT = os.path.join(ROOT, "tools", "fonts", "Fredoka.ttf")  # SIL OFL 1.1, see tools/fonts/OFL-Fredoka.txt
+
+
+def text_img(text, size, color=W, weight="Bold"):
+    """Title text in Fredoka (rounded, manga-friendly); falls back to the app's Roboto Bold"""
+    try:
+        font = ImageFont.truetype(TITLE_FONT, size * S)
+        font.set_variation_by_name(weight)
+    except Exception:
+        font = ImageFont.truetype(BOLD, size * S)
     bbox = font.getbbox(text)
     img = Image.new("RGBA", (bbox[2] + 4 * S, bbox[3] + 4 * S), (0, 0, 0, 0))
-    ImageDraw.Draw(img).text((0, 0), text, font=font, fill=color)
-    img = img.resize((img.width // S, img.height // S), Image.LANCZOS)
+    ImageDraw.Draw(img).text((2 * S, 0), text, font=font, fill=color)
+    img = img.crop(img.getbbox()) if img.getbbox() else img
+    img = img.resize((max(1, img.width // S), max(1, img.height // S)), Image.LANCZOS)
     return img
 
 
@@ -202,7 +207,7 @@ def logo(width, height, path, mark=None):
     total = mark_size + 18 + t.width
     x = (width - total) // 2
     img.paste(m, (x, (height - mark_size) // 2), m)
-    img.paste(t, (x + mark_size + 18, (height - t.height) // 2 - int(height * 0.04)), t)
+    img.paste(t, (x + mark_size + 18, (height - t.height) // 2), t)
     img.save(path)
 
 
@@ -223,9 +228,10 @@ def livearea():
     big = mascot_mark(220)
     la.paste(big, (80, 140), big)
     t = text_img("Otakio", 96)
-    la.paste(t, (330, 170), t)
-    sub = text_img("manga reader", 30, (200, 190, 255, 255))
-    la.paste(sub, (336, 290), sub)
+    sub = text_img("manga reader", 30, (200, 190, 255, 255), "Medium")
+    top = 250 - (t.height + 22 + sub.height) // 2
+    la.paste(t, (330, top), t)
+    la.paste(sub, (334, top + t.height + 22), sub)
     la.convert("P", palette=Image.ADAPTIVE, colors=255).save(os.path.join(sce, "livearea", "contents", "bg.png"))
     # startup gate 280x158
     st = gradient((280, 158), ACCENT1, ACCENT2).convert("RGBA")

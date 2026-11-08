@@ -115,6 +115,34 @@ function GetAllParsers()
 	return list
 end
 
+---Source language groups the user can switch on/off (Extensions chips and Browse). "all" = multi-language sources.
+SOURCE_LANG_GROUPS = {"en", "pt", "es", "fr", "de", "it", "ru", "ja", "zh", "other"}
+
+---NOBORU/Otakio catalog code -> language group id
+local CODE_GROUP = {ENG = "en", BRA = "pt", PRT = "pt", ESP = "es", FRA = "fr", DEU = "de", ITA = "it", RUS = "ru", JAP = "ja", CHN = "zh", DIF = "all"}
+
+---Language group of a Mihon/ISO code ("pt-BR" -> "pt", "all" -> "all", unknown -> "other")
+function SourceLangGroupOfIso(iso)
+	return CODE_GROUP[Engines.toParserLang(iso or "all")] or "other"
+end
+
+---@return boolean whether sources of this language group are shown (no choice made = every language)
+function IsSourceLangEnabled(group)
+	local set = Settings.ExtLanguages
+	if group == "all" or type(set) ~= "table" or next(set) == nil then
+		return true
+	end
+	return set[group] == true
+end
+
+local function parserLangEnabled(v)
+	if v.Lang == "RAW" then
+		return IsSourceLangEnabled("ja") or IsSourceLangEnabled("zh")
+	end
+	local group = v.IsoLang and SourceLangGroupOfIso(v.IsoLang) or CODE_GROUP[v.Lang] or "other"
+	return IsSourceLangEnabled(group)
+end
+
 ---@return table
 ---Gives Parser List
 function GetParserList()
@@ -124,7 +152,7 @@ function GetParserList()
 	is_parsers_list_updated = false
 	local list = {}
 	for _, v in pairs(parserTable) do
-		if (Settings.NSFW and v.NSFW or not v.NSFW) and not v.Disabled and (Settings.ParserLanguage == "DIF" or v.Lang == Settings.ParserLanguage or v.Lang == "DIF" or ((Settings.ParserLanguage == "CHN" or Settings.ParserLanguage == "JAP") and v.Lang == "RAW")) then
+		if (Settings.NSFW and v.NSFW or not v.NSFW) and not v.Disabled and parserLangEnabled(v) and (Settings.ParserLanguage == "DIF" or v.Lang == Settings.ParserLanguage or v.Lang == "DIF" or ((Settings.ParserLanguage == "CHN" or Settings.ParserLanguage == "JAP") and v.Lang == "RAW")) then
 			list[#list + 1] = v
 		end
 	end

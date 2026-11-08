@@ -128,9 +128,9 @@ local function updateMangaDescription(newDescription)
 	local wordList = {}
 	for word in descriptionString:gmatch("[^ ]+") do
 		local newWord = ""
-		for i = 1, #word do
-			local s = string.sub(word, i, 1)
-			if s ~= "" and isCJK(s) or s == "\n" then
+		-- one UTF-8 character at a time (string.sub is UTF-8 aware but restarts from the first character on each call)
+		for s in it_utf8(word) do
+			if isCJK(s) or s == "\n" then
 				if newWord ~= "" then
 					wordList[#wordList + 1] = newWord
 					newWord = ""
@@ -272,7 +272,7 @@ function Details.setManga(manga)
 
 		continueChapterNumber = nil
 
-		if Threads.netActionUnSafe(Network.isWifiEnabled) and GetParserByID(manga.ParserID) then
+		if Threads.isOnline() and GetParserByID(manga.ParserID) then
 			ParserManager.getChaptersAsync(manga, chaptersList)
 			is_chapter_list_loaded_offline = false
 		else
@@ -309,7 +309,7 @@ end
 ---@param item integer
 ---Download / Stop Download / Delete `chapterList[item]` Chapter
 local function downloadChapter(item)
-	local is_wifi_enabled = Threads.netActionUnSafe(Network.isWifiEnabled)
+	local is_wifi_enabled = Threads.isOnline()
 	item = chaptersList[item]
 	if item then
 		Cache.addManga(selectedManga, chaptersList)
@@ -624,10 +624,10 @@ function Details.draw()
 				Graphics.fillRect(260, 955, 95 + chaptersMaxHeightOffset - LINE_HEIGHT - 10, 95 + chaptersMaxHeightOffset, backgroundColor)
 				if descriptionLinesCount ~= #descriptionWordList then
 					Font.print(BONT16, 270, 95 + chaptersMaxHeightOffset - LINE_HEIGHT - 10, Language[Settings.Language].DETAILS.EXPAND, accentColor)
-					Graphics.drawImage(math.ceil(270 + Font.getTextWidth(BONT16, Language[Settings.Language].DETAILS.EXPAND) + 8), 95 + chaptersMaxHeightOffset - LINE_HEIGHT - 10, ButtonsIcons.L.e, textColor)
+					Graphics.drawImage(math.ceil(270 + Font.getTextWidth(BONT16, Language[Settings.Language].DETAILS.EXPAND) + 8), 95 + chaptersMaxHeightOffset - LINE_HEIGHT - 10, ButtonsIcons.L.e)
 				elseif descriptionLinesCount > 2 then
 					Font.print(BONT16, 270, 95 + chaptersMaxHeightOffset - LINE_HEIGHT - 10, Language[Settings.Language].DETAILS.SHRINK, accentColor)
-					Graphics.drawImage(math.ceil(270 + Font.getTextWidth(BONT16, Language[Settings.Language].DETAILS.SHRINK) + 8), 95 + chaptersMaxHeightOffset - LINE_HEIGHT - 10, ButtonsIcons.L.e, textColor)
+					Graphics.drawImage(math.ceil(270 + Font.getTextWidth(BONT16, Language[Settings.Language].DETAILS.SHRINK) + 8), 95 + chaptersMaxHeightOffset - LINE_HEIGHT - 10, ButtonsIcons.L.e)
 				end
 			end
 		end
@@ -650,7 +650,7 @@ function Details.draw()
 		end
 		if is_chapter_list_ready then
 			Graphics.drawImage(960 - 32 - 24, 33, menuIcon.e, textColor)
-			Graphics.drawImage(960 - 32 - 24 - 20, 5 - (1 - M) * 32, ButtonsIcons.Start.e)
+			Graphics.drawImage(960 - 32 - 24 - 12, 5 - (1 - M) * 32, ButtonsIcons.Start.e)
 		end
 		Graphics.fillRect(955, 960, 90, 544, backgroundColor)
 		if status == "START" and #chaptersList > 5 then
@@ -723,7 +723,7 @@ function Details.actionsMenu()
 		items[#items + 1] = {label = Language[Settings.Language].SETTINGS.ResetCover or "Reset cover", value = "cover"}
 	end
 	local function download(filter, limit)
-		local is_wifi_enabled = Threads.netActionUnSafe(Network.isWifiEnabled)
+		local is_wifi_enabled = Threads.isOnline()
 		if not is_wifi_enabled then
 			Notifications.pushUnique(Language[Settings.Language].SETTINGS.NoConnection)
 			return

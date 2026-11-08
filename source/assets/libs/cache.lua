@@ -47,7 +47,7 @@ end
 ---@return string
 ---Gives key for a given `manga`
 local function getKey(manga)
-	return (manga.ParserID .. manga.Link):gsub("%p", "")
+	return (AsciiKey((manga.ParserID .. manga.Link):gsub("%p", "")))
 end
 
 ---@param manga table
@@ -355,31 +355,100 @@ end
 ---@param manga table
 ---@param chapters table
 ---Updates `chapter` List for given `manga`
-function Cache.saveChapters(manga, chapters)
-	local key = getKey(manga)
+-- chapter lists waiting to be written (key -> chapters): saving thousands of chapters takes long on the Vita, so it
+-- runs in the background, spread over frames; loadChapters serves these until the file is written
+local pendingChapters = {}
+
+local function writeChapters(key, chapters)
 	local path = "ux0:data/otakio/cache/" .. key .. "/chapters.dat"
 	local chaptersList = {}
-	if doesFileExist(path) then
-		deleteFile(path)
-	end
 	for i = 1, #chapters do
-		chaptersList[i] = {}
+		local copy = {}
 		for k, v in pairs(chapters[i]) do
-			chaptersList[i][k] = k == "Manga" and "10101010101010" or v
+			copy[k] = k == "Manga" and "10101010101010" or v
+		end
+		chaptersList[i] = copy
+		if i % 300 == 0 and coroutine.running() then
+			coroutine.yield(false)
 		end
 	end
 	chaptersList.Description = chapters.Description or ""
-	local fh = openFile(path, FCREATE)
 	local serializedChaptersList = "return " .. table.serialize(chaptersList, true)
+	if not doesDirExist("ux0:data/otakio/cache/" .. key) then
+		return
+	end
+	if doesFileExist(path) then
+		deleteFile(path)
+	end
+	local fh = openFile(path, FCREATE)
 	writeFile(fh, serializedChaptersList, #serializedChaptersList)
 	closeFile(fh)
+end
+
+function Cache.saveChapters(manga, chapters)
+	local key = getKey(manga)
+	if not key then
+		return
+	end
+	pendingChapters[key] = chapters
+	local job = "chapters:" .. key
+	if Threads.check(job) then
+		return -- the queued job writes the latest list when it runs
+	end
+	Threads.addTask(job, {
+		Type = "function",
+		Priority = Threads.BACKGROUND,
+		OnComplete = function()
+			local list = pendingChapters[key]
+			if not list then
+				return
+			end
+			local ok, err = pcall(writeChapters, key, list)
+			if not ok then
+				Console.error("saveChapters: " .. tostring(err))
+			end
+			if pendingChapters[key] == list then
+				pendingChapters[key] = nil
+			end
+		end
+	})
+end
+
+---Writes every pending chapter list now (before quitting, backups or clearing the cache)
+function Cache.flushChapters()
+	for key, list in pairs(pendingChapters) do
+		pcall(writeChapters, key, list)
+		pendingChapters[key] = nil
+	end
 end
 
 ---@param manga table
 ---@return table
 ---Gives chapter list for given `manga`
+local function hideOffline(list, skipHiding)
+	if skipHiding or not Settings.HideInOffline then
+		list.Description = list.Description or ""
+		return list
+	end
+	local t = {}
+	for i = 1, #list do
+		local chapter = list[i]
+		t[#t + 1] = ChapterSaver.check(chapter) and chapter or nil
+	end
+	t.Description = list.Description or ""
+	return t
+end
+
 function Cache.loadChapters(manga, skipHiding)
 	local key = getKey(manga)
+	if data[key] and pendingChapters[key] then
+		-- not written yet: same list the app just saved
+		local list = {Description = pendingChapters[key].Description}
+		for i, chapter in ipairs(pendingChapters[key]) do
+			list[i] = chapter
+		end
+		return hideOffline(list, skipHiding)
+	end
 	if data[key] then
 		if doesFileExist("ux0:data/otakio/cache/" .. key .. "/chapters.dat") then
 			local fh = openFile("ux0:data/otakio/cache/" .. key .. "/chapters.dat", FREAD)

@@ -27,10 +27,12 @@ function Dialog.isOpen()
 end
 
 function Dialog.close()
-	if state and state.onClose then
-		state.onClose()
-	end
+	-- clear first: onClose may open the next dialog (setup wizard going back a step)
+	local s = state
 	state = nil
+	if s and s.onClose then
+		s.onClose()
+	end
 end
 
 function Dialog.menu(title, items, onSelect, selectedIndex)
@@ -48,12 +50,42 @@ function Dialog.checklist(title, items, onConfirm)
 	open({kind = "multi", title = title, items = items, onConfirm = onConfirm})
 end
 
+---Step of a wizard: a list with an explanatory message.
+---  t = {title, message, items, selected, onSelect(item, i), onBack(), multi = bool, onConfirm(items)}
+---With `multi`, items are checkboxes and Circle/Triangle/Start confirm; otherwise Circle calls onBack.
+function Dialog.wizard(t)
+	if t.multi then
+		open({kind = "multi", title = t.title, message = t.message, items = t.items, onConfirm = t.onConfirm})
+		return
+	end
+	for i, item in ipairs(t.items) do
+		item.checked = i == t.selected
+	end
+	open({kind = "single", title = t.title, message = t.message, items = t.items, selected = t.selected or 1, onSelect = t.onSelect, onClose = t.onBack})
+end
+
 function Dialog.confirm(title, message, onYes)
 	open({kind = "confirm", title = title, message = message, items = {{label = L().YES, value = true}, {label = L().NO, value = false}}, selected = 2, onSelect = function(item)
 		if item.value and onYes then
 			onYes()
 		end
 	end})
+end
+
+---Words of a "<button> word   <button> [/ <button>] word" hint string
+local hintCache = {}
+function hintWords(str)
+	local c = hintCache[str]
+	if not c then
+		local parts = {}
+		for part in (str .. "   "):gmatch("(.-)   +") do
+			part = part:gsub("^%S+%s+/%s+%S+%s+", ""):gsub("^%S+%s+", "")
+			parts[#parts + 1] = part
+		end
+		c = {parts[1] or "", parts[2] or ""}
+		hintCache[str] = c
+	end
+	return c[1], c[2]
 end
 
 local function geometry()
@@ -208,12 +240,7 @@ function Dialog.draw()
 	if #state.items > rows then
 		UI.scrollbar(x1 - 10, listY, listY + rows * ROW, state.scroll * ROW, #state.items * ROW, rows * ROW)
 	end
-	-- footer hints
-	local hint
-	if state.kind == "multi" then
-		hint = L().HINT_TOGGLE_APPLY
-	else
-		hint = L().HINT_SELECT_BACK
-	end
-	UI.textRight(FONT13, x1 - 24, y1 - 30, hint, COLOR_SUBFONT)
+	-- footer hints: button icons + the words of HINT_* ("X toggle   O / △ apply" -> "toggle", "apply")
+	local first, second = hintWords(state.kind == "multi" and L().HINT_TOGGLE_APPLY or L().HINT_SELECT_BACK)
+	DrawButtonHints(x1 - 24, y1 - 30, {{"Cross", first}, {"Circle", second}})
 end

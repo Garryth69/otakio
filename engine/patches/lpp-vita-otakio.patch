@@ -1,5 +1,5 @@
 diff --git a/Makefile b/Makefile
-index 14cb9bc..82d9dcb 100644
+index 14cb9bc..317c341 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -3,13 +3,13 @@ SOURCES		:= source/resources source/include/ftp source/include/autovpk source/in
@@ -15,7 +15,7 @@ index 14cb9bc..82d9dcb 100644
  	-lspeexdsp -lmpg123 -lSceAudio_stub -lSceGxm_stub -lSceDisplay_stub -lSceShellSvc_stub \
 -	-lopusfile -lopus -lSceHttp_stub -lSceAudioIn_stub -lluajit -ldl -ltaihen_stub  -lSceSysmodule_stub \
 -	-lSceVideodec_stub -lSceShutterSound_stub -lSceSsl_stub
-+	-lopusfile -lopus -lSceHttp_stub -lSceAudioIn_stub -lwebp -lluajit-5.1 -ltaihen_stub  -lSceSysmodule_stub \
++	-lopusfile -lopus -lSceHttp_stub -lSceAudioIn_stub -lwebp -lsharpyuv -lluajit-5.1 -ltaihen_stub  -lSceSysmodule_stub \
 +	-lSceVideodec_stub -lSceShutterSound_stub -lSceSsl_stub -lzstd -lz -lpthread
  
  CFILES   := $(foreach dir,$(SOURCES), $(wildcard $(dir)/*.c))
@@ -25,7 +25,7 @@ index 14cb9bc..82d9dcb 100644
  CC      = $(PREFIX)-gcc
  CXX      = $(PREFIX)-g++
 -CFLAGS  = -fno-lto -g -Wl,-q -O2 -DWANT_FASTWAV -DHAVE_LIBSPEEXDSP \
-+V2D_DIR := /root/otakio-engine/libvita2d/libvita2d
++V2D_DIR ?= $(CURDIR)/../libvita2d/libvita2d
 +CFLAGS  = -I$(VITASDK)/arm-vita-eabi/include/opus -D_GNU_SOURCE -include string.h -I$(V2D_DIR)/include -L$(V2D_DIR) -I$(VITASDK)/arm-vita-eabi/include/luajit-2.1 -DSKIP_ERROR_HANDLING -fno-lto -fno-optimize-sibling-calls -g -Wl,-q -O2 -DWANT_FASTWAV -DHAVE_LIBSPEEXDSP \
  		-DHAVE_LIBSNDFILE -DHAVE_MPG123 -DWANT_FMMIDI=1 -DWANT_FASTAIFF \
  		-DUSE_AUDIO_RESAMPLER -DHAVE_OGGVORBIS -DHAVE_OPUSFILE \
@@ -41,6 +41,183 @@ index 0000000..ed1f29e
 +void *dlsym(void *handle, const char *name) { (void)handle; (void)name; return NULL; }
 +int dlclose(void *handle) { (void)handle; return 0; }
 +char *dlerror(void) { return (char *)"dynamic libraries are not supported"; }
+diff --git a/source/include/imgconv.c b/source/include/imgconv.c
+new file mode 100755
+index 0000000..ede02e6
+--- /dev/null
++++ b/source/include/imgconv.c
+@@ -0,0 +1,171 @@
++/* Otakio: converts a page image (JPEG, PNG or WebP) to JPEG, PNG or WebP at full resolution.
++ * Decoding happens in main memory (no GPU texture size limit). Used by "Save image". */
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <setjmp.h>
++#include <jpeglib.h>
++#include <png.h>
++#include <webp/decode.h>
++#include <webp/encode.h>
++
++static unsigned char *read_file(const char *path, size_t *size) {
++	FILE *f = fopen(path, "rb");
++	if (!f)
++		return NULL;
++	fseek(f, 0, SEEK_END);
++	long n = ftell(f);
++	fseek(f, 0, SEEK_SET);
++	unsigned char *data = n > 0 ? (unsigned char *)malloc(n) : NULL;
++	if (data && fread(data, 1, n, f) != (size_t)n) {
++		free(data);
++		data = NULL;
++	}
++	fclose(f);
++	*size = data ? (size_t)n : 0;
++	return data;
++}
++
++struct jerr {
++	struct jpeg_error_mgr pub;
++	jmp_buf jump;
++};
++
++static void jerr_exit(j_common_ptr cinfo) {
++	longjmp(((struct jerr *)cinfo->err)->jump, 1);
++}
++
++/* returns a malloc'd RGB buffer (3 bytes per pixel) */
++static unsigned char *decode_jpeg(const unsigned char *data, size_t size, int *w, int *h) {
++	struct jpeg_decompress_struct cinfo;
++	struct jerr err;
++	unsigned char *volatile rgb = NULL;
++	cinfo.err = jpeg_std_error(&err.pub);
++	err.pub.error_exit = jerr_exit;
++	if (setjmp(err.jump)) {
++		jpeg_destroy_decompress(&cinfo);
++		free(rgb);
++		return NULL;
++	}
++	jpeg_create_decompress(&cinfo);
++	jpeg_mem_src(&cinfo, (unsigned char *)data, size);
++	jpeg_read_header(&cinfo, TRUE);
++	cinfo.out_color_space = JCS_RGB;
++	jpeg_start_decompress(&cinfo);
++	*w = cinfo.output_width;
++	*h = cinfo.output_height;
++	rgb = (unsigned char *)malloc((size_t)*w * *h * 3);
++	if (!rgb) {
++		jpeg_destroy_decompress(&cinfo);
++		return NULL;
++	}
++	while (cinfo.output_scanline < cinfo.output_height) {
++		JSAMPROW row = rgb + (size_t)cinfo.output_scanline * *w * 3;
++		jpeg_read_scanlines(&cinfo, &row, 1);
++	}
++	jpeg_finish_decompress(&cinfo);
++	jpeg_destroy_decompress(&cinfo);
++	return rgb;
++}
++
++static unsigned char *decode_png(const unsigned char *data, size_t size, int *w, int *h) {
++	png_image image;
++	memset(&image, 0, sizeof(image));
++	image.version = PNG_IMAGE_VERSION;
++	if (!png_image_begin_read_from_memory(&image, data, size))
++		return NULL;
++	image.format = PNG_FORMAT_RGB;
++	unsigned char *rgb = (unsigned char *)malloc(PNG_IMAGE_SIZE(image));
++	if (!rgb || !png_image_finish_read(&image, NULL, rgb, 0, NULL)) {
++		png_image_free(&image);
++		free(rgb);
++		return NULL;
++	}
++	*w = image.width;
++	*h = image.height;
++	return rgb;
++}
++
++static int write_jpeg(const char *path, const unsigned char *rgb, int w, int h, int quality) {
++	FILE *f = fopen(path, "wb");
++	if (!f)
++		return 0;
++	struct jpeg_compress_struct cinfo;
++	struct jerr err;
++	cinfo.err = jpeg_std_error(&err.pub);
++	err.pub.error_exit = jerr_exit;
++	if (setjmp(err.jump)) {
++		jpeg_destroy_compress(&cinfo);
++		fclose(f);
++		return 0;
++	}
++	jpeg_create_compress(&cinfo);
++	jpeg_stdio_dest(&cinfo, f);
++	cinfo.image_width = w;
++	cinfo.image_height = h;
++	cinfo.input_components = 3;
++	cinfo.in_color_space = JCS_RGB;
++	jpeg_set_defaults(&cinfo);
++	jpeg_set_quality(&cinfo, quality, TRUE);
++	jpeg_start_compress(&cinfo, TRUE);
++	while (cinfo.next_scanline < cinfo.image_height) {
++		JSAMPROW row = (JSAMPROW)(rgb + (size_t)cinfo.next_scanline * w * 3);
++		jpeg_write_scanlines(&cinfo, &row, 1);
++	}
++	jpeg_finish_compress(&cinfo);
++	jpeg_destroy_compress(&cinfo);
++	fclose(f);
++	return 1;
++}
++
++static int write_png(const char *path, const unsigned char *rgb, int w, int h) {
++	png_image image;
++	memset(&image, 0, sizeof(image));
++	image.version = PNG_IMAGE_VERSION;
++	image.width = w;
++	image.height = h;
++	image.format = PNG_FORMAT_RGB;
++	return png_image_write_to_file(&image, path, 0, rgb, 0, NULL) != 0;
++}
++
++static int write_webp(const char *path, const unsigned char *rgb, int w, int h, int quality) {
++	uint8_t *out = NULL;
++	size_t size = WebPEncodeRGB(rgb, w, h, w * 3, (float)quality, &out);
++	if (!size)
++		return 0;
++	FILE *f = fopen(path, "wb");
++	int ok = f && fwrite(out, 1, size, f) == size;
++	if (f)
++		fclose(f);
++	WebPFree(out);
++	return ok;
++}
++
++/* to: 0 = JPEG, 1 = PNG, 2 = WebP. Returns 1 on success. */
++int otakio_convert_image(const char *src, const char *dst, int to, int quality) {
++	size_t size = 0;
++	unsigned char *data = read_file(src, &size);
++	if (!data)
++		return 0;
++	int w = 0, h = 0, from_webp = 0;
++	unsigned char *rgb = NULL;
++	if (size > 12 && !memcmp(data, "RIFF", 4) && !memcmp(data + 8, "WEBP", 4)) {
++		rgb = WebPDecodeRGB(data, size, &w, &h);
++		from_webp = 1;
++	} else if (size > 8 && data[0] == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G') {
++		rgb = decode_png(data, size, &w, &h);
++	} else if (size > 3 && data[0] == 0xFF && data[1] == 0xD8) {
++		rgb = decode_jpeg(data, size, &w, &h);
++	}
++	free(data);
++	if (!rgb)
++		return 0;
++	if (quality <= 0 || quality > 100)
++		quality = 92;
++	int ok = to == 1 ? write_png(dst, rgb, w, h) : to == 2 ? write_webp(dst, rgb, w, h, quality) : write_jpeg(dst, rgb, w, h, quality);
++	if (from_webp)
++		WebPFree(rgb);
++	else
++		free(rgb);
++	return ok;
++}
 diff --git a/source/include/luaplayer.h b/source/include/luaplayer.h
 index 1bad889..a438976 100644
 --- a/source/include/luaplayer.h
@@ -467,10 +644,10 @@ index ef53513..a9e910f 100644
  const char *runScript(const char* script, bool isStringBuffer)
  {
 diff --git a/source/luaSystem.cpp b/source/luaSystem.cpp
-index 95cf902..392d63f 100644
+index 95cf902..5f82e7b 100644
 --- a/source/luaSystem.cpp
 +++ b/source/luaSystem.cpp
-@@ -1296,6 +1296,9 @@ static int lua_getpicformat(lua_State *L){
+@@ -1296,12 +1296,28 @@ static int lua_getpicformat(lua_State *L){
  	} else if (format == PIC_FORMAT_GIF) {
  		lua_pushstring(L, "gif");
  		return 1;
@@ -480,3 +657,30 @@ index 95cf902..392d63f 100644
  	} else {
  		return 0;
  	}
+ }
+ 
+ //Register our System Functions
++extern "C" int otakio_convert_image(const char *src, const char *dst, int to, int quality);
++
++// Otakio: System.convertImage(src, dst, "jpg"|"png"|"webp"[, quality]) -> boolean (JPEG/PNG/WebP in, full resolution)
++static int lua_convertimage(lua_State *L){
++	const char *src = luaL_checkstring(L, 1);
++	const char *dst = luaL_checkstring(L, 2);
++	const char *fmt = luaL_optstring(L, 3, "jpg");
++	int quality = luaL_optinteger(L, 4, 92);
++	int to = strcmp(fmt, "png") == 0 ? 1 : strcmp(fmt, "webp") == 0 ? 2 : 0;
++	lua_pushboolean(L, otakio_convert_image(src, dst, to, quality));
++	return 1;
++}
++
+ static const luaL_Reg System_functions[] = {
+   {"statFile",                  lua_statfile},
+   {"statOpenedFile",            lua_statfilehandle},
+@@ -1358,6 +1374,7 @@ static const luaL_Reg System_functions[] = {
+   {"extractFromZip",            lua_getfilefromzip},
+   {"extractFromZipAsync",       lua_getfilefromzipasync},
+   {"takeScreenshot",            lua_screenshot},
++  {"convertImage",              lua_convertimage},
+   {"executeUri",                lua_executeuri},
+   {"reboot",                    lua_reboot},  
+   {"isSafeMode",                lua_issafe},

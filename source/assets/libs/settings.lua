@@ -42,6 +42,7 @@ Settings = {
 	Incognito = false,
 	LibraryFilter = "All",
 	Categories = {},
+	ExtLanguages = {},
 	ShowFPS = false
 }
 
@@ -123,10 +124,12 @@ local settingsListTree = {
 	},
 	Catalogs = {
 		"ShowNSFW",
+		"SourceLanguages",
 		"HideInOffline",
 		"PreferredCatalogLanguage"
 	},
 	ExtensionsSettings = {
+		"SourceLanguages",
 		"ExtensionRepos",
 		"CheckExtUpdatesAtStart",
 		"AutoUpdateExtensions",
@@ -291,6 +294,15 @@ function settings.load()
 				setSetting(new, "AutoDownloadNew", { true, false })
 				setSetting(new, "Incognito", { true, false })
 				setSetting(new, "ShowFPS", { true, false })
+				if type(new.ExtLanguages) == "table" then
+					local set = {}
+					for _, id in ipairs(SOURCE_LANG_GROUPS) do
+						if new.ExtLanguages[id] == true then
+							set[id] = true
+						end
+					end
+					settings.ExtLanguages = set
+				end
 				if type(new.Categories) == "table" then
 					settings.Categories = new.Categories
 				end
@@ -379,8 +391,63 @@ function settings.back()
 	end
 end
 
+---Applies a theme by name (used by the first-run setup too)
+function Settings.applyTheme(name)
+	setTheme(name)
+end
+
+---"EU" = X confirms, "JP" = O confirms
+function Settings.setKeyType(v)
+	settings.KeyType = v
+	SCE_CTRL_CROSS = v == "JP" and circle or cross
+	SCE_CTRL_CIRCLE = v == "JP" and cross or circle
+end
+
+---Checklist of the source languages kept active in Extensions and Browse (none ticked = all languages)
+function Settings.chooseSourceLanguages(onDone)
+	local LS = Language[settings.Language]
+	local items = {}
+	for _, g in ipairs(Screens.EXTENSIONS.langGroups()) do
+		local set = settings.ExtLanguages
+		items[#items + 1] = {label = LS.OTAKIO[g.label] or Language.English.OTAKIO[g.label] or g.id, value = g.id,
+			checked = type(set) == "table" and set[g.id] == true}
+	end
+	Dialog.checklist(LS.SETTINGS.SourceLanguages or Language.English.SETTINGS.SourceLanguages, items, function(result)
+		local set = {}
+		for _, item in ipairs(result) do
+			if item.checked then
+				set[item.value] = true
+			end
+		end
+		settings.ExtLanguages = set
+		Screens.EXTENSIONS.languagesChanged()
+		settings.save()
+		if onDone then
+			onDone()
+		end
+	end)
+end
+
+---Short text of the active source languages ("EN, PT" or "All")
+function Settings.sourceLanguagesText()
+	local LS = Language[settings.Language]
+	local out = {}
+	for _, id in ipairs(SOURCE_LANG_GROUPS) do
+		if type(settings.ExtLanguages) == "table" and settings.ExtLanguages[id] then
+			out[#out + 1] = string.upper(id)
+		end
+	end
+	if #out == 0 then
+		return LS.OTAKIO.ALL or "All"
+	end
+	return table.concat(out, ", ")
+end
+
 ---Table with Option Names and their Functions
 SettingsFunctions = {
+	SourceLanguages = function()
+		Settings.chooseSourceLanguages()
+	end,
 	Language = function()
 		local codes = {}
 		for k in pairs(Language) do
@@ -456,9 +523,7 @@ SettingsFunctions = {
 		ChapterSaver.clear()
 	end,
 	SwapXO = function()
-		settings.KeyType = table.next(settings.KeyType, { "JP", "EU" })
-		SCE_CTRL_CROSS = settings.KeyType == "JP" and circle or cross
-		SCE_CTRL_CIRCLE = settings.KeyType == "JP" and cross or circle
+		Settings.setKeyType(table.next(settings.KeyType, { "JP", "EU" }))
 	end,
 	PreferredCatalogLanguage = function()
 		settings.ParserLanguage = table.next(settings.ParserLanguage, GetParserLanguages())

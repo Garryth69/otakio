@@ -18,6 +18,37 @@ ButtonsIcons = {
 	L = Image:new(Graphics.loadImage("app0:assets/images/l_button.png"))
 }
 
+---Icon of a button, following the confirm-button setting (O confirms on Japanese consoles)
+function ButtonIcon(name)
+	if Settings.KeyType == "JP" then
+		if name == "Cross" then
+			return ButtonsIcons.Circle
+		elseif name == "Circle" then
+			return ButtonsIcons.Cross
+		end
+	end
+	return ButtonsIcons[name]
+end
+
+---Draws `{{button, text}, ...}` right-aligned so the last hint ends at `xRight` (same look as the hint bar)
+function DrawButtonHints(xRight, y, list, color)
+	local width = 0
+	for i, h in ipairs(list) do
+		local icon = ButtonIcon(h[1])
+		width = width + (icon and Graphics.getImageWidth(icon.e) + 4 or 0) + Font.getTextWidth(FONT13, h[2]) + (i > 1 and 16 or 0)
+	end
+	local x = xRight - width
+	for _, h in ipairs(list) do
+		local icon = ButtonIcon(h[1])
+		if icon then
+			Graphics.drawImage(x, y + 1, icon.e)
+			x = x + Graphics.getImageWidth(icon.e) + 4
+		end
+		Font.print(FONT13, x, y, h[2], color or COLOR_SUBFONT)
+		x = x + Font.getTextWidth(FONT13, h[2]) + 16
+	end
+end
+
 ---Hides Panel
 function Panel.hide()
 	if status ~= "SHOW" then
@@ -65,19 +96,14 @@ function Panel.draw()
 		local v = hints[i]
 		if hints[v] then
 			if ButtonsIcons[v] then
-				local icon = ButtonsIcons[v]
-				if v == "Cross" and Settings.KeyType == "JP" then
-					icon = ButtonsIcons.Circle
-				elseif v == "Circle" and Settings.KeyType == "JP" then
-					icon = ButtonsIcons.Cross
-				end
-				Graphics.drawImage(x, 526 + y, icon.e)
+				local icon = ButtonIcon(v)
+				Graphics.drawImage(x, 527 + y, icon.e)
 				x = x + Graphics.getImageWidth(icon.e) + 4
 			elseif v == "L\\R" then
-				Graphics.drawImage(x, 526 + y, ButtonsIcons.L.e)
-				x = x + 26
-				Graphics.drawImage(x, 526 + y, ButtonsIcons.R.e)
-				x = x + 28
+				Graphics.drawImage(x, 527 + y, ButtonsIcons.L.e)
+				x = x + Graphics.getImageWidth(ButtonsIcons.L.e) + 2
+				Graphics.drawImage(x, 527 + y, ButtonsIcons.R.e)
+				x = x + Graphics.getImageWidth(ButtonsIcons.R.e) + 4
 			else
 				Font.print(FONT13, x, 526 + y, v, hintColor)
 				x = x + Font.getTextWidth(FONT13, v) + 5

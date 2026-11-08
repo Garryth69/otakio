@@ -30,7 +30,30 @@ def build_script(steps, start=40, gap=12):
     return script, f + 60
 
 
+def _stress():
+    """Hours of use compressed: scroll a big catalog (many 'load more' pages), open/close many titles,
+    then read hundreds of pages across chapters. Run with --online --install <id>; watch the mem@ samples."""
+    steps = [("wait", 150), "R", "R", "R", ("wait", 20), "DOWN", "CROSS", ("wait", 400)]
+    for _ in range(6):
+        for _ in range(40):
+            steps += ["DOWN", ("wait", 4)]
+        steps += [("wait", 250)]
+    for _ in range(8):
+        steps += ["CROSS", ("wait", 350), "CIRCLE", ("wait", 40), "UP", "UP", "UP", "RIGHT"]
+    steps += ["CROSS", ("wait", 400), "DOWN", "CROSS", ("wait", 500)]
+    for _ in range(300):
+        steps += ["RIGHT", ("wait", 25)]
+    steps += ["CIRCLE", ("wait", 60), "CIRCLE", ("wait", 60)]
+    return steps
+
+
 SCENARIOS = {
+    "stress": _stress(),
+    # first run with --setup: language, active languages (tick a 2nd one), adult content, direction, orientation,
+    # confirm button, theme, then "Open Extensions"
+    "setup": [("wait", 60), "DOWN", "UP", "CROSS", ("wait", 20), "DOWN", "CROSS", "CIRCLE", ("wait", 20), "DOWN", "CROSS", ("wait", 20),
+              "CIRCLE", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20),
+              "CROSS", ("wait", 40), "CROSS", ("wait", 80)],
     # add a Mihon (APK) repository URL: Otakio reports which of its sources have Lua equivalents
     "mihonrepo": [("wait", 150), "R", "R", "R", "R", ("wait", 60), "SELECT", "DOWN", "DOWN", "CROSS", ("wait", 400), "SELECT", ("wait", 30)],
     # needs a data dir from 'browse' (--tmp): library grid, refresh/updates feed, history list, continue reading
@@ -131,6 +154,18 @@ class FS:
         except Exception:
             return ""
 
+    def extract(self, zpath, name, dst):
+        # stands in for System.extractFromZip(Async): one member of a zip/cbz to a file
+        import zipfile
+        try:
+            with zipfile.ZipFile(zpath) as z:
+                data = z.read(name)
+            with open(dst, "wb") as fh:
+                fh.write(data)
+            return True
+        except Exception:
+            return False
+
     def convert(self, src, dst, fmt):
         # stands in for the engine's System.convertImage (JPEG/PNG/WebP -> JPEG/PNG/WebP)
         try:
@@ -154,6 +189,8 @@ def main():
     ap.add_argument("--online", action="store_true", help="perform real HTTP requests")
     ap.add_argument("--tls12", action="store_true", help="emulate the old NOBORU engine (TLS 1.2 only)")
     ap.add_argument("--skip-starter", action="store_true", help="don't auto-install the first-run extensions")
+    ap.add_argument("--setup", action="store_true", help="show the first-run setup wizard (skipped by default)")
+    ap.add_argument("--inject-error", type=int, default=0, help="raise a Lua error inside Menu.update at this frame (tests the error barrier)")
     ap.add_argument("--install", default="", help="comma separated extension ids to install on first frame")
     ap.add_argument("--keyboard", default="one piece")
     ap.add_argument("--shots", default="", help="comma separated frame numbers to screenshot")
@@ -163,6 +200,9 @@ def main():
 
     tmp = args.tmp or tempfile.mkdtemp(prefix="otakio_sim_")
     os.makedirs(os.path.join(tmp, "ux0", "data"), exist_ok=True)
+    if not args.setup:
+        os.makedirs(os.path.join(tmp, "ux0", "data", "otakio"), exist_ok=True)
+        open(os.path.join(tmp, "ux0", "data", "otakio", ".setup_done"), "w").write("sim")
     if args.skip_starter:
         os.makedirs(os.path.join(tmp, "ux0", "data", "otakio"), exist_ok=True)
         open(os.path.join(tmp, "ux0", "data", "otakio", ".firstrun_v2"), "w").write("sim")
@@ -184,7 +224,7 @@ def main():
     # SIM table must exist before the mock body runs, so pass fs via a global first
     L.globals().PYFS = L.table_from({
         "isfile": fs.isfile, "isdir": fs.isdir, "mkdir": fs.mkdir, "remove": fs.remove,
-        "rmdir": fs.rmdir, "rename": fs.rename, "listdir": listdir, "listzip": fs.listzip, "convert": fs.convert,
+        "rmdir": fs.rmdir, "rename": fs.rename, "listdir": listdir, "listzip": fs.listzip, "convert": fs.convert, "extract": fs.extract,
     })
     mock(ROOT + "/tools/tests/vita_mock.lua", ROOT, tmp)
     sim = L.globals().SIM
@@ -193,10 +233,22 @@ def main():
     sim.keyboardText = args.keyboard
     if args.install:
         sim.install = L.table_from(args.install.split(","))
+    if args.inject_error:
+        sim.injectError = args.inject_error
     sys.path.insert(0, os.path.join(ROOT, "tools", "tests"))
     import render
     sim.textWidth = lambda size, bold, text: render.text_width(size, bold, text)
-    sim.imageSize = lambda path: render.image_size(path) if os.path.isfile(path) else (None, None)
+    import time as _t3
+    MOCKSTATS = {"s": 0.0}
+    globals()["MOCKSTATS"] = MOCKSTATS
+    def _image_size(path):
+        # PIL decode only emulates what the Vita does in its loader thread: keep it out of the frame time
+        t = _t3.perf_counter()
+        try:
+            return render.image_size(path) if os.path.isfile(path) else (None, None)
+        finally:
+            MOCKSTATS["s"] += _t3.perf_counter() - t
+    sim.imageSize = _image_size
     sim.onImageLoad = lambda img_id, path: render.snapshot(img_id, path) if args.shots and os.path.isfile(path) else None
     if args.shots:
         os.makedirs(args.outdir, exist_ok=True)
@@ -223,6 +275,9 @@ def main():
 
         def fetch(url, method=None, post=None, ctype=None, headers=(), ua=None):
             url = url.replace("%%", "%")  # lpp-vita un-escapes doubled percent signs
+            if not url and os.environ.get("SIM_TRACE_EMPTY"):
+                print("   EMPTY URL at frame", L.eval("SIM.frame"), L.eval("SIM.dumpTask()"), flush=True)
+                os._exit(3)
             # the patched engine sends the user agent chosen by the Lua side
             h = {"User-Agent": ua if (ua and not args.tls12) else UA}
             for line in headers:
@@ -246,6 +301,8 @@ def main():
                 body = b""
             stats["req"] += 1
             stats["bytes"] += len(body)
+            if os.environ.get("SIM_HTTP_LOG"):
+                print("   GET", len(body), url[:140], flush=True)
             return body
 
         def http(url, ua=None, method=None, post=None, ctype=None, cookie=None, h1=None, h2=None, h3=None, h4=None, *rest):
@@ -259,8 +316,17 @@ def main():
                 with open(path, "wb") as fh:
                     fh.write(body)
         sim.wifi = True
-        sim.http = http
-        sim.download = download
+        import time as _time
+        def _timed(fn):
+            def g(*a):
+                t = _time.perf_counter()
+                try:
+                    return fn(*a)
+                finally:
+                    stats["net_s"] = stats.get("net_s", 0.0) + _time.perf_counter() - t
+            return g
+        sim.http = _timed(http)
+        sim.download = _timed(download)
         sim.netstats = L.table_from(stats)
         globals()["NETSTATS"] = stats
     steps = SCENARIOS[args.scenario]
@@ -268,13 +334,95 @@ def main():
     lua_script = L.table_from({k: L.table_from({kk: (L.table_from(list(vv)) if isinstance(vv, tuple) else vv) for kk, vv in v.items()}) for k, v in script.items()})
     sim.script = lua_script
     sim.maxFrames = frames
+    import time as _t2
+    sim.now = _t2.perf_counter
+    sim.netSeconds = lambda: (globals().get("NETSTATS") or {}).get("net_s", 0.0) + globals()["MOCKSTATS"]["s"]
     L.execute("""
+        SIM.worst = {}
+        -- sampling profiler: every N VM instructions remember where the app is; slow frames keep their samples
+        local dbg = debug
+        SIM.samples = {}
+        dbg.sethook(function()
+            local info = dbg.getinfo(2, "Sl")
+            local where = info and (info.short_src:match("[^/]+$") or "?") .. ":" .. tostring(info.currentline) or "?"
+            -- the first app frame above the hook tells which function is busy
+            for level = 2, 12 do
+                local i2 = dbg.getinfo(level, "Sln")
+                if not i2 then break end
+                if i2.short_src:find("assets/libs") or i2.short_src:find("main.lua") or i2.short_src:find("extensions/") then
+                    where = (i2.short_src:match("[^/]+$") or "?") .. ":" .. tostring(i2.currentline) .. " " .. tostring(i2.name)
+                    break
+                end
+            end
+            SIM.samples[#SIM.samples + 1] = where
+        end, "", 20000)
         SIM.onFrame = function(frame)
+            -- frame time without the (synchronous, simulated) network: the Lua work the Vita would really do
+            local t, net = SIM.now(), SIM.netSeconds()
+            if SIM.lastT then
+                local dt = (t - SIM.lastT) - (net - SIM.lastNet)
+                if dt > 0.05 then
+                    local count = {}
+                    for _, w in ipairs(SIM.samples) do count[w] = (count[w] or 0) + 1 end
+                    local top = {}
+                    for w, n in pairs(count) do top[#top + 1] = {w, n} end
+                    table.sort(top, function(a, b) return a[2] > b[2] end)
+                    local hot = {}
+                    for k = 1, math.min(3, #top) do hot[#hot + 1] = top[k][1] .. " x" .. top[k][2] end
+                    SIM.worst[#SIM.worst + 1] = {dt, frame, tostring(Menu and Menu.getMode and Menu.getMode()) .. "/" .. tostring(AppMode) .. " [" .. table.concat(hot, "; ") .. "]"}
+                end
+            end
+            SIM.lastT, SIM.lastNet = t, net
+            SIM.samples = {}
             -- memory: Lua heap and GPU textures (current and peak)
             local kb = collectgarbage("count")
             if kb > (SIM.peakLua or 0) then SIM.peakLua = kb end
             local gpu = GetGPUMemoryUsed and GetGPUMemoryUsed() or 0
             if gpu > (SIM.peakGpu or 0) then SIM.peakGpu = gpu end
+            -- profile suspected heavy functions once the app is loaded: log calls slower than 20 ms (PC time)
+            if not SIM.profiled and Menu and Cache and Details then
+                SIM.profiled = true
+                local targets = {
+                    {Cache, "Cache", {"saveChapters", "save", "loadChapters", "addManga", "saveBookmarks", "makeHistory"}},
+                    {Database, "Database", {"save", "add", "remove"}},
+                    {ChapterSaver, "ChapterSaver", {"save", "load"}},
+                    {Details, "Details", {"setManga"}},
+                    {Html, "Html", {"parse"}},
+                    {Json, "Json", {"decode", "encode"}},
+                    {SourceStatus, "SourceStatus", {"save"}},
+                }
+                for _, t in ipairs(targets) do
+                    local tbl, tname, fns = t[1], t[2], t[3]
+                    if tbl then
+                        for _, fname in ipairs(fns) do
+                            local orig = tbl[fname]
+                            if type(orig) == "function" then
+                                tbl[fname] = function(...)
+                                    local t0, n0 = SIM.now(), SIM.netSeconds()
+                                    local r = {orig(...)}
+                                    local dt = (SIM.now() - t0) - (SIM.netSeconds() - n0)
+                                    if dt > 0.005 then
+                                        SIM.slow = SIM.slow or {}
+                                        local key = tname .. "." .. fname
+                                        local e = SIM.slow[key] or {n = 0, total = 0, max = 0}
+                                        e.n, e.total, e.max = e.n + 1, e.total + dt, math.max(e.max, dt)
+                                        SIM.slow[key] = e
+                                    end
+                                    return unpack(r)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            if SIM.injectError and frame == SIM.injectError and Menu then
+                local orig = Menu.update
+                Menu.update = function(...)
+                    Menu.update = orig
+                    error("injected test error")
+                end
+                SIM.log[#SIM.log + 1] = "inject@" .. frame
+            end
             if frame == 30 and SIM.install then
                 Backup.pendingExtensions = SIM.install
                 Extensions.refresh(true)
@@ -313,6 +461,10 @@ def main():
                 SIM.lastApp = AppMode
                 SIM.log[#SIM.log + 1] = "appmode@" .. frame .. ": " .. tostring(AppMode == 1 and "READER" or "MENU")
             end
+            if frame % 1000 == 0 then
+                SIM.log[#SIM.log + 1] = string.format("mem@%d: lua=%dKB gpu=%dKB threads=%d mode=%s", frame, collectgarbage("count"),
+                    math.floor((GetGPUMemoryUsed and GetGPUMemoryUsed() or 0) / 1024), Threads.getTasksNum(), tostring(Menu and Menu.getMode and Menu.getMode()))
+            end
             if AppMode == 1 and frame % 100 == 0 then
                 local pf = PYFS.listdir(SIM.mapPath("ux0:data/otakio/temp/prefetch")) or {}
                 SIM.log[#SIM.log + 1] = "reader@" .. frame .. ": threads=" .. Threads.getTasksNum() .. " prefetched=" .. #pf .. " gpu=" .. math.floor(GetGPUMemoryUsed() / 1024) .. "KB"
@@ -338,6 +490,16 @@ def main():
     if args.online:
         print("   network:", NETSTATS)
     print(f"scenario '{args.scenario}' OK: {sim.frame} frames, {sim.draws} rect draws")
+    worst = sorted([tuple(w.values()) for w in sim.worst.values()], key=lambda w: -w[0])[:6]
+    NL = chr(10) + " " * 6
+    if worst:
+        print("   worst frames (s, frame, mode [hot spots]):" + NL + NL.join("%.2f@%d %s" % (w[0], w[1], w[2]) for w in worst))
+    else:
+        print("   worst frames: none > 50 ms")
+    slow = sim.slow
+    if slow:
+        items = sorted(((k, v.n, v.total, v.max) for k, v in slow.items()), key=lambda x: -x[2])
+        print("   slow calls (>5 ms PC, ~150 ms Vita): " + ", ".join("%s x%d max %.2fs" % (k, n, mx) for k, n, tot, mx in items))
     print("   memory: lua now %.0f KB, lua peak %.0f KB, textures peak %.0f KB" % (L.eval('collectgarbage("count")'), sim.peakLua or 0, (sim.peakGpu or 0) / 1024))
     for line in list(sim.log.values()):
         print("  ", line)

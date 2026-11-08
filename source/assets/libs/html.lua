@@ -144,6 +144,40 @@ function Html.parse(html, baseUrl)
 	local len = #html
 	local tagCount = 0
 	local canYield = co_running() ~= nil
+	local lastYield = 1
+
+	---End of the tag starting at `p` (just after its name): the first '>' outside quoted attribute values.
+	---One pass; a quote that never closes is treated as a stray character.
+	local function tagEnd(p)
+		while true do
+			local q = find(html, "[\"'>]", p)
+			if not q then
+				return nil
+			end
+			local c = byte(html, q)
+			if c == 62 then -- >
+				return q
+			end
+			-- like browsers, a quote opens a value only right after "=" (spaces allowed): a stray quote inside an
+			-- attribute name (malformed `a="x"y"z"` attributes on real sites) must not swallow the rest of the page
+			local b = q - 1
+			local prev = byte(html, b)
+			while prev == 32 or prev == 9 or prev == 10 or prev == 13 do
+				b = b - 1
+				prev = byte(html, b)
+			end
+			if prev ~= 61 then -- not "="
+				p = q + 1
+			else
+				local close = find(html, c == 34 and '"' or "'", q + 1, true)
+				if close then
+					p = close + 1
+				else
+					p = q + 1
+				end
+			end
+		end
+	end
 
 	local function addText(text)
 		if text ~= "" then
@@ -209,24 +243,13 @@ function Html.parse(html, baseUrl)
 				pos = lt + 1
 			end
 		else
-			local s, e, tag, rest = find(html, "^<([%a][%w:%-]*)(.-)>", lt)
-			if not s then
+			local s, te, tag = find(html, "^<([%a][%w:%-]*)", lt)
+			local e = s and tagEnd(te + 1)
+			if not s or not e then
 				addText("<")
 				pos = lt + 1
 			else
-				-- handle '>' inside quoted attribute values
-				local q1 = select(2, gsub(rest, '"', ""))
-				local q2 = select(2, gsub(rest, "'", ""))
-				while (q1 % 2 == 1 or q2 % 2 == 1) do
-					local ne = find(html, ">", e + 1, true)
-					if not ne then
-						break
-					end
-					rest = sub(html, lt + 1 + #tag, ne - 1)
-					e = ne
-					q1 = select(2, gsub(rest, '"', ""))
-					q2 = select(2, gsub(rest, "'", ""))
-				end
+				local rest = sub(html, te + 1, e - 1)
 				tag = lower(tag)
 				pos = e + 1
 				local selfClosing = byte(rest, -1) == 47
@@ -266,7 +289,9 @@ function Html.parse(html, baseUrl)
 					top = el
 				end
 				tagCount = tagCount + 1
-				if canYield and tagCount % 600 == 0 then
+				-- give the frame back regularly: every 600 tags or 64 KB of markup
+				if canYield and (tagCount % 600 == 0 or pos - lastYield > 65536) then
+					lastYield = pos
 					co_yield(false)
 				end
 			end
@@ -991,7 +1016,11 @@ matchGroup = function(node, group)
 	return false
 end
 
+local WALK_YIELD = 3000 -- nodes visited between yields when a selector runs inside a coroutine
+
 local function walk(root, fn)
+	local canYield = co_running() ~= nil
+	local visited = 0
 	local stack = {}
 	local children = root.children
 	for i = #children, 1, -1 do
@@ -1001,6 +1030,10 @@ local function walk(root, fn)
 		local node = stack[#stack]
 		stack[#stack] = nil
 		if node.tag then
+			visited = visited + 1
+			if canYield and visited % WALK_YIELD == 0 then
+				co_yield(false)
+			end
 			if fn(node) then
 				return node
 			end

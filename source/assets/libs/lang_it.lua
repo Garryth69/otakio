@@ -41,6 +41,7 @@ Language.Italian = {
 		LOADING_PAGE = "Caricamento pagina", LOADING_SEGMENT = "Caricamento sezione", PREPARING_PAGES = "Preparazione pagine"
 	},
 	SETTINGS = {
+		SourceLanguages = "Lingue attive",
 		MainSettingsMenu = "Altro", Language = "Lingua", ChangeUI = "Tema", Library = "Libreria", Catalogs = "Sfoglia",
 		ExtensionsSettings = "Estensioni", Reader = "Lettore", Network = "Rete", Data = "Dati", Other = "Altro",
 		Controls = "Comandi", About = "Informazioni",
@@ -77,6 +78,10 @@ Language.Italian = {
 	THEME = {Otakio = "Otakio (viola scuro)", AMOLED = "Nero AMOLED", Dark = "Scuro", Ocean = "Oceano", Matcha = "Matcha", Crimson = "Cremisi", Sakura = "Sakura (chiaro)", Light = "Chiaro"},
 	WARNINGS = {NO_CHAPTERS = "Nessun capitolo"},
 	OTAKIO = {
+		REPO_UNOFFICIAL_Q = "Aggiungere un repository di terzi?", REPO_UNOFFICIAL_MSG = "Le estensioni sono codice eseguito nell'app.\nAggiungi solo repository di cui ti fidi.",
+		SETUP_INSTALL_RECOMMENDED = "Installa le fonti consigliate", SETUP_INSTALL_RECOMMENDED_SUB = "Aggiunge il repository Garryth69/otakio-extensions", RECOMMENDED_QUEUED = "Installazione di %d fonti consigliate", RECOMMENDED_NONE = "Nessuna fonte consigliata trovata (controlla la connessione)",
+		REMOVED_FROM_REPO = "Rimossa dal repository · funziona ancora, puoi disinstallarla",
+		SETUP_STEP = "Configurazione %d/%d", SETUP_LANG_HINT = "Lingua dei menu e dei pulsanti.", SETUP_EXTLANG_HINT = "Solo queste lingue compaiono in Estensioni e Sfoglia.\nNessuna selezionata = tutte le lingue.", SETUP_NSFW_HINT = "Le fonti per adulti restano nascoste a meno che tu non le consenta.", SETUP_DIRECTION_HINT = "Manga: da destra a sinistra. Fumetti: da sinistra a destra.\nWebtoon: dall'alto in basso.", SETUP_ORIENTATION_HINT = "Come tieni la Vita mentre leggi.", SETUP_KEYS_HINT = "Pulsante di conferma (l'altro torna indietro).", SETUP_DONE_TITLE = "Tutto pronto!", SETUP_DONE = "Ora installa le tue fonti in Estensioni.\nPuoi cambiare tutto dopo in Altro.", SETUP_OPEN_EXTENSIONS = "Apri Estensioni", SETUP_FINISH = "Fine",
 		NAV = {LIBRARY = "Libreria", UPDATES = "Novità", HISTORY = "Cronologia", BROWSE = "Sfoglia", EXTENSIONS = "Estensioni", DOWNLOADS = "Download", IMPORT = "Importa", MORE = "Altro"},
 		LIBRARY = "Libreria", UPDATES = "Novità", HISTORY = "Cronologia", BROWSE = "Sfoglia", EXTENSIONS = "Estensioni",
 		DOWNLOADS = "Download", IMPORT = "Importa", MORE = "Altro", GLOBAL_SEARCH = "Ricerca globale",
@@ -116,7 +121,7 @@ Language.Italian = {
 		INSTALLED = "Installate", AVAILABLE = "Disponibili", UPDATES_TAB = "Aggiornamenti", INSTALL = "Installa", UPDATE = "Aggiorna", INSTALLED_LABEL = "Installata",
 		UNINSTALL = "Disinstalla", UNINSTALL_Q = "Disinstallare %s?", OPEN_SOURCE = "Apri fonte", SOURCE_HIDDEN = "Fonte non disponibile (contenuti per adulti disattivati o estensione non caricata)",
 		EXT_INSTALLED = "%s installata", EXT_UPDATED = "%s aggiornata", EXT_UNINSTALLED = "%s disinstallata", EXT_INSTALL_FAILED = "Impossibile installare %s",
-		EXT_UPDATES_AVAILABLE = "Aggiornamenti delle estensioni disponibili: %d", NO_EXTENSIONS = "Nessuna estensione installata", NO_REPOS = "Nessun repository di estensioni", NO_REPOS_HINT = "Otakio non include fonti. Select > Aggiungi repository.", APP_UP_TO_DATE = "Otakio è aggiornato", APP_UPDATE_AVAILABLE = "Otakio %s disponibile", APP_UPDATE_Q = "Scaricare Otakio %s?", APP_UPDATE_HINT = "Il VPK va in ux0:/vpk/. Installalo con VitaShell; libreria e impostazioni restano.", APP_UPDATE_DOWNLOADING = "Download di Otakio %s...", APP_UPDATE_DONE = "Salvato in %s. Installalo con VitaShell.", APP_UPDATE_FAILED = "Impossibile cercare aggiornamenti", CHECKING = "Verifica...",
+		EXT_UPDATES_AVAILABLE = "Aggiornamenti delle estensioni disponibili: %d", NO_EXTENSIONS = "Nessuna estensione installata", NO_PAGES = "Questo capitolo non ha ancora pagine", ERROR_RECOVERED = "Qualcosa è andato storto, ritorno alla Libreria (dettagli in log.txt)", NO_REPOS = "Nessun repository di estensioni", NO_REPOS_HINT = "Otakio non include fonti. Select > Aggiungi repository.", APP_UP_TO_DATE = "Otakio è aggiornato", APP_UPDATE_AVAILABLE = "Otakio %s disponibile", APP_UPDATE_Q = "Scaricare Otakio %s?", APP_UPDATE_HINT = "Il VPK va in ux0:/vpk/. Installalo con VitaShell; libreria e impostazioni restano.", APP_UPDATE_DOWNLOADING = "Download di Otakio %s...", APP_UPDATE_DONE = "Salvato in %s. Installalo con VitaShell.", APP_UPDATE_FAILED = "Impossibile cercare aggiornamenti", CHECKING = "Verifica...",
 		NO_EXTENSIONS_HINT = "Quadrato passa alla scheda Disponibili.", ALL_UP_TO_DATE = "Tutto è aggiornato",
 		NOTHING_HERE = "Non c'è niente qui", CHANGE_FILTERS_HINT = "Prova un'altra lingua (Start) o cerca (△).",
 		SEARCH_EXTENSIONS = "Cerca estensioni", ALL_LANGUAGES = "Tutte le lingue", TAB = "Scheda", REPOSITORIES = "Repository",
@@ -124,6 +129,7 @@ Language.Italian = {
 		REPO_EXISTS = "Repository già aggiunto", REMOVE_REPO_Q = "Rimuovere %s?", REPO_BUILTIN = "Integrato · online", REPO_OFFLINE = "Integrato · copia offline",
 		REPO_MIHON = "Repo Mihon · %d fonti su %d funzionano in Otakio", REPO_NEEDS_UPDATE = "%s richiede un Otakio più recente", N_REPOS = "%d repository",
 		LANG_EN = "Inglese", LANG_PT = "Portoghese", LANG_ES = "Spagnolo", LANG_FR = "Francese", LANG_DE = "Tedesco", LANG_IT = "Italiano",
+		LANG_RU = "Russo", LANG_JA = "Giapponese", LANG_ZH = "Cinese",
 		LANG_MULTI = "Multilingua", LANG_OTHER = "Altre",
 		PROTECTED_CHAPTER = "Questo capitolo è protetto dal sito e non è ancora supportato",
 		-- importa

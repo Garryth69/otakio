@@ -249,6 +249,10 @@ function CreateManga(Name, Link, ImageLink, ParserID, RawLink, BrowserLink)
 end
 
 local CJK = {
+	{"　", "〿"}, -- CJK punctuation (、。「」)
+	{"！", "￯"}, -- full-width forms
+	{"가", "힯"}, -- Hangul syllables
+	{"ㄱ", "ㆎ"}, -- Hangul jamo
 	{"㌀", "㏿"},
 	{"︰", "﹏"},
 	{"豈", "﫿"},

@@ -1,3 +1,5 @@
+-- captured before the sandbox below removes `debug` (used by the error barrier at the end of this file)
+local traceback = debug.traceback
 loadlib("perf")
 loadlib("config")
 loadlib("image")
@@ -14,6 +16,7 @@ local doesDirExist = System.doesDirExist
 local listDirectory = System.listDirectory
 local createDirectory = System.createDirectory
 loadlib("utils")
+loadlib("sha256")
 loadlib("fs")
 loadlib("json")
 loadlib("html")
@@ -36,11 +39,13 @@ loadlib("database")
 loadlib("parser")
 loadlib("engines")
 loadlib("engines_extra")
+loadlib("engines_intl")
 loadlib("extensions")
 loadlib("sourcestatus")
 loadlib("appupdate")
 loadlib("updates")
 loadlib("dialog")
+loadlib("setup")
 loadlib("catalogs")
 loadlib("screens")
 loadlib("backup")
@@ -80,7 +85,7 @@ if doesDirExist(legacyPath) then
 	for i = 1, #files do
 		local file = files[i]
 		if not file.directory and file.name:find("%.lua$") then
-			local suc, err = pcall(dofile, legacyPath .. file.name)
+			local suc, err = pcall(RunSandboxed, legacyPath .. file.name)
 			if not suc then
 				Console.error("Can't load " .. legacyPath .. file.name .. ":" .. err)
 			end
@@ -100,6 +105,8 @@ local fonts = {
 }
 
 local FIRST_RUN_FLAG = "ux0:data/otakio/.firstrun_v2"
+-- fresh install: the first-run setup opens once the loading screen is gone
+local runSetup = false
 
 local function preloadData()
 	coroutine.yield("Loading settings")
@@ -112,6 +119,13 @@ local function preloadData()
 		local loadFontString = '1234567890AaBbCcDdEeFf\nGgHhIiJjKkLlMmNnOoPpQqRr\nSsTtUuVvWwXxYyZzАаБб\nВвГгДдЕеЁёЖжЗзИиЙйКкЛлМм\nНнОоПпРрСсТтУуФфХхЦцЧчШшЩщ\nЫыЪъЬьЭэЮюЯя!@#$%^&*()\n_+-=[]"\\/.,{}:;\'|? №~<>`\r—…·›✓↓♥⚠\nÁáÀàÂâÃãÉéÊêÍíÓóÔôÕõÚúÇç'
 		-- accents of the interface languages (French, German, Italian, Spanish)
 		loadFontString = loadFontString .. '\nÈèËëÎîÏïÛûÙùŒœÄäÖöÜüßÑñ¿¡«»„“”•'
+		-- Japanese / Chinese: kana and the ideograms of the interface, so the first screens don't stall on glyph loading
+		if Settings.Language == "Japanese" or Settings.Language == "ChineseSimplified" or Settings.Language == "ChineseTraditional" or (Settings.Language == "Default" and GetSystemLanguageName and GetSystemLanguageName():find("^[JC]")) then
+			loadFontString = loadFontString .. '\nあいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん' ..
+				'\nアイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲンー' ..
+				'\n书架浏览设置下载历史导入搜索書櫃瀏覽設定下載紀錄匯入搜尋章节章節話漫画漫畫最新热门熱門全部更新扩展擴充功能' ..
+				'\n設定履歴検索拡張機能読む続きライブラリ、。「」（）！？：'
+		end
 		for langName, _ in pairs(Language) do
 			loadFontString = loadFontString .. (LanguageNames and LanguageNames[langName] and LanguageNames[langName][langName] or "")
 		end
@@ -154,6 +168,7 @@ local function preloadData()
 	coroutine.yield("Checking for updates")
 	-- first run starts with no extensions: the user picks the sources in the Extensions tab
 	if not FS.exists(FIRST_RUN_FLAG) then
+		runSetup = Setup.needed(true)
 		FS.write(FIRST_RUN_FLAG, Config.VERSION_NAME)
 		Extensions.refresh(true)
 	elseif Settings.CheckExtUpdatesAtStart then
@@ -200,6 +215,10 @@ while coroutine.status(f) ~= "dead" do
 	Screen.flip()
 end
 Timer.destroy(LoadingTimer)
+
+if runSetup then
+	Setup.start()
+end
 
 if Settings.RefreshLibAtStart then
 	ParserManager.updateCounters()
@@ -332,8 +351,50 @@ end
 
 LAUNCHED = true
 
-while true do
+-- Error barrier: a Lua error in one screen (or in an extension's callback) no longer closes the app. The error goes
+-- to log.txt, the reader/dialogs close, textures are released and the app returns to the Library. If errors keep
+-- coming back-to-back the original error is raised (the app would only loop on a broken state).
+local recoverTimer = Timer.new()
+local recoveries = 0
+
+local function recover(err)
+	if type(err) == "string" and err:find("SIM_DONE", 1, true) then
+		error(err, 0) -- the PC simulator ending a scenario
+	end
+	if DRAW_PHASE then
+		pcall(Graphics.termBlend)
+		pcall(Screen.flip)
+	end
+	if Timer.getTime(recoverTimer) > 10000 then
+		recoveries = 0
+	end
+	Timer.reset(recoverTimer)
+	recoveries = recoveries + 1
+	if ExtLog then
+		pcall(ExtLog, "recovered from error: " .. tostring(err):sub(1, 600))
+	end
+	Console.error(err)
+	if recoveries > 5 then
+		error(err, 0)
+	end
+	pcall(Dialog.close)
+	if AppMode == READER then
+		AppMode = MENU
+	end
+	pcall(Textures.reclaim, math.huge)
+	pcall(Menu.setMode, "LIBRARY")
+	pcall(Notifications.push, Language[Settings.Language].OTAKIO.ERROR_RECOVERED or "Something went wrong; back to the Library")
+end
+
+local function frame()
 	input()
 	update()
 	draw()
+end
+
+while true do
+	local ok, err = xpcall(frame, traceback)
+	if not ok then
+		recover(err)
+	end
 end

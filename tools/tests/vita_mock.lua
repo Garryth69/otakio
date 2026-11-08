@@ -1,7 +1,7 @@
 -- Headless mock of the LuaPlayerPlus Vita API used by Otakio.
 -- Lets the whole app boot and run frame-by-frame on a PC under LuaJIT.
 local ROOT, TMP = ...
-SIM = {frame = 0, maxFrames = 600, script = {}, keyboardText = "", log = {}, draws = 0, wifi = false}
+SIM = {trace = debug.traceback, frame = 0, maxFrames = 600, script = {}, keyboardText = "", log = {}, draws = 0, wifi = false}
 
 local function mapPath(p)
 	if type(p) ~= "string" then
@@ -125,8 +125,24 @@ Graphics = {
 		f:close()
 		return newImage(64, 64, mapPath(path))
 	end,
-	loadImageAsync = function(path, scale) asyncResult = newImage(160, 240, mapPath(path)) end,
-	loadPartImageAsync = function(path) asyncResult = newImage(160, 240) end,
+	-- like lpp-vita: the decoder downscales by `scale` (power of two)
+	loadImageAsync = function(path, scale)
+		local id = newImage(160, 240, mapPath(path))
+		scale = scale or 1
+		if scale > 1 then
+			images[id].w = math.ceil(images[id].w / scale)
+			images[id].h = math.ceil(images[id].h / scale)
+		end
+		asyncResult = id
+	end,
+	-- a slice of a tall image; slices taller than the 4096 px texture limit come back at half size
+	loadPartImageAsync = function(path, x, y, w, h)
+		w, h = w or 160, h or 240
+		if h > 4096 then
+			w, h = math.ceil(w / 2), math.ceil(h / 2)
+		end
+		asyncResult = newImage(w, h)
+	end,
 	loadGifAsync = function(path) asyncResult = nil end,
 	returnGif = function() return nil end,
 	getImageWidth = function(img) return images[img] and images[img].w or 0 end,
@@ -136,7 +152,8 @@ Graphics = {
 		images[img] = nil
 	end,
 	setImageFilters = function() end,
-	getFreeMemory = function() return 64 * 1024 * 1024 end,
+	-- the Vita has roughly 112 MB for textures once the app is running
+	getFreeMemory = function() return math.max(0, 112 * 1024 * 1024 - (GetGPUMemoryUsed and GetGPUMemoryUsed() or 0)) end,
 	initRescaler = function() end,
 	termRescaler = function() end
 }
@@ -269,6 +286,13 @@ System = {
 	statFile = function(p) return {directory = SIM.fs.isdir(mapPath(p))} end,
 	getPictureResolution = function(p)
 		if SIM.fs.isfile(mapPath(p)) then
+			local w, h = nil, nil
+			if SIM.imageSize then
+				w, h = SIM.imageSize(mapPath(p))
+			end
+			if w and w > 0 then
+				return w, h
+			end
 			return 160, 240
 		end
 		return -1, -1
@@ -293,8 +317,8 @@ System = {
 	getAsyncState = function() return 1 end,
 	getAsyncResult = function() local r = asyncResult asyncResult = nil return r end,
 	extractZipAsync = function() end,
-	extractFromZipAsync = function() end,
-	extractFromZip = function() end,
+	extractFromZipAsync = function(zip, name, dst) PYFS.extract(mapPath(zip), name, mapPath(dst)) end,
+	extractFromZip = function(zip, name, dst) return PYFS.extract(mapPath(zip), name, mapPath(dst)) end,
 	listZip = function(p)
 		local out = {}
 		for name in tostring(SIM.fs.listzip and SIM.fs.listzip(mapPath(p)) or ""):gmatch("[^\n]+") do
@@ -352,3 +376,28 @@ Keyboard = {
 }
 
 Sound = {}
+
+-- debugging aid: fields of the Threads task being started (finds the net.lua 'start' frame)
+local dbg = debug
+function SIM.dumpTask()
+	for level = 2, 30 do
+		local info = dbg.getinfo(level, "S")
+		if not info then break end
+		if info.short_src:find("net.lua", 1, true) then
+			local name, task = dbg.getlocal(level, 1)
+			if name == "task" and type(task) == "table" then
+				local out = {}
+				for k, v in pairs(task) do
+					if type(v) ~= "function" then out[#out + 1] = tostring(k) .. "=" .. tostring(v) end
+				end
+				local tb = task.Table
+				if type(tb) == "table" then
+					for k, v in pairs(tb) do out[#out + 1] = "Table." .. tostring(k) .. "=" .. tostring(v) end
+					if type(tb[1]) == "table" then for k, v in pairs(tb[1]) do out[#out + 1] = "Table[1]." .. tostring(k) .. "=" .. tostring(v) end end
+				end
+				return table.concat(out, "\n")
+			end
+		end
+	end
+	return "?"
+end

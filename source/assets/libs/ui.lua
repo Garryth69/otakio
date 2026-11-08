@@ -54,6 +54,8 @@ function UI.roundOutline(x0, y0, x1, y1, r, color, thickness)
 end
 
 local ellipsisCache = setmetatable({}, {__mode = "k"})
+local ellipsisCount = 0
+local ELLIPSIS_MAX = 2000 -- long sessions scroll through thousands of titles: keep the cache bounded
 
 ---Returns `text` cut with "…" to fit `maxWidth`
 function UI.ellipsize(font, text, maxWidth)
@@ -85,6 +87,13 @@ function UI.ellipsize(font, text, maxWidth)
 		end
 	end
 	local result = table.concat(chars, "", 1, lo) .. "…"
+	ellipsisCount = ellipsisCount + 1
+	if ellipsisCount > ELLIPSIS_MAX then
+		ellipsisCache = setmetatable({}, {__mode = "k"})
+		ellipsisCount = 0
+		fc = {}
+		ellipsisCache[font] = fc
+	end
 	fc[key] = result
 	return result
 end

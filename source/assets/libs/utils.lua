@@ -67,6 +67,14 @@ utf8ascii = {
 	["я"] = "%%FF"
 }
 
+---Folder/file key safe on every file system: bytes outside ASCII (Japanese, Chinese, Cyrillic links) become hex.
+---ASCII keys are returned unchanged, so existing libraries keep their folders.
+function AsciiKey(s)
+	return (string.gsub(s, "[\128-\255]", function(c)
+		return string.format("%02x", string.byte(c))
+	end))
+end
+
 function it_utf8(str)
 	return string.gmatch(str, "([%z\1-\127\194-\244][\128-\191]*)")
 end
@@ -95,6 +103,9 @@ end
 function table.serialize(t, fast)
 	local concat = table.concat
 	local type = type
+	-- inside a coroutine (background saves) big tables give the frame back every few hundred entries
+	local canYield = coroutine.running() ~= nil
+	local entries = 0
 	-- Escape every control character: descriptions with "\r\n" used to produce
 	-- files that `load` could not read back (broken chapter caches / libraries).
 	local function quote(str)
@@ -112,6 +123,10 @@ function table.serialize(t, fast)
 	local function serialize(_t, _tab)
 		local P = {}
 		for k, v in pairs(_t) do
+			entries = entries + 1
+			if canYield and entries % 400 == 0 then
+				coroutine.yield(false)
+			end
 			local key
 			if type(k) == "string" then
 				if fast or not k:find("^[%a_][%w_]-$") then

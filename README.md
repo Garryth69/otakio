@@ -1,137 +1,163 @@
 # Otakio
 
-**Leitor de mangá para PS Vita** — biblioteca, leitor, downloads offline, importação de arquivos `.cbz`/`.zip` e backup.
-Fork do [NOBORU](https://github.com/Creckeryop/NOBORU), com recursos inspirados no [Mihon](https://github.com/mihonapp/mihon).
+**Manga reader for the PS Vita**: library, reader, offline downloads, `.cbz`/`.zip` import and backups.
+A fork of [NOBORU](https://github.com/Creckeryop/NOBORU), with features inspired by [Mihon](https://github.com/mihonapp/mihon).
 
-Interface em português, inglês, espanhol, francês, alemão e italiano.
-
-> *English:* Otakio is a manga reader for the PS Vita (homebrew, fork of NOBORU). The app ships **without any content
-> sources**. Sources are optional extensions installed from an extension repository the user adds. See
-> [Extensions](#extensões) and [Legal notice](#aviso-legal).
+Interface in English, Portuguese (Brazil), Spanish, French, German, Italian, Russian, Japanese and Chinese
+(Simplified and Traditional).
 
 ---
 
-## Aviso legal
+## Legal notice
 
-- O Otakio é **apenas um leitor**. Ele **não hospeda, não distribui e não inclui** nenhum mangá, HQ ou imagem.
-- O app **não vem com fontes/extensões**. Ele só mostra conteúdo de repositórios de extensões que **o próprio usuário
-  escolhe adicionar**, do mesmo jeito que o Mihon/Tachiyomi.
-- Este repositório não tem nenhuma afiliação com os sites, editoras ou autores das obras.
-- Você é responsável pelo que acessa. Apoie os autores: compre as edições oficiais e use os serviços oficiais
-  (MANGA Plus, Webtoons, Comics Kingdom, editoras locais etc.).
+- Otakio is **only a reader**. It does **not host, distribute or include** any manga, comics or images.
+- The app **ships without content sources**. It only shows content from extension repositories that **the user chooses
+  to add**, the same way Mihon/Tachiyomi work.
+- This project has no affiliation with the websites, publishers or authors of the works.
+- You are responsible for what you access. Support the authors: buy official releases and use official services
+  (MANGA Plus, Webtoons, Comics Kingdom, local publishers, etc.).
 
-## Instalação
+## Installation
 
-1. Baixe o `Otakio-x.y.vpk` da página [Releases](../../releases) e instale pelo **VitaShell** (o Vita precisa de
+1. Download `Otakio-x.y.vpk` from [Releases](../../releases) and install it with **VitaShell** (the Vita needs
    HENkaku/Ensō).
-2. Abra o Otakio. Na primeira vez a aba **Extensões** está vazia: o app não traz nenhuma fonte.
-3. Adicione um repositório de extensões (veja abaixo) e instale as fontes que quiser.
+2. Open Otakio. A short setup runs on the first launch. It covers the app language, the languages you read, adult
+   content, reading direction, orientation, confirm button and theme.
+3. On its last screen, **Install recommended sources** adds the
+   [Otakio extension repository](https://github.com/Garryth69/otakio-extensions) and installs its own sources for the
+   languages you picked. You can skip this and add any repository later.
 
-Os seus dados ficam em `ux0:data/otakio/` e **não são apagados** quando você instala uma versão nova por cima.
+Your data lives in `ux0:data/otakio/` and is **kept** when you install a new version on top.
 
-## Extensões
+## Extensions
 
-As fontes são pequenos arquivos Lua publicados em um *repositório de extensões* (um `index.json` + arquivos
-`.lua`). O repositório de extensões do projeto é o
-**[Garryth69/otakio-extensions](https://github.com/Garryth69/otakio-extensions)**, mantido separado do app.
+Sources are small Lua files published in an *extension repository* (an `index.json` plus `.lua` files). The project's
+repository is **[Garryth69/otakio-extensions](https://github.com/Garryth69/otakio-extensions)**, kept separate from the
+app.
 
-Para adicionar um repositório no Vita:
+To add a repository on the Vita:
 
-1. Vá em **Extensões** e aperte **Select** (ou Mais → Configurações → Extensões → Repositórios).
-2. Escolha **Adicionar repositório** e digite só `usuario/repositorio`, por exemplo `Garryth69/otakio-extensions`.
-   Também é aceito o endereço completo de qualquer `index.json`.
-3. A aba **Disponíveis** passa a listar as fontes. **Start** troca o idioma; **X** instala.
+1. Open **Extensions** and press **Select**, or go to More → Extensions → Repositories.
+2. Choose **Add repository** and type `user/repository`, e.g. `Garryth69/otakio-extensions`. A full URL to any
+   `index.json` also works.
+3. The **Available** tab lists the sources. **Start** switches language and **X** installs.
 
-Cada fonte tem uma bolinha de status: **verde** funciona, **amarela** está instável, **vermelha** não funciona. O
-status se atualiza sozinho (as fontes instaladas são testadas ao abrir o app e conforme você lê). Quando o
-repositório publica versões novas das extensões, a aba **Atualizações** avisa.
+**Active languages** (in the setup, or More → Browse / Extensions) decide which languages appear as tabs in Extensions
+and in Browse.
 
-Repositórios no formato do Mihon (APKs Android) podem ser adicionados, mas as extensões deles não rodam no Vita: o
-app só indica quantas daquelas fontes já têm equivalente em Lua.
+Each source has a status dot:
+- **green** works;
+- **yellow** is unstable;
+- **red** doesn't work.
 
-## Atualizações do app
+The status updates itself: installed sources are checked when the app starts and while you read. When the repository
+publishes newer versions, the **Updates** tab tells you. A source that was removed from its repository keeps working,
+but shows *Removed from repository* so you can uninstall it.
 
-O Otakio consulta a última versão publicada em [Releases](../../releases) ao abrir (se houver internet) e avisa
-quando existe uma versão nova. Em **Mais → Configurações → Sobre → Verificar atualização do app** você baixa o VPK
-novo direto para `ux0:/vpk/`; depois é só instalar pelo VitaShell. Biblioteca e configurações são mantidas.
+**Safety:**
+- every file the official repository publishes is pinned by its SHA-256 in `index.json`, and a download that doesn't
+  match is refused;
+- extensions run in a sandbox: no file access, no app data, read-only settings;
+- adding a third-party repository asks for confirmation.
 
-## Recursos
+**Manual extensions (optional):**
+- copy a `.lua` extension to `ux0:data/otakio/extensions/manual/` and it loads on the next start, labelled *Manual*;
+- it needs a header such as `-- @id my.source`, `-- @name My Source`, `-- @lang en`;
+- the app never updates or replaces manual extensions.
 
-- Biblioteca com categorias, filtros e verificação de capítulos novos.
-- Busca dentro de cada fonte (**Triângulo** no catálogo) e busca global.
-- Downloads para ler offline; a aba **Downloads** mostra a fila e tudo que já foi baixado.
-- Importação de arquivos próprios: copie `.cbz`, `.zip` ou pastas de imagens para `ux0:data/otakio/import/`.
-- Backup e restauração (Mais → Dados): biblioteca, progresso, histórico, categorias, repositórios e extensões.
-- Importação dos dados do NOBORU, se existir `ux0:data/noboru/`.
-- Salvar a página atual como PNG, JPEG ou WebP.
-- Motor com TLS 1.3 e WebP nativos.
+Mihon-format repositories (Android APKs) can be added too. Their extensions don't run on the Vita: the app only reports
+how many of those sources already have a Lua equivalent.
 
-## Problemas
+## App updates
 
-`ux0:data/otakio/log.txt` registra o carregamento das extensões, as instalações e os erros. Anexe esse arquivo ao
-abrir uma [issue](../../issues).
+When there is internet, Otakio checks the latest version in [Releases](../../releases) at startup and tells you when a
+new one exists. **More → About → Check for app updates** downloads the new VPK straight to `ux0:/vpk/`; install it with
+VitaShell. Your library and settings are kept.
 
-## Desenvolvimento
+## Features
 
-Estrutura:
+- Library with categories, filters and new-chapter checks.
+- Search inside each source (**Triangle** in a catalog) and global search.
+- Offline downloads; the **Downloads** tab shows the queue and everything already downloaded.
+- Import your own files: copy `.cbz`, `.zip` or image folders to `ux0:data/otakio/import/`.
+- Backup and restore (More → Data): library, progress, history, categories, repositories and extensions.
+- Import NOBORU data if `ux0:data/noboru/` exists.
+- Save the current page as PNG, JPEG or WebP.
+- Engine with native TLS 1.3 and WebP.
+- No telemetry: nothing about you or your reading is sent anywhere.
 
-| Pasta | Conteúdo |
+## Troubleshooting
+
+`ux0:data/otakio/log.txt` records extension loading, installs and errors. Attach it when you open an
+[issue](../../issues).
+
+## Development
+
+Layout:
+
+| Folder | Contents |
 |---|---|
-| `source/` | o app (Lua) + `eboot.bin` (motor) + `sce_sys/` (ícone e LiveArea) |
-| `engine/` | patches e script para recompilar o motor lpp-vita (ver `docs/ENGINE_REBUILD.md`) |
-| `tools/` | gerador do VPK, gerador do catálogo de extensões, testador de fontes e simulador do Vita |
-| `repo/` | **não faz parte deste repositório**: é o clone do repositório de extensões |
+| `source/` | the app (Lua) + `eboot.bin` (engine) + `sce_sys/` (icon and LiveArea) |
+| `engine/` | patches and script to rebuild the lpp-vita engine (see `docs/ENGINE_REBUILD.md`) |
+| `tools/` | VPK builder, extension catalog generator, source tester and Vita simulator |
+| `repo/` | **not part of this repository**: a clone of the extension repository |
 
-Comandos (Python 3 + `pip install lupa pillow`):
+Commands (Python 3 + `pip install lupa pillow`):
 
-| Comando | O que faz |
+| Command | What it does |
 |---|---|
-| `python tools/build_vpk.py --name Otakio-1.0.vpk` | checa a sintaxe Lua e gera o VPK de lançamento (sem extensões) |
-| `python tools/build_vpk.py --with-catalog` | VPK de teste com o catálogo de `source/repo/` embutido |
-| `python tools/tests/sim.py <cenário> [--online] [--shots 100,200]` | roda o app inteiro num Vita simulado e tira screenshots |
-| `python tools/run_lua.py tools/tests/test_core.lua` | testes de JSON, HTML e serialização |
-| `python tools/gen_assets.py` | gera ícones, logo e LiveArea |
+| `python tools/build_vpk.py --name Otakio-1.0.vpk` | checks the Lua syntax and builds the release VPK (no extensions) |
+| `python tools/build_vpk.py --with-catalog` | test VPK with the catalog from `source/repo/` bundled |
+| `python tools/tests/sim.py <scenario> [--online] [--shots 100,200]` | runs the whole app on a simulated Vita and takes screenshots |
+| `python tools/run_lua.py tools/tests/test_core.lua` | JSON, HTML and serialization tests |
+| `python tools/gen_assets.py`, `python tools/gen_buttons.py` | generate the icons, logo, LiveArea and button glyphs |
 
-Para mexer nas extensões, clone o repositório de extensões dentro da pasta `repo/`:
+To work on extensions, clone the extension repository into `repo/`:
 
 ```
 git clone https://github.com/Garryth69/otakio-extensions repo
 ```
 
-Depois:
+Then:
 
-| Comando | O que faz |
+| Command | What it does |
 |---|---|
-| `python tools/gen_repo.py --kei <dir> --noboru <dir> [...] [--probe]` | gera o catálogo `repo/` a partir dos temas do keiyoushi, dos parsers do NOBORU e das extensões nativas de `repo/native/` |
-| `python tools/probe_sources.py [--ids arquivo]` | testa as fontes ao vivo e grava `repo/health.json` |
-| `python tools/trace_source.py <id>` | mostra cada requisição HTTP que uma extensão faz |
+| `python tools/gen_repo.py --kei <dir> --noboru <dir> [...] [--probe]` | builds the `repo/` catalog from keiyoushi themes, NOBORU parsers and the native extensions in `repo/native/` |
+| `python tools/probe_sources.py [--ids file]` | tests sources live and writes `repo/health.json` |
+| `python tools/prune_repo.py --kei <dir>` | follows keiyoushi removals and domain changes, and drops sources dead for 180+ days |
+| `python tools/trace_source.py <id>` | prints every HTTP request an extension makes |
 
-### Publicar uma versão nova
+### Releasing a new version
 
-1. Aumente `VERSION`/`VERSION_NAME` em `source/assets/libs/config.lua` e `APP_VER` em `tools/build_vpk.py`.
-2. `python tools/build_vpk.py --name Otakio-X.Y.vpk`
-3. Crie a release `vX.Y` com o VPK anexado:
-   `gh release create vX.Y build/Otakio-X.Y.vpk --title "Otakio X.Y" --notes "..."`
+1. Bump `VERSION`/`VERSION_NAME` in `source/assets/libs/config.lua`: the only place the version lives
+   (`build_vpk.py` derives the `param.sfo` `APP_VER` from it).
+2. Add a section for the version to [CHANGELOG.md](CHANGELOG.md).
+3. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`. The release workflow builds the VPK and publishes the
+   release with the changelog section as its notes. Manual alternative: `python tools/build_vpk.py`, then
+   `gh release create vX.Y.Z build/Otakio-X.Y.Z.vpk`.
 
-O app compara a tag da release mais recente com a própria versão e oferece o download do `.vpk` anexado.
+The app compares the latest release tag with its own version and offers to download the attached `.vpk`.
 
-> Enquanto este repositório estiver **privado**, o Vita não consegue consultar as releases (a API do GitHub exige
-> login para repositórios privados). A atualização automática passa a funcionar quando o repositório for público.
+## License
 
-## Licença
+**GPLv3** ([LICENSE](LICENSE)), the same license as NOBORU, which Otakio was forked from. Anyone distributing the VPK must
+also make the source code available, including the engine changes.
 
-**GPLv3** ([LICENSE](LICENSE)), a mesma do NOBORU, do qual o Otakio é um fork. Quem distribuir o VPK deve
-disponibilizar também o código-fonte, incluindo as mudanças no motor em `engine/patches/`.
+**Engine source:** `eboot.bin` is lpp-vita with Otakio's changes (TLS 1.3, WebP, image conversion). The changes are in
+[`engine/patches/`](engine/patches) and, as commits, in the fork
+[Garryth69/lpp-vita](https://github.com/Garryth69/lpp-vita) (branch `otakio`, see its `BUILDING.md`).
 
-Os motores de tema em `source/assets/libs/engines.lua` e `engines_extra.lua` adaptam para Lua a lógica dos temas do
-[keiyoushi/extensions-source](https://github.com/keiyoushi/extensions-source), distribuídos sob a
-[Licença Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+The theme engines in `source/assets/libs/engines.lua`, `engines_extra.lua` and `engines_intl.lua` adapt to Lua the theme
+logic of [keiyoushi/extensions-source](https://github.com/keiyoushi/extensions-source), licensed under the
+[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 
-## Créditos
+## Credits
 
-- **Autor:** Garryth69. O desenvolvimento foi feito com auxílio de IA, o Claude (Anthropic).
-- **NOBORU**, de [Creckeryop](https://github.com/Creckeryop): leitor original e fork do motor.
-- **Motor:** [lpp-vita](https://github.com/Rinnegatamante/lpp-vita) (Rinnegatamante), VitaSDK, vita2d (xerpi),
-  LuaJIT, curl, OpenSSL, libpng, libjpeg e libwebp.
-- **Temas de fontes:** comunidade [Mihon](https://github.com/mihonapp/mihon) e [keiyoushi](https://github.com/keiyoushi).
-- **Traduções originais do NOBORU:** SamuEDL, theHeroGAC, Rinnegatamante, Samilop Iter, lukrynka e rutantan.
+- **Author:** Garryth69, with AI assistance (Claude, by Anthropic).
+- **NOBORU** by [Creckeryop](https://github.com/Creckeryop): the original reader and engine fork.
+- **Engine:** [lpp-vita](https://github.com/Rinnegatamante/lpp-vita) (Rinnegatamante), VitaSDK, vita2d (xerpi),
+  LuaJIT, curl, OpenSSL, libpng, libjpeg and libwebp.
+- **Source themes:** the [Mihon](https://github.com/mihonapp/mihon) community and [keiyoushi](https://github.com/keiyoushi).
+- **Logo title font:** [Fredoka](https://github.com/hafontia/Fredoka-One), SIL Open Font License 1.1.
+- Full list of components and licenses: [NOTICE.md](NOTICE.md).
+- **Original NOBORU translations:** SamuEDL, theHeroGAC, Rinnegatamante, Samilop Iter, lukrynka and rutantan.

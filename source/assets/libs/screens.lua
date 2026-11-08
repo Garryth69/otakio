@@ -457,7 +457,10 @@ local LANG_GROUPS = {
 	{id = "es", label = "LANG_ES", codes = {es = true, ["es-419"] = true}},
 	{id = "fr", label = "LANG_FR", codes = {fr = true}},
 	{id = "de", label = "LANG_DE", codes = {de = true}},
-	{id = "it", label = "LANG_IT", codes = {it = true}}
+	{id = "it", label = "LANG_IT", codes = {it = true}},
+	{id = "ru", label = "LANG_RU", codes = {ru = true}},
+	{id = "ja", label = "LANG_JA", codes = {ja = true}},
+	{id = "zh", label = "LANG_ZH", codes = {zh = true, ["zh-Hans"] = true, ["zh-Hant"] = true, ["zh-hans"] = true, ["zh-hant"] = true}}
 }
 -- multi-language sources (MangaDex, Webtoons…) have no chip: they show up under every language
 local MULTI_GROUP = {id = "all", label = "LANG_MULTI", codes = {all = true, multi = true}}
@@ -475,8 +478,43 @@ local function groupOf(lang)
 	return {id = "other", label = "LANG_OTHER"}, #LANG_GROUPS + 1
 end
 
+---Chips of the language groups the user keeps active (More > Source languages); "All" is always first
+local function activeGroups()
+	local out = {}
+	for i, g in ipairs(LANG_GROUPS) do
+		if i == 1 or IsSourceLangEnabled(g.id) then
+			out[#out + 1] = g
+		end
+	end
+	return out
+end
+
+---Chip text of a language group: the full name, or its short code when all chips don't fit in one row
+local chipFits = {}
+local function langChipLabel(g)
+	local groups = activeGroups()
+	local key = Settings.Language .. ":" .. #groups
+	for _, x in ipairs(groups) do
+		key = key .. x.id
+	end
+	if chipFits[key] == nil then
+		local full = 0
+		for _, x in ipairs(groups) do
+			full = full + Font.getTextWidth(FONT16, L()[x.label]) + 32
+		end
+		chipFits[key] = full <= X1 - X0
+	end
+	if chipFits[key] or g.id == "*" then
+		return L()[g.label]
+	end
+	return string.upper(g.id)
+end
+
 local function langMatches(lang)
 	local id = groupOf(lang).id
+	if id ~= "all" and not IsSourceLangEnabled(id) then
+		return false
+	end
 	return Ext.lang == "*" or id == Ext.lang or id == "all"
 end
 
@@ -550,7 +588,30 @@ local function setLangGroup(id)
 	Ext.version = -1
 end
 
+---Language groups for the setup / settings checklist (without "All")
+function Ext.langGroups()
+	local out = {}
+	for i = 2, #LANG_GROUPS do
+		out[#out + 1] = LANG_GROUPS[i]
+	end
+	out[#out + 1] = {id = "other", label = "LANG_OTHER"}
+	return out
+end
+
+---Called after the active languages change: drop a chip that is no longer shown
+function Ext.languagesChanged()
+	if Ext.lang ~= "*" and not IsSourceLangEnabled(Ext.lang) then
+		Ext.lang = "*"
+	end
+	Ext.list:reset()
+	Ext.version = -1
+	ChangeNSFW()
+end
+
 function Ext.onEnter()
+	if Ext.lang ~= "*" and not IsSourceLangEnabled(Ext.lang) then
+		Ext.lang = "*"
+	end
 	Extensions.refresh(false)
 	Ext.version = -1
 end
@@ -560,7 +621,7 @@ local function extAction(e)
 		return
 	end
 	if not e.installed then
-		if not Threads.netActionUnSafe(Network.isWifiEnabled) and not (e.source or ""):find("^app0:") then
+		if not Threads.isOnline() and not (e.source or ""):find("^app0:") then
 			Notifications.push(Language[Settings.Language].SETTINGS.NoConnection)
 			return
 		end
@@ -621,8 +682,16 @@ function Ext.repoMenu()
 		elseif item.value == "add" then
 			local url = TextInput(L().REPO_URL, "", 256, TYPE_LATIN)
 			if url and url ~= "" and url ~= "https://" then
-				if not Extensions.addRepo(url) then
-					Notifications.push(L().REPO_EXISTS)
+				local function add()
+					if not Extensions.addRepo(url) then
+						Notifications.push(L().REPO_EXISTS)
+					end
+				end
+				if Extensions.isOfficialRepo(url) then
+					add()
+				else
+					-- extensions run code on the console: third-party repositories need an explicit OK
+					Dialog.confirm(L().REPO_UNOFFICIAL_Q, L().REPO_UNOFFICIAL_MSG, add)
 				end
 			end
 		elseif item.value == "noboru" then
@@ -651,8 +720,8 @@ function Ext.input(oldPad, pad, oldTouch, touch)
 		end
 	elseif oldTouch.x and not touch.x and oldTouch.y >= 96 and oldTouch.y < EXT_TOP - 4 then
 		local x = X0
-		for _, g in ipairs(LANG_GROUPS) do
-			local w = Font.getTextWidth(FONT16, L()[g.label]) + 24
+		for _, g in ipairs(activeGroups()) do
+			local w = Font.getTextWidth(FONT16, langChipLabel(g)) + 24
 			if oldTouch.x >= x and oldTouch.x <= x + w then
 				setLangGroup(g.id)
 			end
@@ -678,9 +747,10 @@ function Ext.input(oldPad, pad, oldTouch, touch)
 		end
 	elseif pressed(pad, oldPad, SCE_CTRL_START) then
 		-- next language group
-		for i, g in ipairs(LANG_GROUPS) do
+		local groups = activeGroups()
+		for i, g in ipairs(groups) do
 			if g.id == Ext.lang then
-				setLangGroup(LANG_GROUPS[i % #LANG_GROUPS + 1].id)
+				setLangGroup(groups[i % #groups + 1].id)
 				break
 			end
 		end
@@ -709,7 +779,7 @@ function Ext.update()
 	Panel.set(Panels.EXTENSIONS or {})
 end
 
-local ORIGIN_LABEL = {keiyoushi = "keiyoushi", yuzono = "yuzono", cursed = "Cursed", codegeasse = "codegeasse", noboru = "Lua", otakio = "Otakio"}
+local ORIGIN_LABEL = {keiyoushi = "keiyoushi", yuzono = "yuzono", cursed = "Cursed", noboru = "Lua", otakio = "Otakio", manual = "Manual"}
 
 function Ext.draw()
 	Ext.list:draw(function(i, row, y, sel)
@@ -736,6 +806,8 @@ function Ext.draw()
 		end
 		if e.error then
 			UI.text(FONT16, tx, y + 40, "⚠ " .. e.error, COLOR_DANGER, 560)
+		elseif e.installed and Extensions.isRemoved(e.id) then
+			UI.text(FONT16, tx, y + 40, L().REMOVED_FROM_REPO or Language.English.OTAKIO.REMOVED_FROM_REPO, COLOR_WARNING, 560)
 		else
 			-- "Works" / "Unstable" / "Doesn't work" in the status color, then the details
 			local label = L()["STATUS_" .. status:upper()] or status
@@ -785,8 +857,8 @@ function Ext.draw()
 		x = x + UI.chip(x, 60, Ext.tabLabel(i), Ext.tab == i) + 8
 	end
 	x = X0
-	for _, g in ipairs(LANG_GROUPS) do
-		x = x + UI.chip(x, 98, L()[g.label], Ext.lang == g.id) + 8
+	for _, g in ipairs(activeGroups()) do
+		x = x + UI.chip(x, 98, langChipLabel(g), Ext.lang == g.id) + 8
 	end
 end
 
