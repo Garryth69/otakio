@@ -71,6 +71,15 @@ def main():
     vpk = os.path.join(OUT, args.name or "Otakio-%s.vpk" % app_config()[0])
     count = 0
     with zipfile.ZipFile(vpk, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+        # every folder gets its own entry, before any file: lpp-vita's extractor (the in-app updater) only creates
+        # folders listed in the zip and crashes on a file whose folder is missing
+        folders = set()
+        for dp, _, files in os.walk(SRC):
+            rel = os.path.relpath(dp, SRC).replace("\\", "/")
+            if rel != "." and not (rel.startswith("repo") and not args.with_catalog):
+                folders.add(rel)
+        for d in sorted(folders, key=lambda f: (f.count("/"), f)):
+            z.writestr(zipfile.ZipInfo(d + "/"), b"")
         for dp, _, files in os.walk(SRC):
             for f in files:
                 if f.endswith((".tmp", ".part")):

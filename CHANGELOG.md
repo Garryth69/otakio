@@ -2,6 +2,12 @@
 
 All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the GitHub release with that tag.
 
+## Unreleased
+
+### Fixed
+- In-app update crashed while unpacking the new version: the engine's extractor can't create folders that have no
+  entry of their own in the VPK. Release VPKs now list every folder, and the app creates them before extracting.
+
 ## 1.1.1
 
 ### Fixed

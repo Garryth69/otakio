@@ -172,14 +172,20 @@ class FS:
             return False
 
     def extractall(self, zpath, dst):
-        # stands in for System.extractZipAsync: the whole zip/vpk into a folder
+        # stands in for System.extractZipAsync, with lpp-vita's behavior: entries in zip order, folders created only
+        # from their own "dir/" entries, and a file whose folder is missing crashes the app (NULL FILE* write)
         import zipfile
-        try:
-            with zipfile.ZipFile(zpath) as z:
-                z.extractall(dst)
-            return True
-        except Exception:
-            return False
+        with zipfile.ZipFile(zpath) as z:
+            for info in z.infolist():
+                out = os.path.join(dst, info.filename)
+                if info.filename.endswith("/"):
+                    os.makedirs(out, exist_ok=True)
+                    continue
+                if not os.path.isdir(os.path.dirname(out)):
+                    raise RuntimeError("lpp-vita extractor crash: no folder for " + info.filename)
+                with open(out, "wb") as fh:
+                    fh.write(z.read(info))
+        return True
 
     def promote(self, pkg, app_root, running):
         # stands in for System.installApp (the system promoter): installs the package under ux0:app/<TITLE_ID>.

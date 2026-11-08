@@ -123,6 +123,28 @@ local getPictureResolution = System.getPictureResolution
 local renameFile = System.rename
 local doesDirExist = System.doesDirExist
 local createDirectory = System.createDirectory
+local listZip = System.listZip
+
+---lpp-vita's extractor only creates folders that have their own entry in the zip; for a file in a missing folder
+---it writes to a NULL file and the app crashes. Every folder is created up front from the zip's listing.
+local function makeZipFolders(zipPath, dest)
+	local made = {}
+	for _, e in ipairs(listZip and listZip(zipPath) or {}) do
+		local name = type(e) == "table" and e.name or e
+		local dir = type(name) == "string" and name:match("^(.*)/[^/]*$")
+		if dir and dir ~= "" and not made[dir] then
+			local path = dest
+			for part in dir:gmatch("[^/]+") do
+				path = path .. "/" .. part
+				if not made[path] and not doesDirExist(path) then
+					createDirectory(path)
+				end
+				made[path] = true
+			end
+			made[dir] = true
+		end
+	end
+end
 
 -- tall pages keep their file here while open: slices are decoded from it on demand (the reader's prefetch folder,
 -- emptied whenever a chapter is opened)
@@ -456,6 +478,8 @@ local function start(task)
 			return finish(task)
 		end
 		removeDirectory(task.DestPath)
+		createDirectory(task.DestPath)
+		makeZipFolders(task.Path, task.DestPath)
 		task.Stage = "unzip"
 		System.extractZipAsync(task.Path, task.DestPath)
 	elseif t == "UnZipFile" then
