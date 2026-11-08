@@ -6,7 +6,7 @@ Usage: python tools/build_vpk.py [--skip-checks] [--eboot engine/eboot_tls13.bin
   * writes param.sfo with tools/mksfo.py from VERSION_NAME / TITLE_ID in source/assets/libs/config.lua
   * runs the Lua syntax check before packing
 """
-import argparse, os, re, subprocess, sys, zipfile
+import shutil, argparse, os, re, subprocess, sys, zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "source")
@@ -20,7 +20,7 @@ def app_config():
     """VERSION_NAME and TITLE_ID from source/assets/libs/config.lua: the single place the version is set"""
     text = open(CONFIG, encoding="utf-8").read()
     version = re.search(r'VERSION_NAME\s*=\s*"([^"]+)"', text).group(1)
-    title_id = re.search(r'TITLE_ID\s*=\s*"([^"]+)"', text).group(1)
+    title_id = re.search(r'\bTITLE_ID\s*=\s*"([^"]+)"', text).group(1)  # \b: not UPDATER_TITLE_ID
     return version, title_id
 
 
@@ -38,6 +38,21 @@ def make_sfo():
     sfo = os.path.join(SRC, "sce_sys", "param.sfo")
     mksfo.write(sfo, "Otakio", title_id, app_ver(version))
     print("param.sfo: %s %s (APP_VER %s)" % (title_id, version, app_ver(version)))
+    make_updater(version)
+
+
+def make_updater(version):
+    """Otakio Updater (source/updater/): the helper title that installs updates while Otakio is closed.
+    Only index.lua is hand-written; its sce_sys is generated here from the app's own."""
+    text = open(CONFIG, encoding="utf-8").read()
+    updater_id = re.search(r'UPDATER_TITLE_ID\s*=\s*"([^"]+)"', text).group(1)
+    sce = os.path.join(SRC, "updater", "sce_sys")
+    os.makedirs(os.path.join(sce, "livearea", "contents"), exist_ok=True)
+    mksfo.write(os.path.join(sce, "param.sfo"), "Otakio Updater", updater_id, app_ver(version), stitle="Otakio Updater")
+    shutil.copyfile(os.path.join(SRC, "sce_sys", "icon0.png"), os.path.join(sce, "icon0.png"))
+    for f in ("template.xml", "bg.png", "startup.png"):
+        shutil.copyfile(os.path.join(SRC, "sce_sys", "livearea", "contents", f), os.path.join(sce, "livearea", "contents", f))
+    print("updater: %s (APP_VER %s)" % (updater_id, app_ver(version)))
 
 
 def main():

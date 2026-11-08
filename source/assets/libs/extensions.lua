@@ -223,7 +223,7 @@ local BLOCKED = {
 	setfenv = true, getfenv = true, rawset = true, collectgarbage = true,
 	Cache = true, Database = true, ChapterSaver = true, Backup = true, Import = true, Extensions = true,
 	CustomSettings = true, CustomCovers = true, AppUpdate = true, Updates = true, Setup = true,
-	RemoveDirectory = true, CopyFile = true
+	RemoveDirectory = true, CopyFile = true, AppTools = true
 }
 
 local readOnlySettings = setmetatable({}, {

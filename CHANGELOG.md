@@ -2,6 +2,13 @@
 
 All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the GitHub release with that tag.
 
+## Unreleased
+
+### Fixed
+- In-app updates now install for real: the Vita can't reinstall an app that is running, so Otakio hands the
+  downloaded package to *Otakio Updater*, a small helper that installs it while Otakio is closed, then reopens
+  Otakio and is removed. Every step is written to `ux0:data/otakio/log.txt`.
+
 ## 1.1.0
 
 ### Added

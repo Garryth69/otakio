@@ -37,6 +37,8 @@ end
 
 RemoveDirectory = removeDirectory
 
+-- app management stays out of reach of extensions; only the updater (appupdate.lua) takes these, then clears AppTools
+AppTools = {checkApp = System.checkApp, removeApp = System.removeApp}
 System.removeApp = nil
 System.checkApp = nil
 

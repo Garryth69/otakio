@@ -17,6 +17,9 @@ local getFreeSpace = System.getFreeSpace
 local installApp = System.installApp
 local launchApp = System.launchApp
 local exitApp = System.exit
+-- index.lua hides checkApp/removeApp from everyone else (extensions can't remove apps)
+local checkApp, removeApp = AppTools and AppTools.checkApp, AppTools and AppTools.removeApp
+AppTools = nil
 local removeDirectory = RemoveDirectory
 local rawsub = string.rawsub or string.sub -- byte offsets (string.sub is UTF-8 aware in Otakio)
 
@@ -127,13 +130,60 @@ local function fallback(vpk)
 	end
 end
 
-local function restart()
-	if launchApp then
-		pcall(launchApp, Config.TITLE_ID)
+---Every step goes to ux0:data/otakio/log.txt, so a failed update on a real console can be diagnosed
+local function log(msg)
+	if ExtLog then
+		pcall(ExtLog, "app update: " .. msg)
 	end
-	if exitApp then
-		exitApp()
+end
+
+local copyFile = CopyFile
+local HELPER_FILES = {
+	"index.lua", "sce_sys/param.sfo", "sce_sys/icon0.png",
+	"sce_sys/livearea/contents/template.xml", "sce_sys/livearea/contents/bg.png", "sce_sys/livearea/contents/startup.png"
+}
+
+---Builds the Otakio Updater package: this app's own engine (app0:eboot.bin) plus the helper's script and sce_sys
+local function prepareHelper(dir)
+	if not copyFile or not doesFileExist("app0:updater/index.lua") then
+		return false
 	end
+	for _, sub in ipairs({"", "/sce_sys", "/sce_sys/livearea", "/sce_sys/livearea/contents"}) do
+		if not doesDirExist(dir .. sub) then
+			createDirectory(dir .. sub)
+		end
+	end
+	copyFile("app0:eboot.bin", dir .. "/eboot.bin")
+	for _, f in ipairs(HELPER_FILES) do
+		if doesFileExist("app0:updater/" .. f) then
+			copyFile("app0:updater/" .. f, dir .. "/" .. f)
+		end
+	end
+	return doesFileExist(dir .. "/eboot.bin") and doesFileExist(dir .. "/sce_sys/param.sfo")
+end
+
+local RESULT = Config.DATA .. "update_result.txt"
+
+---After an update: tells how it went, removes the helper title and any leftovers
+local function afterUpdate()
+	local result = FS.read(RESULT)
+	if result then
+		FS.delete(RESULT)
+		local ver = result:match("^ok%s+(%S+)")
+		if ver then
+			log("updated to APP_VER " .. ver)
+			Notifications.push(string.format(L().APP_UPDATE_DONE_NOW, Config.VERSION_NAME), 6000)
+		elseif result:find("^failed") then
+			log("the updater could not install the package")
+			Notifications.push(string.format(L().APP_UPDATE_MANUAL, "ux0:/vpk/"), 8000)
+		end
+	end
+	local ok, present = pcall(checkApp, Config.UPDATER_TITLE_ID)
+	if ok and present then
+		pcall(removeApp, Config.UPDATER_TITLE_ID)
+		log("removed the updater")
+	end
+	cleanup()
 end
 
 local function install()
@@ -153,9 +203,11 @@ local function install()
 
 	state = "downloading"
 	Notifications.push(string.format(L().APP_UPDATE_DOWNLOADING, latest.version))
+	log("downloading " .. latest.name)
 	Threads.insertTask(downloadKey, {Type = "FileDownload", Link = latest.url, Path = vpk})
 	waitTask(downloadKey)
 	local size = fileSize(vpk)
+	log("downloaded " .. size .. " of " .. tostring(latest.size) .. " bytes")
 	if size == 0 or (latest.size and size ~= latest.size) then
 		-- incomplete or corrupted download: nothing to install
 		state = "error"
@@ -172,28 +224,46 @@ local function install()
 	local newVer = sfoValue(sfo, "APP_VER")
 	if not doesFileExist(pkg .. "/eboot.bin") or sfoValue(sfo, "TITLE_ID") ~= Config.TITLE_ID or not newVer then
 		-- not a complete Otakio package: never hand it to the installer
-		Console.error("app update: package check failed")
+		log("package check failed")
+		return fallback(vpk)
+	end
+	log("package ok, APP_VER " .. newVer)
+	-- the system can't reinstall the app that is running: Otakio Updater (a helper title running this same engine,
+	-- source/updater/) installs the package while Otakio is closed, then reopens it
+	local helper = UPDATE_DIR .. "helper"
+	if not prepareHelper(helper) then
+		log("helper files missing")
 		return fallback(vpk)
 	end
 	-- the system installer blocks for a while: let the "installing" message reach the screen first
 	for _ = 1, 20 do
 		coroutine.yield(false)
 	end
-	local ok = installApp and installApp(pkg)
-	-- the promoter doesn't report failures: the installed app must now carry the new version
-	local installed = sfoValue(FS.read("ux0:app/" .. Config.TITLE_ID .. "/sce_sys/param.sfo"), "APP_VER")
-	if not ok or installed ~= newVer then
-		Console.error("app update: install failed (" .. tostring(ok) .. ")")
-		return fallback(vpk)
-	end
-	cleanup()
-	state = "installed"
-	Notifications.push(string.format(L().APP_UPDATE_INSTALLED, latest.version), 60000)
-	-- the files of the running app were replaced: restart into the new version
-	for _ = 1, 90 do
+	local ok = installApp and installApp(helper)
+	local helperSfo = "ux0:app/" .. Config.UPDATER_TITLE_ID .. "/sce_sys/param.sfo"
+	for _ = 1, 300 do -- up to ~5 s for the installer to finish
+		if doesFileExist(helperSfo) then
+			break
+		end
 		coroutine.yield(false)
 	end
-	restart()
+	if not doesFileExist(helperSfo) then
+		log("helper install failed (" .. tostring(ok) .. ")")
+		return fallback(vpk)
+	end
+	FS.write(UPDATE_DIR .. "job.txt", table.concat({pkg, newVer, vpk, latest.name, latest.version}, "\n") .. "\n")
+	log("handing over to the updater")
+	state = "installed"
+	Notifications.push(string.format(L().APP_UPDATE_RESTARTING, latest.version), 60000)
+	for _ = 1, 120 do
+		coroutine.yield(false)
+	end
+	if launchApp then
+		pcall(launchApp, Config.UPDATER_TITLE_ID)
+	end
+	if exitApp then
+		exitApp()
+	end
 end
 
 local function start(fn)
@@ -267,6 +337,7 @@ end
 
 ---Startup: only when "Check for app updates at startup" is on
 function AppUpdate.startup()
+	afterUpdate()
 	if Settings.AppAutoUpdate ~= false then
 		AppUpdate.check(true, true)
 	end

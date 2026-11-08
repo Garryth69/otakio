@@ -181,10 +181,23 @@ class FS:
         except Exception:
             return False
 
-    def promote(self, pkg, app_dir):
-        # stands in for System.installApp (the system promoter): the package replaces the installed app
-        if not os.path.isdir(pkg):
+    def promote(self, pkg, app_root, running):
+        # stands in for System.installApp (the system promoter): installs the package under ux0:app/<TITLE_ID>.
+        # Like on the console, the title that is running can't be replaced (the promoter still reports success).
+        import struct
+        sfo_path = os.path.join(pkg, "sce_sys", "param.sfo")
+        if not os.path.isfile(sfo_path):
             return False
+        d = open(sfo_path, "rb").read()
+        ks, ds, n = struct.unpack_from("<III", d, 8)
+        title = None
+        for i in range(n):
+            ko, fmt, ln, mx, do = struct.unpack_from("<HHIII", d, 20 + i * 16)
+            if d[ks + ko:d.index(b"\0", ks + ko)] == b"TITLE_ID":
+                title = d[ds + do:ds + do + ln].rstrip(b"\0").decode()
+        if not title or title == running:
+            return True
+        app_dir = os.path.join(app_root, title)
         shutil.rmtree(app_dir, ignore_errors=True)
         shutil.copytree(pkg, app_dir)
         return True

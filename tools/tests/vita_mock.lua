@@ -333,11 +333,11 @@ System = {
 		if SIM.installFails then
 			return true -- the real promoter returns success even when it fails
 		end
-		return PYFS.promote(mapPath(dir), mapPath("ux0:app/OTAK00001"))
+		return PYFS.promote(mapPath(dir), mapPath("ux0:app"), "OTAK00001")
 	end,
 	exit = function() SIM.exited = true end,
-	checkApp = function() return false end,
-	removeApp = function() end,
+	checkApp = function(id) return PYFS.isdir(mapPath("ux0:app/" .. id)) end,
+	removeApp = function(id) SIM.removedApp = id PYFS.rmdir(mapPath("ux0:app/" .. id)) end,
 	getFreeSpace = function() return 1024 * 1024 * 1024 end,
 	setCpuSpeed = function() end,
 	setBusSpeed = function() end,
