@@ -155,6 +155,12 @@ if not doesDirExist("ux0:data/otakio/backups") then
 	createDirectory("ux0:data/otakio/backups")
 end
 
+-- catalog covers of manga not in the cache (reused by Cache.addManga); stale ones go away at every start
+if doesDirExist("ux0:data/otakio/temp/covers") then
+	RemoveDirectory("ux0:data/otakio/temp/covers")
+end
+createDirectory("ux0:data/otakio/temp/covers")
+
 if not doesDirExist("ux0:data/otakio/temp/prefetch") then
 	createDirectory("ux0:data/otakio/temp/prefetch")
 end

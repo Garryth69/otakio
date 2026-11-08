@@ -169,8 +169,12 @@ local function loadMangaImage(manga)
 		end
 	else
 		local path = manga.Path or ("cache/" .. Cache.getKey(manga) .. "/cover.image")
+		local seen = Cache.TEMP_COVERS .. Cache.getKey(manga) .. ".image"
 		if path and doesFileExist("ux0:data/otakio/" .. path) and (System.getPictureResolution("ux0:data/otakio/" .. path) or -1) > 0 then
 			loadImageTask(manga, path)
+		elseif not Database.check(manga) and doesFileExist(seen) and (System.getPictureResolution(seen) or -1) > 0 then
+			-- downloaded earlier in this session (scrolled away and back): decode it from disk
+			loadImageTask(manga, seen)
 		else
 			if Database.check(manga) and not Cache.isCached(manga) then
 				Cache.addManga(manga)
@@ -184,7 +188,7 @@ local function loadMangaImage(manga)
 					setNewImage(manga)
 				end,
 				MaxHeight = MANGA_HEIGHT * 2,
-				Path = Cache.isCached(manga) and path or nil
+				Path = Cache.isCached(manga) and path or (Cache.TEMP_COVERS .. Cache.getKey(manga) .. ".image")
 			})
 		end
 	end
@@ -739,6 +743,18 @@ end
 
 local function requestMorePages()
 	if status == "MANGA" and not currentMangaList.NoPages and currentParser and not ParserManager.check(currentMangaList) then
+		if page == 1 and #currentMangaList == 0 and CatalogModes.getMangaMode() == "Popular" then
+			-- the background status check may have just fetched this very page: show it at once
+			local list = SourceStatus.takeFreshPopular(currentParser)
+			if list then
+				for i = 1, #list do
+					currentMangaList[i] = list[i]
+				end
+				currentMangaList.NoPages = list.NoPages
+				page = page + 1
+				return
+			end
+		end
 		ParserManager.getMangaListAsync(CatalogModes.getMangaMode(), currentParser, page, currentMangaList, CatalogModes.getSearchData(), CatalogModes.getTagsData())
 		page = page + 1
 	end

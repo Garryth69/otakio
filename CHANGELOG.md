@@ -31,6 +31,12 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - Five extensions whose published file didn't match the SHA-256 in the catalog (line endings) and were refused on install.
 
 ### Changed
+- Faster page and cover loading:
+  - the page you open is downloaded before the pages prefetched after it (first page shows up sooner);
+  - covers scrolled away and back in Browse are read from disk instead of downloaded again (in a test: 251 requests
+    instead of 1297, 6 MB instead of 27 MB);
+  - opening a title reuses the cover already downloaded in Browse;
+  - opening a source right after startup reuses the list the status check just downloaded.
 - Faster text handling: the UTF-8 aware `string.sub` takes a fast path for plain ASCII text (about 5x faster, same
   results), which speeds up the classic NOBORU parsers.
 - New app icon (centered inside the Vita's round bubble) and logo; LiveArea reorganized around the start gate;

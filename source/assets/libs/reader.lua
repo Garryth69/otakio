@@ -178,7 +178,13 @@ local function entryUrl(entry)
 	end
 end
 
+-- the page being shown goes first: prefetching starts once it is on screen (or after a short delay if it can't load),
+-- otherwise pages resolved through the parser (most native sources) lose the race against the prefetch downloads
+local prefetchPending = nil -- {page =, direction =}
+local prefetchTimer = Timer.new()
+
 local function prefetchClear()
+	prefetchPending = nil
 	for _, f in pairs(Prefetch.files) do
 		Threads.remove(f)
 	end
@@ -359,7 +365,8 @@ local function changePage(page)
 			loadPageImage(p)
 		end
 	end
-	prefetchFrom(page, (readDirection == "LEFT" and not is_down) and -1 or 1)
+	prefetchPending = {page = page, direction = (readDirection == "LEFT" and not is_down) and -1 or 1}
+	Timer.reset(prefetchTimer)
 	for i = page - 2, page + 2, 4 do
 		if i > 0 and i <= #allPages then
 			deletePageImage(i)
@@ -1079,6 +1086,15 @@ function Reader.update()
 	elseif currentState == STATE_READING then
 		if not allPages[allPages.Page] then
 			return
+		end
+		if prefetchPending then
+			local shown = allPages[prefetchPending.page]
+			if prefetchPending.page ~= allPages.Page then
+				prefetchPending.page = allPages.Page
+			elseif (shown and shown.Image) or Timer.getTime(prefetchTimer) > 2500 then
+				prefetchFrom(prefetchPending.page, prefetchPending.direction)
+				prefetchPending = nil
+			end
 		end
 		gesture_touch_update()
 		if allPages.PrevPage and allPages.PrevPage ~= allPages.Page and (((is_down and currentPageOffset.y or currentPageOffset.x) >= 0 and allPages.PrevPage > allPages.Page or (is_down and currentPageOffset.y or currentPageOffset.x) <= 0 and allPages.PrevPage < allPages.Page) and orientation == "Horizontal" or ((is_down and -currentPageOffset.x or currentPageOffset.y) >= 0 and allPages.PrevPage > allPages.Page or (is_down and -currentPageOffset.x or currentPageOffset.y) <= 0 and allPages.PrevPage < allPages.Page) and orientation == "Vertical") then

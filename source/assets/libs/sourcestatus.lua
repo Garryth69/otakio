@@ -74,9 +74,27 @@ local function nextStale()
 	return best
 end
 
+-- popular lists the background check just downloaded: opening that source right after reuses them (no second request)
+local FRESH_FOR = 300 -- seconds
+local fresh = {} -- key -> {list =, t =}
+
+---@return table|nil page 1 of the source's Popular list, when the background check fetched it in the last minutes
+---(handed out once: the catalog takes ownership of the manga entries)
+function SourceStatus.takeFreshPopular(parser)
+	local key = keyOf(parser)
+	local f = key and fresh[key]
+	fresh[key or ""] = nil
+	if f and Clock.now() - f.t <= FRESH_FOR and #f.list > 0 then
+		return f.list
+	end
+end
+
 local function backgroundCheck()
 	if probe then
 		if not ParserManager.check(probe.list) then
+			if #probe.list > 0 then
+				fresh[keyOf(probe.parser)] = {list = probe.list, t = Clock.now()}
+			end
 			probe = nil
 			Timer.reset(probeTimer)
 		end

@@ -18,6 +18,10 @@ local doesDirExist = System.doesDirExist
 local createDirectory = System.createDirectory
 local listDirectory = System.listDirectory
 local removeDirectory = RemoveDirectory
+local renameFile = System.rename
+local getPictureResolution = System.getPictureResolution
+---covers the catalog downloaded for manga not cached yet (cleared at startup): reused instead of downloaded again
+Cache.TEMP_COVERS = "ux0:data/otakio/temp/covers/"
 
 local is_history_updated = false
 local historyTime = {}
@@ -76,13 +80,19 @@ function Cache.addManga(manga, chapters)
 		if not doesDirExist("ux0:data/otakio/cache/" .. key) then
 			createDirectory("ux0:data/otakio/cache/" .. key)
 		end
-		if doesFileExist("ux0:data/otakio/cache/" .. key .. "/cover.image") then
-			deleteFile("ux0:data/otakio/cache/" .. key .. "/cover.image")
+		local coverPath = "ux0:data/otakio/cache/" .. key .. "/cover.image"
+		if doesFileExist(coverPath) then
+			deleteFile(coverPath)
 		end
 		if chapters then
 			Cache.saveChapters(manga, chapters)
 		end
-		if manga.ParserID ~= "IMPORTED" then
+		local seen = Cache.TEMP_COVERS .. key .. ".image"
+		if manga.ParserID ~= "IMPORTED" and renameFile and doesFileExist(seen) and (getPictureResolution(seen) or -1) > 0 then
+			-- the catalog already downloaded this cover: move it instead of downloading it again
+			renameFile(seen, coverPath)
+		end
+		if manga.ParserID ~= "IMPORTED" and not doesFileExist(coverPath) then
 			Threads.insertTask(
 				tostring(manga) .. "coverDownload",
 				{
