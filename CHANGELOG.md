@@ -2,7 +2,7 @@
 
 All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the GitHub release with that tag.
 
-## Unreleased
+## 1.1.1
 
 ### Fixed
 - In-app updates now install for real: the Vita can't reinstall an app that is running, so Otakio hands the
