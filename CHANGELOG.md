@@ -5,6 +5,9 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 ## Unreleased
 
 ### Added
+- **In-app updates:** a new release is downloaded, checked (size, Otakio's title id), installed with the system
+  installer and the app restarts. More → About → *Check for app updates at startup* turns the automatic check off.
+  If installing inside the app fails, the VPK is left in `ux0:/vpk/` for VitaShell.
 - Interface in Russian, Japanese and Chinese (Simplified and Traditional), with CJK-aware text wrapping.
 - First-run setup:
   - covers app language, active source languages, adult content, reading direction, orientation, confirm button and
@@ -23,10 +26,13 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
   MangaReader, Liliana) and adult galleries (GalleryAdults).
 
 ### Fixed
+- Text split into lines always gained an extra trailing newline.
 - *Open source* and status tracking for Otakio's native extensions (their parsers lost the extension id).
 - Five extensions whose published file didn't match the SHA-256 in the catalog (line endings) and were refused on install.
 
 ### Changed
+- Faster text handling: the UTF-8 aware `string.sub` takes a fast path for plain ASCII text (about 5x faster, same
+  results), which speeds up the classic NOBORU parsers.
 - New app icon (centered inside the Vita's round bubble) and logo; LiveArea reorganized around the start gate;
   consistent button glyphs in the hint bar and dialogs.
 - The HTML parser no longer loses the rest of a page after a malformed attribute with a stray quote.

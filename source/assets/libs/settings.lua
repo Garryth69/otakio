@@ -38,6 +38,7 @@ Settings = {
 	SaveImageFormat = "PNG",
 	AutoUpdateExtensions = false,
 	CheckExtUpdatesAtStart = true,
+	AppAutoUpdate = true,
 	AutoDownloadNew = false,
 	Incognito = false,
 	LibraryFilter = "All",
@@ -172,6 +173,7 @@ local settingsListTree = {
 	},
 	About = {
 		"ShowVersion",
+		"AppAutoUpdate",
 		"CheckAppUpdate"
 	},
 	Controls = {
@@ -291,6 +293,7 @@ function settings.load()
 				setSetting(new, "SaveImageFormat", { "PNG", "JPEG", "WebP" })
 				setSetting(new, "AutoUpdateExtensions", { true, false })
 				setSetting(new, "CheckExtUpdatesAtStart", { true, false })
+				setSetting(new, "AppAutoUpdate", { true, false })
 				setSetting(new, "AutoDownloadNew", { true, false })
 				setSetting(new, "Incognito", { true, false })
 				setSetting(new, "ShowFPS", { true, false })
@@ -548,6 +551,9 @@ SettingsFunctions = {
 	end,
 	CheckExtUpdatesAtStart = function()
 		settings.CheckExtUpdatesAtStart = not settings.CheckExtUpdatesAtStart
+	end,
+	AppAutoUpdate = function()
+		settings.AppAutoUpdate = not settings.AppAutoUpdate
 	end,
 	AutoUpdateExtensions = function()
 		settings.AutoUpdateExtensions = not settings.AutoUpdateExtensions

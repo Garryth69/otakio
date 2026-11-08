@@ -174,8 +174,8 @@ local function preloadData()
 	elseif Settings.CheckExtUpdatesAtStart then
 		Extensions.refresh(true)
 	end
-	-- new Otakio release on GitHub? (silent when offline or up to date)
-	AppUpdate.check(true)
+	-- new Otakio release on GitHub? asks to install it (unless turned off in Settings > About)
+	AppUpdate.startup()
 end
 
 Screen.flip()

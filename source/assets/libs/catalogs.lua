@@ -857,7 +857,8 @@ local function settingInfo(task)
 		LoadSummary = Settings.LoadSummary, AutoUpdateExtensions = Settings.AutoUpdateExtensions,
 		AutoDownloadNew = Settings.AutoDownloadNew, Incognito = Settings.Incognito, DataSaver = Settings.DataSaver,
 		ReaderPageNumber = Settings.ReaderPageNumber ~= false,
-		CheckExtUpdatesAtStart = Settings.CheckExtUpdatesAtStart ~= false
+		CheckExtUpdatesAtStart = Settings.CheckExtUpdatesAtStart ~= false,
+		AppAutoUpdate = Settings.AppAutoUpdate ~= false
 	}
 	if bool[task] ~= nil then
 		return nil, bool[task]

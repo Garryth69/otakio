@@ -79,9 +79,13 @@ how many of those sources already have a Lua equivalent.
 
 ## App updates
 
-When there is internet, Otakio checks the latest version in [Releases](../../releases) at startup and tells you when a
-new one exists. **More → About → Check for app updates** downloads the new VPK straight to `ux0:/vpk/`; install it with
-VitaShell. Your library and settings are kept.
+Updates install **inside the app**. At startup, Otakio checks the latest version in [Releases](../../releases) and
+asks whether to update. It then downloads the VPK, checks it, installs it with the system installer and restarts.
+Your library and settings are kept.
+
+- **More → About → Check for app updates at startup** turns the automatic check off.
+- **More → About → Check for app updates** checks by hand at any time.
+- If the install can't be done inside the app, the VPK is left in `ux0:/vpk/` to install with VitaShell.
 
 ## Features
 

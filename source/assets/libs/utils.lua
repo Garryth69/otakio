@@ -79,8 +79,21 @@ function it_utf8(str)
 	return string.gmatch(str, "([%z\1-\127\194-\244][\128-\191]*)")
 end
 
+local rawsub, rawfind = string.rawsub, string.find
+
+---UTF-8 aware sub inherited from NOBORU (legacy parsers rely on its exact behavior: skips i-1 characters, then
+---takes k characters, all of them when k < 0; nothing when i < 1). ASCII strings take a fast path in C with the
+---same result; Otakio's own code uses string.rawsub for byte offsets.
 function string.sub(str, i, k)
 	k = k or -1
+	if i >= 1 and i % 1 == 0 and not rawfind(str, "[\128-\255]") then
+		if k == 0 then
+			return ""
+		elseif k < 0 then
+			return rawsub(str, i)
+		end
+		return rawsub(str, i, i + k - 1)
+	end
 	local text = {}
 	for c in it_utf8(str) do
 		if i == 1 then
@@ -331,7 +344,7 @@ end
 ---@return table
 ---Breaks text into lines
 function ToLines(str)
-	if str:sub(-1) ~= "\n" then
+	if string.rawsub(str, -1) ~= "\n" then
 		str = str .. "\n"
 	end
 	local lines = {}

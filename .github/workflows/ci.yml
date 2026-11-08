@@ -57,6 +57,9 @@ jobs:
           echo "::group::setup"
           python tools/tests/sim.py setup --setup
           echo "::endgroup::"
+          echo "::group::libscroll (400 covers)"
+          python tools/tests/sim.py libscroll --seed-library 400
+          echo "::endgroup::"
 
       - name: Release VPK builds
         run: python tools/build_vpk.py --name Otakio-ci.vpk

@@ -316,7 +316,7 @@ System = {
 	getLanguage = function() return SIM.language or 1 end,
 	getAsyncState = function() return 1 end,
 	getAsyncResult = function() local r = asyncResult asyncResult = nil return r end,
-	extractZipAsync = function() end,
+	extractZipAsync = function(zip, dst) PYFS.extractall(mapPath(zip), mapPath(dst)) end,
 	extractFromZipAsync = function(zip, name, dst) PYFS.extract(mapPath(zip), name, mapPath(dst)) end,
 	extractFromZip = function(zip, name, dst) return PYFS.extract(mapPath(zip), name, mapPath(dst)) end,
 	listZip = function(p)
@@ -327,8 +327,15 @@ System = {
 		return out
 	end,
 	executeUri = function() end,
-	launchApp = function() end,
-	installApp = function() end,
+	launchApp = function(id) SIM.launched = id end,
+	installApp = function(dir)
+		SIM.installedFrom = dir
+		if SIM.installFails then
+			return true -- the real promoter returns success even when it fails
+		end
+		return PYFS.promote(mapPath(dir), mapPath("ux0:app/OTAK00001"))
+	end,
+	exit = function() SIM.exited = true end,
 	checkApp = function() return false end,
 	removeApp = function() end,
 	getFreeSpace = function() return 1024 * 1024 * 1024 end,

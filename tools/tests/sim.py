@@ -81,6 +81,11 @@ SCENARIOS = {
     # settings: language picker dialog, pick English, then back to the system language
     "lang": ["R", "R", "R", "R", "R", "R", "R", ("wait", 20), "CROSS", ("wait", 30), "DOWN", ("wait", 30), "CROSS", ("wait", 30),
              "CROSS", ("wait", 30), "UP", "CROSS", ("wait", 30)],
+    # Library scroll stress: run with --seed-library 400; fast scrolling down and up through every cover, twice
+    "libscroll": [("wait", 120)] + (["DOWN"] * 140 + [("wait", 30)] + ["UP"] * 140 + [("wait", 30)]) * 2
+                 + ["RIGHT", "RIGHT", "DOWN"] * 40 + [("wait", 200)],
+    # app update: run with --online and SIM_FAKE_RELEASE=<vpk>; accept the startup prompt, install, restart
+    "appupdate": [("wait", 150), "UP", "CROSS", ("wait", 500)],
     # More > About: version row and the credits card (scrolled into view)
     "about": ["R", "R", "R", "R", "R", "R", "R", ("wait", 20)] + ["DOWN"] * 11 + ["CROSS", ("wait", 60)],
     # online: add a manga from an installed source, More > Data > create backup, clear library, restore it
@@ -166,6 +171,24 @@ class FS:
         except Exception:
             return False
 
+    def extractall(self, zpath, dst):
+        # stands in for System.extractZipAsync: the whole zip/vpk into a folder
+        import zipfile
+        try:
+            with zipfile.ZipFile(zpath) as z:
+                z.extractall(dst)
+            return True
+        except Exception:
+            return False
+
+    def promote(self, pkg, app_dir):
+        # stands in for System.installApp (the system promoter): the package replaces the installed app
+        if not os.path.isdir(pkg):
+            return False
+        shutil.rmtree(app_dir, ignore_errors=True)
+        shutil.copytree(pkg, app_dir)
+        return True
+
     def convert(self, src, dst, fmt):
         # stands in for the engine's System.convertImage (JPEG/PNG/WebP -> JPEG/PNG/WebP)
         try:
@@ -179,6 +202,30 @@ class FS:
         if os.path.exists(b):
             os.remove(b)
         os.rename(a, b)
+
+
+def seed_library(data_dir, n):
+    """Library stress fixture: save.dat with n manga and a JPEG cover (varied sizes) for each one"""
+    import random
+    from PIL import Image, ImageDraw
+    rnd = random.Random(7)
+    os.makedirs(data_dir, exist_ok=True)
+    rows = []
+    for i in range(1, n + 1):
+        link = "stress%04d" % i
+        key = "STRESS" + link  # Cache.getKey: ParserID .. Link without punctuation
+        cover_dir = os.path.join(data_dir, "cache", key)
+        os.makedirs(cover_dir, exist_ok=True)
+        w = rnd.choice([200, 300, 450, 720])
+        h = int(w * rnd.choice([1.4, 1.5, 1.6]))
+        img = Image.new("RGB", (w, h), (rnd.randrange(40, 220), rnd.randrange(40, 220), rnd.randrange(40, 220)))
+        ImageDraw.Draw(img).text((10, 10), str(i), fill=(255, 255, 255))
+        img.save(os.path.join(cover_dir, "cover.image"), "JPEG", quality=80)
+        rows.append('{Name = "Stress manga %d %s", Link = "%s", ImageLink = "", ParserID = "STRESS", RawLink = "", '
+                    'BrowserLink = "", Path = "cache/%s/cover.image", Location = "ux0", Categories = {}, DateAdded = %d}'
+                    % (i, "long title " * (i % 4), link, key, 1700000000 + i))
+    body = "return {" + ",\n".join(rows) + "}"
+    open(os.path.join(data_dir, "save.dat"), "w", encoding="utf-8").write(body)
 
 
 def main():
@@ -196,10 +243,13 @@ def main():
     ap.add_argument("--shots", default="", help="comma separated frame numbers to screenshot")
     ap.add_argument("--outdir", default=os.path.join(ROOT, "tools", "tests", "screens"))
     ap.add_argument("--tmp", default=None)
+    ap.add_argument("--seed-library", type=int, default=0, help="start with N manga in the Library, each with a real JPEG cover")
     args = ap.parse_args()
 
     tmp = args.tmp or tempfile.mkdtemp(prefix="otakio_sim_")
     os.makedirs(os.path.join(tmp, "ux0", "data"), exist_ok=True)
+    if args.seed_library:
+        seed_library(os.path.join(tmp, "ux0", "data", "otakio"), args.seed_library)
     if not args.setup:
         os.makedirs(os.path.join(tmp, "ux0", "data", "otakio"), exist_ok=True)
         open(os.path.join(tmp, "ux0", "data", "otakio", ".setup_done"), "w").write("sim")
@@ -225,10 +275,12 @@ def main():
     L.globals().PYFS = L.table_from({
         "isfile": fs.isfile, "isdir": fs.isdir, "mkdir": fs.mkdir, "remove": fs.remove,
         "rmdir": fs.rmdir, "rename": fs.rename, "listdir": listdir, "listzip": fs.listzip, "convert": fs.convert, "extract": fs.extract,
+        "extractall": fs.extractall, "promote": fs.promote,
     })
     mock(ROOT + "/tools/tests/vita_mock.lua", ROOT, tmp)
     sim = L.globals().SIM
     sim.fs = L.globals().PYFS
+    sim.installFails = bool(os.environ.get("SIM_INSTALL_FAILS"))  # app update test: the promoter does nothing
     sim.language = args.lang
     sim.keyboardText = args.keyboard
     if args.install:
@@ -275,6 +327,17 @@ def main():
 
         def fetch(url, method=None, post=None, ctype=None, headers=(), ua=None):
             url = url.replace("%%", "%")  # lpp-vita un-escapes doubled percent signs
+            fake = os.environ.get("SIM_FAKE_RELEASE")
+            if fake:
+                # app update test: a fake "latest release" serving a local VPK (SIM_FAKE_RELEASE=path, tag v9.9.9)
+                if "api.github.com/repos/" in url and url.endswith("/releases/latest"):
+                    return json.dumps({"tag_name": "v9.9.9", "assets": [{"name": "Otakio-9.9.9.vpk", "size": os.path.getsize(fake),
+                                       "browser_download_url": "https://example.invalid/Otakio-9.9.9.vpk"}]}).encode()
+                if url == "https://example.invalid/Otakio-9.9.9.vpk":
+                    data = open(fake, "rb").read()
+                    if os.environ.get("SIM_FAKE_TRUNCATE"):
+                        data = data[: len(data) // 2]
+                    return data
             if not url and os.environ.get("SIM_TRACE_EMPTY"):
                 print("   EMPTY URL at frame", L.eval("SIM.frame"), L.eval("SIM.dumpTask()"), flush=True)
                 os._exit(3)
@@ -506,6 +569,8 @@ def main():
     ext = os.path.join(tmp, "ux0", "data", "otakio", "extensions")
     if os.path.isdir(ext):
         print("   installed extension files:", os.listdir(ext))
+    if L.eval("SIM.installedFrom") or L.eval("SIM.launched") or L.eval("SIM.exited"):
+        print("   app update: installApp(%s) launchApp(%s) exit=%s" % (L.eval("SIM.installedFrom"), L.eval("SIM.launched"), L.eval("SIM.exited")))
     if not args.keep and not args.tmp:
         shutil.rmtree(tmp, ignore_errors=True)
     else:
