@@ -12,9 +12,8 @@ Interface in English, Portuguese (Brazil), Spanish, French, German, Italian, Rus
 
 | | |
 |---|---|
-| ![Library](docs/screenshots/library.jpg) | ![Browsing a source's catalog](docs/screenshots/catalog.jpg) |
+| ![LiveArea](docs/screenshots/livearea.png) | ![Library](docs/screenshots/library.jpg) |
 | ![Title details and chapter list](docs/screenshots/details.jpg) | ![Installed sources in Browse](docs/screenshots/sources.png) |
-| ![First-run setup: source languages](docs/screenshots/setup-languages.png) | ![Themes](docs/screenshots/themes.png) |
 
 <sub>Screenshots taken with official, free sources (WEBTOON, Comics Kingdom). Covers belong to their respective owners.</sub>
 
