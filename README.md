@@ -15,7 +15,7 @@ Interface in English, Portuguese (Brazil), Spanish, French, German, Italian, Rus
 | ![LiveArea](docs/screenshots/livearea.png) | ![Library](docs/screenshots/library.jpg) |
 | ![Title details and chapter list](docs/screenshots/details.jpg) | ![Installed sources in Browse](docs/screenshots/sources.png) |
 
-<sub>Screenshots taken with official, free sources (WEBTOON, Comics Kingdom). Covers belong to their respective owners.</sub>
+<sub>Cover art is blurred on purpose: covers belong to their respective owners.</sub>
 
 ---
 
