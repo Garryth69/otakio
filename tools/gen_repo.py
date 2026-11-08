@@ -251,7 +251,9 @@ def hash_entries(entries, repo_dir):
     for e in entries:
         path = os.path.join(repo_dir, e.get("file") or "")
         if e.get("file") and os.path.isfile(path):
-            e["sha256"] = hashlib.sha256(open(path, "rb").read()).hexdigest()
+            # hash the LF version: that is what git stores (.gitattributes eol=lf) and what the app downloads,
+            # whatever line endings a Windows checkout has on disk
+            e["sha256"] = hashlib.sha256(open(path, "rb").read().replace(b"\r\n", b"\n")).hexdigest()
         else:
             e.pop("sha256", None)
 

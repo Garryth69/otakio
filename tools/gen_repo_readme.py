@@ -1,8 +1,9 @@
-"""Writes repo/README.md (the extension repository's front page) from repo/index.json.
+"""Writes repo/README.md (the extension repository's front page, with a per-language summary) and repo/SOURCES.md
+(the full source list, one collapsible section per language) from repo/index.json.
 
   python tools/gen_repo_readme.py
 
-Run it after gen_repo.py / probe_sources.py so the source list and the status column stay current.
+Run it after gen_repo.py / probe_sources.py so the lists and the status column stay current.
 """
 import collections, json, os
 
@@ -49,20 +50,30 @@ tab offers it with one click.
 - **Removal requests:** see [REMOVAL.md](REMOVAL.md). Removed sources are listed in [REMOVED.md](REMOVED.md).
 - Support the authors: buy official releases and use official services.
 
-## Summary
+## Sources
 
 {summary}
 
-Status:
+**[Full list of sources, with site, status and type → SOURCES.md](SOURCES.md)**
+
+The status comes from the daily automated check (`health.json`). On the Vita, each source's dot also adjusts itself
+with use.
+"""
+
+STATUS_LEGEND = """Status:
 - **🟢 works:** listing, chapters and pages tested;
 - **🟡 partial:** something fails;
 - **🔴 down:** the site doesn't answer or blocks readers;
-- **⚪ untested.**
+- **⚪ untested.**"""
 
-The status below comes from the latest automated check (`health.json`). On the Vita, each source's dot also adjusts
-itself with use.
+SOURCES_HEADER = """# Sources
 
-## Sources
+Every source in the [Otakio extension repository](README.md), by language. Working sources come first.
+Last automated check: {checked}.
+
+{legend}
+
+**Languages:** {toc}
 """
 
 FOOTER = """
@@ -73,6 +84,7 @@ FOOTER = """
 | `index.json` | catalog read by the app (id, name, language, version, file, status) |
 | `extensions/` | published extensions, one `.lua` per source |
 | `native/` | source code of the native extensions (sites with their own API or layout) |
+| `SOURCES.md` | every source by language, with site, status and type (generated) |
 | `health.json` | latest automated test result of each source, with `deadSince`/`lastOk` history |
 | `removed.json`, `REMOVED.md` | sources taken out of the catalog, with date and reason |
 
@@ -122,37 +134,48 @@ The catalog is generated, tested and pruned by tools in the app repository (`too
 """
 
 
+def anchor(text):
+    """GitHub heading anchor: lower case, spaces to dashes, punctuation dropped"""
+    out = "".join(c for c in text.lower() if c.isalnum() or c in " -")
+    return out.replace(" ", "-")
+
+
 def main():
     index = json.load(open(os.path.join(REPO, "index.json"), encoding="utf-8"))
     exts = index["extensions"]
     by_lang = collections.defaultdict(list)
     for e in exts:
         by_lang[e["lang"]].append(e)
-    ok = sum(1 for e in exts if e.get("health") == "ok")
+    working = lambda items: sum(1 for e in items if e.get("health") == "ok")
+    groups = [(code, label, by_lang[code]) for code, label in LANGS if by_lang.get(code)]
+
+    # README.md: short summary table linking into SOURCES.md
     lines = ["| Language | Sources | 🟢 working |", "|---|---:|---:|"]
-    for code, label in LANGS:
-        items = by_lang.get(code, [])
-        if items:
-            lines.append(f"| {label} | {len(items)} | {sum(1 for e in items if e.get('health') == 'ok')} |")
-    lines.append(f"| **Total** | **{len(exts)}** | **{ok}** |")
-    out = [HEADER.format(summary="\n".join(lines))]
-    for code, label in LANGS:
-        items = by_lang.get(code, [])
-        if not items:
-            continue
-        order = {"ok": 0, "partial": 1, "relay": 1, None: 2, "dead": 3}
+    for code, label, items in groups:
+        lines.append(f"| [{label}](SOURCES.md#{anchor(label)}) | {len(items)} | {working(items)} |")
+    lines.append(f"| **Total** | **{len(exts)}** | **{working(exts)}** |")
+    with open(os.path.join(REPO, "README.md"), "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(HEADER.format(summary="\n".join(lines)) + FOOTER.format())
+
+    # SOURCES.md: one collapsible table per language
+    checked = max((e.get("checked") or "" for e in exts), default="") or "never"
+    toc = " · ".join(f"[{label}](#{anchor(label)}) ({len(items)})" for code, label, items in groups)
+    out = [SOURCES_HEADER.format(checked=checked, legend=STATUS_LEGEND, toc=toc)]
+    order = {"ok": 0, "partial": 1, "relay": 1, None: 2, "dead": 3}
+    for code, label, items in groups:
         items.sort(key=lambda e: (order.get(e.get("health"), 2), e["name"].lower()))
-        out.append(f"\n### {label} ({len(items)})\n")
+        out.append(f"\n## {label}\n")
+        out.append(f"<details>\n<summary>{len(items)} sources, {working(items)} working</summary>\n")
         out.append("| Source | Site | Status | Type | 18+ |")
         out.append("|---|---|---|---|:---:|")
         for e in items:
             host = e.get("baseUrl", "").replace("https://", "").replace("http://", "").rstrip("/")
             out.append(f"| {e['name'].replace('|', '/')} | {host} | {STATUS.get(e.get('health'), e.get('health'))} | "
                        f"{ORIGIN.get(e.get('origin'), e.get('origin'))} | {'yes' if e.get('nsfw') else ''} |")
-    out.append(FOOTER.format())
-    with open(os.path.join(REPO, "README.md"), "w", encoding="utf-8", newline="\n") as fh:
-        fh.write("\n".join(out))
-    print("repo/README.md:", len(exts), "extensions")
+        out.append("\n</details>")
+    with open(os.path.join(REPO, "SOURCES.md"), "w", encoding="utf-8", newline="\n") as fh:
+        fh.write("\n".join(out) + "\n")
+    print("repo/README.md + repo/SOURCES.md:", len(exts), "extensions")
 
 
 if __name__ == "__main__":

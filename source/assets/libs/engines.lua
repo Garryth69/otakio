@@ -139,7 +139,7 @@ local function newParser(cfg, defaults)
 	p.Config = cfg
 	p.Engine = cfg.engine
 	p.IsoLang = cfg.lang
-	p.ExtensionID = cfg.extension
+	p.ExtensionID = cfg.extension or p.ExtensionID -- native files omit it: keep the id the loader set
 	return p
 end
 

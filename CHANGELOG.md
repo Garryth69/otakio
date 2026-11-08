@@ -22,8 +22,13 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - New source engines for Russian, Japanese and Chinese sites (Grouple, LibGroup, MultiChan, FMReader, NatsuId,
   MangaReader, Liliana) and adult galleries (GalleryAdults).
 
+### Fixed
+- *Open source* and status tracking for Otakio's native extensions (their parsers lost the extension id).
+- Five extensions whose published file didn't match the SHA-256 in the catalog (line endings) and were refused on install.
+
 ### Changed
-- New app icon and logo; consistent button glyphs in the hint bar and dialogs.
+- New app icon (centered inside the Vita's round bubble) and logo; LiveArea reorganized around the start gate;
+  consistent button glyphs in the hint bar and dialogs.
 - The HTML parser no longer loses the rest of a page after a malformed attribute with a stray quote.
 - Cache, library and download folder names are ASCII-safe for non-Latin titles.
 - `param.sfo` is written by `tools/mksfo.py`, and the version comes only from `config.lua`.

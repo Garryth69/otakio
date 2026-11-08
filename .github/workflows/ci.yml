@@ -27,6 +27,9 @@ jobs:
       - name: Install dependencies
         run: pip install lupa pillow
 
+      - name: Extension catalog (hashes, ids, Lua compiles)
+        run: python tools/validate_repo.py --git
+
       - name: Bundle the catalog for the simulator
         run: |
           python - <<'PY'
