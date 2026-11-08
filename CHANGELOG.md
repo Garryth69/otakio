@@ -2,7 +2,7 @@
 
 All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the GitHub release with that tag.
 
-## Unreleased
+## 1.1.0
 
 ### Added
 - **In-app updates:** a new release is downloaded, checked (size, Otakio's title id), installed with the system

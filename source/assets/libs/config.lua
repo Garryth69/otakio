@@ -1,8 +1,8 @@
 ---Otakio global configuration
 Config = {
 	APP_NAME = "Otakio",
-	VERSION = 1.0,
-	VERSION_NAME = "1.0",
+	VERSION = 1.1,
+	VERSION_NAME = "1.1.0",
 	TITLE_ID = "OTAK00001",
 	DATA = "ux0:data/otakio/",
 	-- Engine API level exposed to extensions (index.json "minEngine")
