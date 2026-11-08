@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Broken source or source request
+    url: https://github.com/Garryth69/otakio-extensions/issues/new/choose
+    about: Sources live in the extension repository.
+  - name: Security problem
+    url: https://github.com/Garryth69/otakio/security/advisories/new
+    about: Report privately, not as a public issue.

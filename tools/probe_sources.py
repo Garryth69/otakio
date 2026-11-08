@@ -2,6 +2,7 @@
 
   python tools/probe_sources.py                 # probe every engine-based entry of repo/index.json
   python tools/probe_sources.py --only kei.en.  # id prefix filter
+  python tools/probe_sources.py --file my.lua   # test a new extension file
   python tools/probe_sources.py --candidates file.json   # used by gen_repo.py for theme auto-detection
 
 Writes repo/health.json: {id: {status, popular, chapters, pages, checked}}
@@ -184,7 +185,18 @@ def main():
     ap.add_argument("--workers", type=int, default=24)
     ap.add_argument("--ci", action="store_true", help="CI runner: blocks from a datacenter IP don't mark working sources dead")
     ap.add_argument("--update-index", action="store_true", help="also write the results into repo/index.json")
+    ap.add_argument("--file", help="probe one extension file (not yet in index.json) and print the result; health.json is not touched")
     args = ap.parse_args()
+    if args.file:
+        head = {}
+        for line in open(args.file, encoding="utf8"):
+            if line.startswith("-- @"):
+                k, _, v = line[4:].strip().partition(" ")
+                head[k] = v.strip()
+        ext_id, r = probe_entry({"id": head.get("id", "file"), "engine": "native", "file": os.path.abspath(args.file),
+                                 "baseUrl": head.get("baseUrl", ""), "lang": head.get("lang", "en"), "name": head.get("name", "probe")})
+        print(ext_id, json.dumps(r, ensure_ascii=False))
+        sys.exit(0 if r["status"] == "ok" else 1)
     index = json.load(open(os.path.join(ROOT, "repo", "index.json"), encoding="utf8"))
     entries = []
     wanted = set(open(args.ids).read().split()) if args.ids else None

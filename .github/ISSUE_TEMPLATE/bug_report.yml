@@ -1,0 +1,47 @@
+name: Bug report
+description: Something in the app doesn't work (crash, wrong screen, reader problem...)
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A single source not loading? Use **Broken source** in the [extension repository](https://github.com/Garryth69/otakio-extensions/issues/new/choose) instead.
+        Security problem? Don't open an issue: see SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Otakio version
+      description: More › About
+      placeholder: "1.1.0"
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Vita model and firmware
+      placeholder: "PCH-2000, 3.65"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Browse
+        2. ...
+  - type: input
+    id: source
+    attributes:
+      label: Source involved (if any)
+      placeholder: "MangaDex"
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Last lines of ux0:data/otakio/log.txt, if the problem is reproducible. Remove anything personal.
+      render: text

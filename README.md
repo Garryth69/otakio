@@ -1,10 +1,19 @@
 # Otakio
 
+[![CI](https://github.com/Garryth69/otakio/actions/workflows/ci.yml/badge.svg)](https://github.com/Garryth69/otakio/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/Garryth69/otakio)](https://github.com/Garryth69/otakio/releases/latest)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
+
 **Manga reader for the PS Vita**: library, reader, offline downloads, `.cbz`/`.zip` import and backups.
 A fork of [NOBORU](https://github.com/Creckeryop/NOBORU), with features inspired by [Mihon](https://github.com/mihonapp/mihon).
 
 Interface in English, Portuguese (Brazil), Spanish, French, German, Italian, Russian, Japanese and Chinese
 (Simplified and Traditional).
+
+| | |
+|---|---|
+| ![First-run setup: interface language](docs/screenshots/setup-language.png) | ![First-run setup: source languages](docs/screenshots/setup-languages.png) |
+| ![Themes](docs/screenshots/themes.png) | ![End of setup: install recommended sources](docs/screenshots/setup-done.png) |
 
 ---
 
@@ -19,8 +28,8 @@ Interface in English, Portuguese (Brazil), Spanish, French, German, Italian, Rus
 
 ## Installation
 
-1. Download `Otakio-x.y.vpk` from [Releases](../../releases) and install it with **VitaShell** (the Vita needs
-   HENkaku/Ensō).
+1. Download `Otakio-X.Y.Z.vpk` from [Releases](../../releases) and install it with **VitaShell** (the Vita needs
+   HENkaku/Ensō). Each release also lists the file's SHA-256 if you want to verify the download.
 2. Open Otakio. A short setup runs on the first launch. It covers the app language, the languages you read, adult
    content, reading direction, orientation, confirm button and theme.
 3. On its last screen, **Install recommended sources** adds the
@@ -137,6 +146,11 @@ Then:
    `gh release create vX.Y.Z build/Otakio-X.Y.Z.vpk`.
 
 The app compares the latest release tag with its own version and offers to download the attached `.vpk`.
+
+## Contributing
+
+Bug reports, source fixes, new sources and translations are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
+Security problems: please report them privately, as described in [SECURITY.md](SECURITY.md).
 
 ## License
 

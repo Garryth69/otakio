@@ -1,0 +1,18 @@
+name: Translation
+description: A wrong, missing or awkward interface string, or a new language
+labels: ["translation"]
+body:
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      placeholder: "Português (Brasil)"
+    validations:
+      required: true
+  - type: textarea
+    id: strings
+    attributes:
+      label: Strings
+      description: Where it appears, current text and suggested text. Pull requests editing source/assets/libs/lang_<code>.lua are even better (see CONTRIBUTING.md).
+    validations:
+      required: true

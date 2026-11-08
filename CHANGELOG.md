@@ -12,6 +12,12 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
   - its last screen offers **Install recommended sources**, which adds the Otakio extension repository and installs
     Otakio's own sources for the chosen languages.
 - **Active languages** (More → Browse / Extensions): only the chosen languages appear as tabs in Extensions and in Browse.
+- Extension safety:
+  - every file in the official repository is pinned by SHA-256 in `index.json`, and a download that doesn't match is
+    refused;
+  - extensions run in a sandbox (no file system, `io`, `os` or module loading; read-only settings);
+  - adding a third-party repository asks for confirmation.
+- Manual extensions: `.lua` files copied to `ux0:data/otakio/extensions/manual/` load at startup, labelled *Manual*.
 - Extensions removed from their repository are labelled *Removed from repository* (they keep working until uninstalled).
 - New source engines for Russian, Japanese and Chinese sites (Grouple, LibGroup, MultiChan, FMReader, NatsuId,
   MangaReader, Liliana) and adult galleries (GalleryAdults).
@@ -21,6 +27,7 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - The HTML parser no longer loses the rest of a page after a malformed attribute with a stray quote.
 - Cache, library and download folder names are ASCII-safe for non-Latin titles.
 - `param.sfo` is written by `tools/mksfo.py`, and the version comes only from `config.lua`.
+- Release VPKs come with a `.sha256` file.
 
 ## 1.0
 
