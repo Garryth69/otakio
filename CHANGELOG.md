@@ -2,7 +2,7 @@
 
 All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the GitHub release with that tag.
 
-## Unreleased
+## 1.1.3
 
 ### Fixed
 - First-run setup: its last screen no longer offers *Open Extensions*. Choosing it skipped *Install recommended

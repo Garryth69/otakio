@@ -2,7 +2,7 @@
 Config = {
 	APP_NAME = "Otakio",
 	VERSION = 1.1,
-	VERSION_NAME = "1.1.2",
+	VERSION_NAME = "1.1.3",
 	TITLE_ID = "OTAK00001",
 	-- helper title that installs updates while Otakio is closed (source/updater/)
 	UPDATER_TITLE_ID = "OTAK00002",
