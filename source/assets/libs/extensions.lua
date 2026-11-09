@@ -27,23 +27,28 @@ local co_create, co_resume, co_status, co_yield = coroutine.create, coroutine.re
 ---Diagnostics written to ux0:data/otakio/log.txt (kept short) so problems on real
 ---hardware can be reported without a debug console
 local LOG_PATH = Config.DATA .. "log.txt"
-local logLines = nil
+local logStarted = false
 function ExtLog(msg)
-	if not logLines then
-		logLines = {}
+	local line = (Clock and Clock.date and Clock.date("%Y-%m-%d %H:%M:%S") or "") .. "  " .. tostring(msg)
+	if not logStarted then
+		-- first line of the session: the last 300 lines of the previous sessions are kept, written once
+		logStarted = true
+		local kept = {}
 		local old = FS.read(LOG_PATH)
 		if old then
-			for line in old:gmatch("[^\n]+") do
-				logLines[#logLines + 1] = line
+			for l in old:gmatch("[^\n]+") do
+				kept[#kept + 1] = l
 			end
 		end
+		while #kept > 300 do
+			table.remove(kept, 1)
+		end
+		kept[#kept + 1] = line
+		FS.write(LOG_PATH, table.concat(kept, "\n") .. "\n")
+	else
+		-- later lines are appended: rewriting the whole file for every line paused the app at each screen change
+		FS.append(LOG_PATH, line .. "\n")
 	end
-	local line = (Clock and Clock.date and Clock.date("%Y-%m-%d %H:%M:%S") or "") .. "  " .. tostring(msg)
-	logLines[#logLines + 1] = line
-	while #logLines > 300 do
-		table.remove(logLines, 1)
-	end
-	FS.write(LOG_PATH, table.concat(logLines, "\n") .. "\n")
 	if Console then
 		Console.write(line)
 	end

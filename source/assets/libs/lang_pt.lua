@@ -72,14 +72,14 @@ Language.PortugueseBR = {
 		Network = "Tempo limite, conversão de imagens, proxy", Data = "Backup, cache, armazenamento", Other = "Fontes, ordem dos capítulos, notificações",
 		Controls = "Botões e analógicos", About = "Versão e créditos",
 		AutoDownloadNew = "Depois de atualizar a biblioteca", PreloadPages = "As próximas páginas baixam em segundo plano",
-		Incognito = "Não salva histórico nem progresso", SaveImageFormat = "Para o “Salvar imagem” do leitor", ImageProxy = "Só para formatos que o Vita não abre (AVIF, JXL, GIF)",
+		Incognito = "Não salva histórico nem progresso", SaveImageFormat = "Para o “Salvar imagem” do leitor. Converter para outro formato leva alguns segundos", ImageProxy = "Só para formatos que o Vita não abre (AVIF, JXL, GIF)",
 		DataSaver = "Imagens menores pelo proxy (960px)", ImportNoboruData = "Biblioteca, progresso e parsers"
 	},
 	THEME = {Otakio = "Otakio (roxo escuro)", AMOLED = "Preto AMOLED", Dark = "Escuro", Ocean = "Oceano", Matcha = "Matcha", Crimson = "Carmesim", Sakura = "Sakura (claro)", Light = "Claro"},
 	WARNINGS = {NO_CHAPTERS = "Nenhum capítulo"},
 	OTAKIO = {
 		REPO_UNOFFICIAL_Q = "Adicionar repositório de terceiros?", REPO_UNOFFICIAL_MSG = "Extensões são código que roda no app.\nAdicione só repositórios em que você confia.",
-		SETUP_INSTALL_RECOMMENDED = "Instalar fontes recomendadas", SETUP_INSTALL_RECOMMENDED_SUB = "Adiciona o repositório Garryth69/otakio-extensions", RECOMMENDED_QUEUED = "Instalando %d fontes recomendadas", RECOMMENDED_NONE = "Não foi possível ler o repositório de extensões (verifique a conexão). Tente de novo em Extensões > Repositórios", RECOMMENDED_ALL_INSTALLED = "As fontes recomendadas já estão instaladas", RECOMMENDED_NONE_LANG = "Nenhuma fonte recomendada para os idiomas escolhidos",
+		SETUP_INSTALL_RECOMMENDED = "Instalar fontes recomendadas", SETUP_INSTALL_RECOMMENDED_SUB = "Adiciona o repositório Garryth69/otakio-extensions", RECOMMENDED_QUEUED = "Instalando %d fontes recomendadas", RECOMMENDED_NONE = "Não foi possível ler o repositório de extensões (verifique a conexão). Tente de novo em Extensões > Repositórios", RECOMMENDED_ALL_INSTALLED = "As fontes recomendadas já estão instaladas", RECOMMENDED_NONE_LANG = "Nenhuma fonte recomendada para os idiomas escolhidos", SAVE_FORMAT_ORIGINAL = "Original",
 		REMOVED_FROM_REPO = "Removida do repositório · ainda funciona, você pode desinstalar",
 		SETUP_STEP = "Configuração %d/%d", SETUP_LANG_HINT = "Idioma dos menus e botões.", SETUP_EXTLANG_HINT = "Só estes idiomas aparecem em Extensões e Navegar.\nNenhum marcado = todos os idiomas.", SETUP_NSFW_HINT = "Fontes adultas ficam ocultas, a menos que você permita.", SETUP_DIRECTION_HINT = "Mangá: direita para a esquerda. Quadrinhos: esquerda\npara a direita. Webtoons: de cima para baixo.", SETUP_ORIENTATION_HINT = "Como você segura o Vita durante a leitura.", SETUP_KEYS_HINT = "Botão que confirma (o outro volta).", SETUP_DONE_TITLE = "Tudo pronto!", SETUP_DONE = "Agora instale suas fontes em Extensões.\nVocê pode mudar tudo depois em Mais.", SETUP_FINISH = "Concluir",
 		NAV = {LIBRARY = "Biblioteca", UPDATES = "Novidades", HISTORY = "Histórico", BROWSE = "Navegar", EXTENSIONS = "Extensões", DOWNLOADS = "Downloads", IMPORT = "Importar", MORE = "Mais"},

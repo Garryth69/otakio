@@ -31,6 +31,7 @@ SCE_CTRL_SELECT, SCE_CTRL_START, SCE_CTRL_UP, SCE_CTRL_RIGHT, SCE_CTRL_DOWN, SCE
 SCE_CTRL_LTRIGGER, SCE_CTRL_RTRIGGER, SCE_CTRL_TRIANGLE, SCE_CTRL_CIRCLE, SCE_CTRL_CROSS, SCE_CTRL_SQUARE = 0x100, 0x200, 0x1000, 0x2000, 0x4000, 0x8000
 SCE_CTRL_PSBUTTON = 0x10000
 FREAD, FWRITE, FCREATE, FRDWR = 1, 2, 3, 4
+SET, CUR, END = 0, 1, 2
 GET_METHOD, POST_METHOD, HEAD_METHOD = 0, 1, 2
 XWWW, JSON = 0, 1
 TYPE_DEFAULT, TYPE_LATIN, TYPE_NUMBER, TYPE_EXT_NUMBER = 0, 1, 2, 3
@@ -277,6 +278,9 @@ System = {
 		f:write(s)
 	end,
 	closeFile = function(f) f:close() handles[f] = nil end,
+	seekFile = function(f, pos, whence)
+		return f:seek(whence == END and "end" or whence == CUR and "cur" or "set", pos)
+	end,
 	sizeFile = function(f)
 		local cur = f:seek()
 		local size = f:seek("end")

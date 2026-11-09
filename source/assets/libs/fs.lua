@@ -5,6 +5,7 @@ FS = {}
 local openFile, closeFile, readFile, writeFile, sizeFile = System.openFile, System.closeFile, System.readFile, System.writeFile, System.sizeFile
 local doesFileExist, doesDirExist, deleteFile, createDirectory, listDirectory = System.doesFileExist, System.doesDirExist, System.deleteFile, System.createDirectory, System.listDirectory
 local rename = System.rename
+local seekFile = System.seekFile
 
 function FS.exists(path)
 	return doesFileExist(path)
@@ -51,6 +52,29 @@ function FS.write(path, data)
 		closeFile(fh2)
 		deleteFile(tmp)
 	end
+	return true
+end
+
+---Appends to a file (created when missing)
+function FS.append(path, data)
+	if not doesFileExist(path) then
+		local fh = openFile(path, FCREATE)
+		if not fh then
+			return false
+		end
+		writeFile(fh, data, #data)
+		closeFile(fh)
+		return true
+	end
+	local fh = openFile(path, FWRITE)
+	if not fh then
+		return false
+	end
+	if seekFile then
+		seekFile(fh, 0, END)
+	end
+	writeFile(fh, data, #data)
+	closeFile(fh)
 	return true
 end
 

@@ -72,14 +72,14 @@ Language.English = {
 		Network = "Timeout, image conversion, proxy", Data = "Backup, cache, storage", Other = "Fonts, chapter order, notifications",
 		Controls = "Buttons and analog sticks", About = "Version and credits",
 		AutoDownloadNew = "After a library refresh", PreloadPages = "Next pages download in the background",
-		Incognito = "Doesn't save history or progress", SaveImageFormat = "For “Save image” in the reader", ImageProxy = "Only for formats the Vita can't open (AVIF, JXL, GIF)",
+		Incognito = "Doesn't save history or progress", SaveImageFormat = "For “Save image” in the reader. Converting to another format takes a few seconds", ImageProxy = "Only for formats the Vita can't open (AVIF, JXL, GIF)",
 		DataSaver = "Smaller images through the proxy (960px)", ImportNoboruData = "Library, progress and parsers"
 	},
 	THEME = {Otakio = "Otakio (dark purple)", AMOLED = "AMOLED black", Dark = "Dark", Ocean = "Ocean", Matcha = "Matcha", Crimson = "Crimson", Sakura = "Sakura (light)", Light = "Light"},
 	WARNINGS = {NO_CHAPTERS = "No chapters"},
 	OTAKIO = {
 		REPO_UNOFFICIAL_Q = "Add a third-party repository?", REPO_UNOFFICIAL_MSG = "Extensions are code that runs in the app.\nOnly add repositories you trust.",
-		SETUP_INSTALL_RECOMMENDED = "Install recommended sources", SETUP_INSTALL_RECOMMENDED_SUB = "Adds the Garryth69/otakio-extensions repository", RECOMMENDED_QUEUED = "Installing %d recommended sources", RECOMMENDED_NONE = "Couldn't read the extension repository (check the connection). Try again in Extensions > Repositories", RECOMMENDED_ALL_INSTALLED = "The recommended sources are already installed", RECOMMENDED_NONE_LANG = "No recommended sources for the chosen languages",
+		SETUP_INSTALL_RECOMMENDED = "Install recommended sources", SETUP_INSTALL_RECOMMENDED_SUB = "Adds the Garryth69/otakio-extensions repository", RECOMMENDED_QUEUED = "Installing %d recommended sources", RECOMMENDED_NONE = "Couldn't read the extension repository (check the connection). Try again in Extensions > Repositories", RECOMMENDED_ALL_INSTALLED = "The recommended sources are already installed", RECOMMENDED_NONE_LANG = "No recommended sources for the chosen languages", SAVE_FORMAT_ORIGINAL = "Original",
 		REMOVED_FROM_REPO = "Removed from repository · still works, you can uninstall it",
 		SETUP_STEP = "Setup %d/%d", SETUP_LANG_HINT = "Language of the menus and buttons.", SETUP_EXTLANG_HINT = "Only these languages appear in Extensions and Browse.\nNone ticked = every language.", SETUP_NSFW_HINT = "Adult sources stay hidden unless you allow them.", SETUP_DIRECTION_HINT = "Manga: right to left. Comics: left to right.\nWebtoons: top to bottom.", SETUP_ORIENTATION_HINT = "How you hold the Vita while reading.", SETUP_KEYS_HINT = "Button that confirms (the other one goes back).", SETUP_DONE_TITLE = "All set!", SETUP_DONE = "Now install your sources in Extensions.\nYou can change everything later in More.", SETUP_FINISH = "Done",
 		NAV = {LIBRARY = "Library", UPDATES = "Updates", HISTORY = "History", BROWSE = "Browse", EXTENSIONS = "Extensions", DOWNLOADS = "Downloads", IMPORT = "Import", MORE = "More"},

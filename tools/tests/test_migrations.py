@@ -73,20 +73,23 @@ FAILING = """{
   end}
 }"""
 
+BASELINE = """{[1] = {name = "baseline", baseline = true, run = function() end}}"""
+
 # 1. fresh install: no settings.ini -> version written, nothing run
 d = fresh_dir()
 L = runtime(d)
+current = str(L.eval("Migrations.CURRENT"))
 check(L.eval("Migrations.run()") == "fresh", "fresh install")
-check(open(os.path.join(d, "data_version.txt")).read().strip() == "1", "fresh install writes the current version")
+check(open(os.path.join(d, "data_version.txt")).read().strip() == current, "fresh install writes the current version")
 
 # 2. data from 1.0 - 1.1.1 (no data_version.txt): baseline only
 d = fresh_dir()
 open(os.path.join(d, "settings.ini"), "w").write("Settings = {OldField = 1}")
 L = runtime(d)
-check(L.eval("Migrations.run()") == "migrated", "old data reaches the baseline")
+check(L.eval("Migrations.run({steps = %s, current = 1})" % BASELINE) == "migrated", "old data reaches the baseline")
 check(open(os.path.join(d, "data_version.txt")).read().strip() == "1", "baseline version written")
 check(not os.path.isdir(os.path.join(d, "backups")), "the baseline makes no copy")
-check(L.eval("Migrations.run()") == "current", "second start: nothing to do")
+check(L.eval("Migrations.run({steps = %s, current = 1})" % BASELINE) == "current", "second start: nothing to do")
 
 # 3. a real step: data converted, a copy kept
 os.makedirs(os.path.join(d, "cache"), exist_ok=True)
@@ -114,4 +117,18 @@ open(os.path.join(d, "data_version.txt"), "w").write("9\n")
 L = runtime(d)
 check(L.eval("Migrations.run()") == "newer", "newer data is left alone")
 check(open(os.path.join(d, "data_version.txt")).read().strip() == "9", "its version is kept")
+# 6. the real steps: 1.1.2 data with the old "PNG" default -> "Original"; an explicit choice is kept
+d = fresh_dir()
+open(os.path.join(d, "settings.ini"), "w").write('Settings = {SaveImageFormat = "PNG", Other = 1}')
+open(os.path.join(d, "data_version.txt"), "w").write("1\n")
+L = runtime(d)
+check(L.eval("Migrations.run()") == "migrated", "1.1.2 data runs the real steps")
+check('SaveImageFormat = "Original"' in open(os.path.join(d, "settings.ini")).read(), "PNG default becomes Original")
+check(open(os.path.join(d, "data_version.txt")).read().strip() == current, "current version written")
+d = fresh_dir()
+open(os.path.join(d, "settings.ini"), "w").write('Settings = {SaveImageFormat = "JPEG"}')
+open(os.path.join(d, "data_version.txt"), "w").write("1\n")
+L = runtime(d)
+check(L.eval("Migrations.run()") == "migrated", "JPEG data runs the real steps")
+check('SaveImageFormat = "JPEG"' in open(os.path.join(d, "settings.ini")).read(), "an explicit JPEG choice is kept")
 print("migration tests OK")

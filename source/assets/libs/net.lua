@@ -116,6 +116,7 @@ local closeFile = System.closeFile
 local deleteFile = System.deleteFile
 local openFile = System.openFile
 local sizeFile = System.sizeFile
+local readFile = System.readFile
 local doesFileExist = System.doesFileExist
 local removeDirectory = RemoveDirectory
 local getImageFormat = System.getImageFormat
@@ -269,9 +270,47 @@ local function finish(task)
 	end
 end
 
+---What a link points at, for the log: the image behind the converting proxy rather than the proxy, and no query
+---string (the log cleaner would hide the whole proxy query, target included)
+local function describeLink(link)
+	local url = type(link) == "table" and link.Link or link
+	if type(url) ~= "string" then
+		return tostring(url)
+	end
+	url = url:gsub("%%%%", "%%")
+	local target = ImageProxy.isProxied(url) and url:match("[?&]url=([^&]+)")
+	if target then
+		target = target:gsub("%%(%x%x)", function(h)
+			return string.char(tonumber(h, 16))
+		end)
+		return (target:gsub("[?#].*$", "")) .. " (via proxy)"
+	end
+	return (url:gsub("[?#].*$", ""))
+end
+
+---For the log: what a downloaded file that is not an image holds (an HTML block page, nothing...) and its size
+local function fileNote(path)
+	local fh = openFile(path, FREAD)
+	if not fh then
+		return ""
+	end
+	local size = sizeFile(fh) or 0
+	local head = size > 0 and readFile(fh, math.min(size, 64)) or ""
+	closeFile(fh)
+	local kind = "unknown data"
+	if size == 0 then
+		kind = "empty"
+	elseif head:find("^%s*<") then
+		kind = "HTML"
+	elseif head:find("^%s*{") then
+		kind = "JSON"
+	end
+	return string.format(": %s, %d bytes", kind, size)
+end
+
 ---Task failed this attempt: retried while it has attempts left, otherwise dropped (waiters see an empty result)
 local function fail(task, reason)
-	Console.error("NET: " .. tostring(reason) .. " (" .. tostring(task.RawLink or task.Path or "") .. ")")
+	Console.error("NET: " .. tostring(reason) .. " (" .. describeLink(task.RawLink or task.Path or "") .. ")")
 	if current == task then
 		current = nil
 	end
@@ -323,7 +362,7 @@ local function decodeImage(task)
 			task.Retry = task.Retry + 1
 			return fail(task, "unsupported image format, retrying through proxy")
 		elseif task.Link and not isGif then
-			return fail(task, "downloaded file is not an image")
+			return fail(task, "downloaded file is not an image" .. fileNote(path))
 		end
 		Console.error(isGif and "GIF images are not supported" or "File isn't a picture")
 		if ExtLog and not isGif then
@@ -579,8 +618,9 @@ function Threads.update()
 	end
 	if is_net_inited and not current and #queue == 0 then
 		idleFrames = idleFrames + 1
-		-- keep the network stack alive ~2s after the last request: avoids re-initializing libcurl/SSL between requests
-		if idleFrames > 120 then
+		-- keep the network stack alive 60 s after the last request: closing it drops the open connections and the TLS
+		-- sessions, and every request after a short pause (turning pages, going back to a list) paid DNS + TCP + TLS again
+		if idleFrames > 3600 then
 			Network.term()
 			is_net_inited = false
 			idleFrames = 0
@@ -676,6 +716,11 @@ function Threads.clear()
 end
 
 ---Gives boolean that is any task is running
+---For diagnostics: what the async slot is doing right now ("download", "decode", "slice", ...), or nil
+function Threads.currentStage()
+	return current and (current.Stage or current.Type) or nil
+end
+
 function Threads.isDownloadRunning()
 	return getAsyncState() == 0 or #queue ~= 0 or current ~= nil
 end

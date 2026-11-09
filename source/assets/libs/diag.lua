@@ -123,14 +123,62 @@ function Diag.startup()
 	end
 end
 
+local hitches, hitchWorst, hitchWorstWhere, hitchWhere = 0, 0, "", {}
+
+---A frame that took longer than 50 ms (main.lua): counted with the screen and what was running at the time
+function Diag.hitch(ms, fontWarmup)
+	hitches = hitches + 1
+	local where = AppMode == READER and "reader" or tostring(Menu and Menu.getMode and Menu.getMode())
+	local tags = {}
+	local stage = Threads and Threads.currentStage and Threads.currentStage()
+	if stage then
+		tags[#tags + 1] = "net:" .. tostring(stage)
+	end
+	if ParserManager and ParserManager.isBusy and ParserManager.isBusy() then
+		tags[#tags + 1] = "parser"
+	end
+	if Extensions and Extensions.isWorking and Extensions.isWorking() then
+		tags[#tags + 1] = "extensions"
+	end
+	if fontWarmup then
+		tags[#tags + 1] = "fonts"
+	end
+	local key = where .. (#tags > 0 and ("/" .. table.concat(tags, "+")) or "")
+	hitchWhere[key] = (hitchWhere[key] or 0) + 1
+	if ms > hitchWorst then
+		hitchWorst, hitchWorstWhere = ms, key
+	end
+end
+
+local function hitchReport()
+	if hitches == 0 then
+		return
+	end
+	local keys = {}
+	for k in pairs(hitchWhere) do
+		keys[#keys + 1] = k
+	end
+	table.sort(keys, function(a, b)
+		return hitchWhere[a] > hitchWhere[b]
+	end)
+	local parts = {}
+	for i = 1, math.min(4, #keys) do
+		parts[#parts + 1] = keys[i] .. " x" .. hitchWhere[keys[i]]
+	end
+	log(string.format("hitches: %d frames over 50 ms (worst %d ms in %s): %s", hitches, hitchWorst, hitchWorstWhere,
+		table.concat(parts, ", ")))
+	hitches, hitchWorst, hitchWorstWhere, hitchWhere = 0, 0, "", {}
+end
+
 local lastRam, lastGpu, lastCheck = nil, nil, 0
----Called every frame: logs memory when it moved by 8 MB or more (checked every 30 s)
+---Called every frame: every 30 s logs the slow frames, and memory when it moved by 8 MB or more
 function Diag.update()
 	local now = Timer.getTime(clock)
 	if now - lastCheck < 30000 then
 		return
 	end
 	lastCheck = now
+	hitchReport()
 	local ram, gpu, lua = memoryLine()
 	if not ram or not gpu then
 		return

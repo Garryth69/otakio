@@ -14,18 +14,49 @@ local extractFromZip = System.extractFromZip
 -- captured at load: main.lua later sandboxes System down to what extensions may use
 local convertImage = System.convertImage
 local deleteFile = System.deleteFile
+local openFile, readFile, writeFile, closeFile, sizeFile = System.openFile, System.readFile, System.writeFile, System.closeFile, System.sizeFile
 local FORMAT_EXT = {PNG = "png", JPEG = "jpg", WebP = "webp"}
 
----Gives the saved page its final name, converted at full resolution by the engine to the format chosen in
----Settings.SaveImageFormat (PNG by default); if the conversion fails the page keeps the source's format
+---Copies a file 256 KB per frame, inside a Threads job: copying a 2-3 MB page in one go froze the reader
+local function copyInSteps(src, dst)
+	local fin = openFile(src, FREAD)
+	if not fin then
+		return false
+	end
+	local fout = openFile(dst, FCREATE)
+	if not fout then
+		closeFile(fin)
+		return false
+	end
+	local size = sizeFile(fin) or 0
+	local done = 0
+	while done < size do
+		local chunk = readFile(fin, math.min(262144, size - done))
+		if not chunk or #chunk == 0 then
+			break
+		end
+		writeFile(fout, chunk, #chunk)
+		done = done + #chunk
+		if done < size then
+			coroutine.yield(false)
+		end
+	end
+	closeFile(fin)
+	closeFile(fout)
+	return done >= size
+end
+
+---Gives the saved page its final name. By default ("Original") the file is kept as downloaded; PNG/JPEG/WebP in
+---Settings.SaveImageFormat convert it at full resolution with the engine (that takes a few seconds on the Vita). If
+---the conversion fails the page keeps the source's format
 local function finishSave(tmp, base)
 	if not doesFileExist(tmp) then
 		return
 	end
 	local format = getImageFormat(tmp)
 	local ext = (format == nil or format == "jpeg") and "jpg" or format
-	local target = FORMAT_EXT[Settings.SaveImageFormat or "PNG"] or "png"
-	if ext ~= target and convertImage and convertImage(tmp, base .. "." .. target, target) then
+	local target = FORMAT_EXT[Settings.SaveImageFormat or "Original"]
+	if target and ext ~= target and convertImage and convertImage(tmp, base .. "." .. target, target) then
 		deleteFile(tmp)
 		ext = target
 	else
@@ -112,8 +143,14 @@ local function pageAction(action, selectedManga)
 				extractFromZip(page.Path, page.Extract, tmp)
 				finishSave(tmp, base)
 			elseif page.Path then
-				copyFile(page.Path:find("^...?0:") and page.Path or ("ux0:data/otakio/" .. page.Path), tmp)
-				finishSave(tmp, base)
+				local src = page.Path:find("^...?0:") and page.Path or ("ux0:data/otakio/" .. page.Path)
+				Threads.insertTask(tempTable, {
+					Type = "function",
+					OnComplete = function()
+						copyInSteps(src, tmp)
+						finishSave(tmp, base)
+					end
+				})
 			elseif page.ParserID then
 				Threads.insertTask(tempTable, {
 					Type = "function",

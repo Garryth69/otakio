@@ -72,14 +72,14 @@ Language.Spanish = {
 		Network = "Tiempo de espera, conversión de imágenes, proxy", Data = "Copia de seguridad, caché, almacenamiento", Other = "Fuentes, orden de capítulos, avisos",
 		Controls = "Botones y sticks", About = "Versión y créditos",
 		AutoDownloadNew = "Después de actualizar la biblioteca", PreloadPages = "Las siguientes páginas se descargan en segundo plano",
-		Incognito = "No guarda historial ni progreso", SaveImageFormat = "Para «Guardar imagen» del lector", ImageProxy = "Solo para formatos que la Vita no abre (AVIF, JXL, GIF)",
+		Incognito = "No guarda historial ni progreso", SaveImageFormat = "Para «Guardar imagen» del lector. Convertir a otro formato tarda unos segundos", ImageProxy = "Solo para formatos que la Vita no abre (AVIF, JXL, GIF)",
 		DataSaver = "Imágenes más pequeñas a través del proxy (960px)", ImportNoboruData = "Biblioteca, progreso y parsers"
 	},
 	THEME = {Otakio = "Otakio (morado oscuro)", AMOLED = "Negro AMOLED", Dark = "Oscuro", Ocean = "Océano", Matcha = "Matcha", Crimson = "Carmesí", Sakura = "Sakura (claro)", Light = "Claro"},
 	WARNINGS = {NO_CHAPTERS = "No hay capítulos"},
 	OTAKIO = {
 		REPO_UNOFFICIAL_Q = "¿Añadir un repositorio de terceros?", REPO_UNOFFICIAL_MSG = "Las extensiones son código que se ejecuta en la app.\nAñade solo repositorios de confianza.",
-		SETUP_INSTALL_RECOMMENDED = "Instalar fuentes recomendadas", SETUP_INSTALL_RECOMMENDED_SUB = "Añade el repositorio Garryth69/otakio-extensions", RECOMMENDED_QUEUED = "Instalando %d fuentes recomendadas", RECOMMENDED_NONE = "No se pudo leer el repositorio de extensiones (revisa la conexión). Inténtalo de nuevo en Extensiones > Repositorios", RECOMMENDED_ALL_INSTALLED = "Las fuentes recomendadas ya están instaladas", RECOMMENDED_NONE_LANG = "No hay fuentes recomendadas para los idiomas elegidos",
+		SETUP_INSTALL_RECOMMENDED = "Instalar fuentes recomendadas", SETUP_INSTALL_RECOMMENDED_SUB = "Añade el repositorio Garryth69/otakio-extensions", RECOMMENDED_QUEUED = "Instalando %d fuentes recomendadas", RECOMMENDED_NONE = "No se pudo leer el repositorio de extensiones (revisa la conexión). Inténtalo de nuevo en Extensiones > Repositorios", RECOMMENDED_ALL_INSTALLED = "Las fuentes recomendadas ya están instaladas", RECOMMENDED_NONE_LANG = "No hay fuentes recomendadas para los idiomas elegidos", SAVE_FORMAT_ORIGINAL = "Original",
 		REMOVED_FROM_REPO = "Retirada del repositorio · aún funciona, puedes desinstalarla",
 		SETUP_STEP = "Configuración %d/%d", SETUP_LANG_HINT = "Idioma de los menús y botones.", SETUP_EXTLANG_HINT = "Solo estos idiomas aparecen en Extensiones y Explorar.\nNinguno marcado = todos los idiomas.", SETUP_NSFW_HINT = "Las fuentes para adultos quedan ocultas salvo que lo permitas.", SETUP_DIRECTION_HINT = "Manga: de derecha a izquierda. Cómics: de izquierda\na derecha. Webtoons: de arriba abajo.", SETUP_ORIENTATION_HINT = "Cómo sostienes la Vita al leer.", SETUP_KEYS_HINT = "Botón que confirma (el otro vuelve atrás).", SETUP_DONE_TITLE = "¡Todo listo!", SETUP_DONE = "Ahora instala tus fuentes en Extensiones.\nPuedes cambiarlo todo luego en Más.", SETUP_FINISH = "Terminar",
 		NAV = {LIBRARY = "Biblioteca", UPDATES = "Novedades", HISTORY = "Historial", BROWSE = "Explorar", EXTENSIONS = "Extens.", DOWNLOADS = "Descargas", IMPORT = "Importar", MORE = "Más"},

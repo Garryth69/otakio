@@ -72,14 +72,14 @@ Language.Italian = {
 		Network = "Timeout, conversione immagini, proxy", Data = "Backup, cache, archivio", Other = "Font, ordine dei capitoli, notifiche",
 		Controls = "Tasti e levette", About = "Versione e riconoscimenti",
 		AutoDownloadNew = "Dopo l'aggiornamento della libreria", PreloadPages = "Le pagine successive si scaricano in background",
-		Incognito = "Non salva cronologia né progressi", SaveImageFormat = "Per «Salva immagine» nel lettore", ImageProxy = "Solo per i formati che la Vita non apre (AVIF, JXL, GIF)",
+		Incognito = "Non salva cronologia né progressi", SaveImageFormat = "Per «Salva immagine» nel lettore. Convertire in un altro formato richiede qualche secondo", ImageProxy = "Solo per i formati che la Vita non apre (AVIF, JXL, GIF)",
 		DataSaver = "Immagini più leggere tramite il proxy (960px)", ImportNoboruData = "Libreria, progressi e parser"
 	},
 	THEME = {Otakio = "Otakio (viola scuro)", AMOLED = "Nero AMOLED", Dark = "Scuro", Ocean = "Oceano", Matcha = "Matcha", Crimson = "Cremisi", Sakura = "Sakura (chiaro)", Light = "Chiaro"},
 	WARNINGS = {NO_CHAPTERS = "Nessun capitolo"},
 	OTAKIO = {
 		REPO_UNOFFICIAL_Q = "Aggiungere un repository di terzi?", REPO_UNOFFICIAL_MSG = "Le estensioni sono codice eseguito nell'app.\nAggiungi solo repository di cui ti fidi.",
-		SETUP_INSTALL_RECOMMENDED = "Installa le fonti consigliate", SETUP_INSTALL_RECOMMENDED_SUB = "Aggiunge il repository Garryth69/otakio-extensions", RECOMMENDED_QUEUED = "Installazione di %d fonti consigliate", RECOMMENDED_NONE = "Impossibile leggere il repository delle estensioni (controlla la connessione). Riprova in Estensioni > Repository", RECOMMENDED_ALL_INSTALLED = "Le fonti consigliate sono già installate", RECOMMENDED_NONE_LANG = "Nessuna fonte consigliata per le lingue scelte",
+		SETUP_INSTALL_RECOMMENDED = "Installa le fonti consigliate", SETUP_INSTALL_RECOMMENDED_SUB = "Aggiunge il repository Garryth69/otakio-extensions", RECOMMENDED_QUEUED = "Installazione di %d fonti consigliate", RECOMMENDED_NONE = "Impossibile leggere il repository delle estensioni (controlla la connessione). Riprova in Estensioni > Repository", RECOMMENDED_ALL_INSTALLED = "Le fonti consigliate sono già installate", RECOMMENDED_NONE_LANG = "Nessuna fonte consigliata per le lingue scelte", SAVE_FORMAT_ORIGINAL = "Originale",
 		REMOVED_FROM_REPO = "Rimossa dal repository · funziona ancora, puoi disinstallarla",
 		SETUP_STEP = "Configurazione %d/%d", SETUP_LANG_HINT = "Lingua dei menu e dei pulsanti.", SETUP_EXTLANG_HINT = "Solo queste lingue compaiono in Estensioni e Sfoglia.\nNessuna selezionata = tutte le lingue.", SETUP_NSFW_HINT = "Le fonti per adulti restano nascoste a meno che tu non le consenta.", SETUP_DIRECTION_HINT = "Manga: da destra a sinistra. Fumetti: da sinistra a destra.\nWebtoon: dall'alto in basso.", SETUP_ORIENTATION_HINT = "Come tieni la Vita mentre leggi.", SETUP_KEYS_HINT = "Pulsante di conferma (l'altro torna indietro).", SETUP_DONE_TITLE = "Tutto pronto!", SETUP_DONE = "Ora installa le tue fonti in Estensioni.\nPuoi cambiare tutto dopo in Altro.", SETUP_FINISH = "Fine",
 		NAV = {LIBRARY = "Libreria", UPDATES = "Novità", HISTORY = "Cronologia", BROWSE = "Sfoglia", EXTENSIONS = "Estensioni", DOWNLOADS = "Download", IMPORT = "Importa", MORE = "Altro"},

@@ -502,6 +502,60 @@ local function swipe(direction)
 	end
 end
 
+---A page taller than the screen (a webtoon strip) is read by screens: the page-turn buttons and the edge taps first
+---move the view along the page, about one screen at a time with a little of the previous view kept for the eye, and
+---turn the page only once its end is on screen. Going back does the same in reverse. Pages that fit the screen turn
+---at once, as before.
+local STEP_KEEP = 0.15 -- part of the screen kept visible between two steps
+
+---Where the current page stands along its height: the axis, its top and its end positions on that axis
+local function pageScroll(page)
+	local extent = page.Height * page.Zoom
+	if orientation == "Horizontal" then
+		if extent <= 545 then
+			return nil
+		end
+		-- the page is centered at page.y: its top is on screen at extent / 2, its end at 544 - extent / 2
+		return "y", 544, extent / 2, 544 - extent / 2
+	end
+	if extent <= 961 then
+		return nil
+	end
+	-- drawn rotated: the top of the page is on the right (page.x = 960 - extent / 2), its end on the left
+	return "x", 960, 960 - extent / 2, extent / 2
+end
+
+---@return boolean true when the view moved along the page instead of turning it
+local function scrollPage(direction)
+	local page = allPages[allPages.Page]
+	if not page or not page.Zoom or not page.Image then
+		return false
+	end
+	local axis, screen, topPos, endPos = pageScroll(page)
+	if not axis then
+		return false
+	end
+	local pos = page[axis]
+	local target = direction == "LEFT" and endPos or topPos
+	if math.abs(pos - target) < 1 then
+		return false
+	end
+	local step = screen * (1 - STEP_KEEP)
+	if target < pos then
+		page[axis] = math.max(pos - step, target)
+	else
+		page[axis] = math.min(pos + step, target)
+	end
+	return true
+end
+
+---Page-turn buttons and edge taps: one more screen of a tall page, else the next/previous page
+local function turnPage(direction)
+	if not scrollPage(direction) then
+		swipe(direction)
+	end
+end
+
 local function exit()
 	for i = 1, #allPages do
 		deletePageImage(i)
@@ -511,7 +565,7 @@ local function exit()
 		Page = 0
 	}
 	ParserManager.remove((((Chapters or {})[currentChapterNumber or 0] or {}).Pages) or 0)
-	collectgarbage("collect")
+	collectgarbage("step", 1024)
 	AppMode = MENU
 	ContextMenu = false
 	MenuFade = 0
@@ -608,11 +662,11 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 				local right_page_button = Settings.ChangingPageButtons == "DPAD" and (orientation == "Horizontal" and (is_down and SCE_CTRL_DOWN or SCE_CTRL_RIGHT) or (orientation == "Vertical" and (is_down and SCE_CTRL_LEFT or SCE_CTRL_DOWN))) or SCE_CTRL_RIGHTPAGE
 				local left_page_button = Settings.ChangingPageButtons == "DPAD" and (orientation == "Horizontal" and (is_down and SCE_CTRL_UP or SCE_CTRL_LEFT) or (orientation == "Vertical" and (is_down and SCE_CTRL_RIGHT or SCE_CTRL_UP))) or SCE_CTRL_LEFTPAGE
 				if Controls.check(pad, right_page_button) and (buttonTimeSpace < Timer.getTime(buttonTimer) or not Controls.check(oldPad, right_page_button)) then
-					swipe("LEFT")
+					turnPage("LEFT")
 					buttonTimeSpace = math.max(buttonTimeSpace / 2, 10)
 					Timer.reset(buttonTimer)
 				elseif Controls.check(pad, left_page_button) and (buttonTimeSpace < Timer.getTime(buttonTimer) or not Controls.check(oldPad, left_page_button)) then
-					swipe("RIGHT")
+					turnPage("RIGHT")
 					buttonTimeSpace = math.max(buttonTimeSpace / 2, 10)
 					Timer.reset(buttonTimer)
 				elseif Controls.check(pad, SCE_CTRL_SQUARE) then
@@ -688,18 +742,18 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 							if orientation == "Vertical" then
 								if is_down then
 									if oldTouch.x > 480 + 180 then
-										swipe("RIGHT")
+										turnPage("RIGHT")
 									elseif oldTouch.x < 480 - 180 then
-										swipe("LEFT")
+										turnPage("LEFT")
 									else
 										toggleContextMenu = true
 										Timer.reset(ToggleContextMenuTimer)
 									end
 								else
 									if oldTouch.y > 272 + 120 then
-										swipe("LEFT")
+										turnPage("LEFT")
 									elseif oldTouch.y < 272 - 120 then
-										swipe("RIGHT")
+										turnPage("RIGHT")
 									else
 										toggleContextMenu = true
 										Timer.reset(ToggleContextMenuTimer)
@@ -708,18 +762,18 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 							elseif orientation == "Horizontal" then
 								if is_down then
 									if oldTouch.y > 272 + 120 then
-										swipe("LEFT")
+										turnPage("LEFT")
 									elseif oldTouch.y < 272 - 120 then
-										swipe("RIGHT")
+										turnPage("RIGHT")
 									else
 										toggleContextMenu = true
 										Timer.reset(ToggleContextMenuTimer)
 									end
 								else
 									if oldTouch.x > 480 + 180 then
-										swipe("LEFT")
+										turnPage("LEFT")
 									elseif oldTouch.x < 480 - 180 then
-										swipe("RIGHT")
+										turnPage("RIGHT")
 									else
 										toggleContextMenu = true
 										Timer.reset(ToggleContextMenuTimer)
@@ -1770,7 +1824,7 @@ function Reader.loadChapter(chapter)
 	allPages = {
 		Page = 0
 	}
-	collectgarbage("collect")
+	collectgarbage("step", 1024)
 	if ChapterSaver.check(Chapters[chapter]) then
 		Chapters[chapter].Pages = ChapterSaver.getChapter(Chapters[chapter])
 	else
@@ -1838,6 +1892,15 @@ function Reader.load(chapters, num)
 		startPage = 1
 	end
 	Reader.loadChapter(num)
+end
+
+---For the simulator: the current page and where it stands (position and size on screen)
+function Reader.debugView()
+	local page = allPages[allPages.Page]
+	if not page or not page.Zoom then
+		return allPages.Page
+	end
+	return allPages.Page, page.x, page.y, page.Width * page.Zoom, page.Height * page.Zoom
 end
 
 function Reader.getCurrentPageImageLink()

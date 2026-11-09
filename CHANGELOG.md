@@ -2,6 +2,36 @@
 
 All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the GitHub release with that tag.
 
+## 1.1.4
+
+### Added
+- **Tall pages are read by screens.** On a page taller than the screen (a webtoon strip, or a portrait page fitted to
+  the width), the page-turn buttons (L/R or the d-pad) and the edge taps first move down the page about one screen at a
+  time, keeping a bit of the previous view, and turn the page only once its end is on screen. Going back does the same
+  in reverse and lands on the end of the previous page. Before, one press jumped to the next page and the rest of a
+  strip was never seen, so pages looked cut. The analog stick and dragging still pan freely; pages that fit the screen
+  turn at once, as before.
+- `log.txt` gets a line every 30 s with the frames that took over 50 ms, with the screen and what was running (network
+  stage, extension job, font warm-up), to find what still stalls.
+- Image downloads that fail are logged with the image's host and path (also behind the converting proxy) and what came
+  instead of an image (an HTML page, an empty file...).
+
+### Changed
+- **Start-up about 10 s faster.** The interface fonts carry the CJK ideograms (13 MB each) and every glyph rendered
+  for the first time is read from the memory card, so pre-rendering the whole character set at start-up took about
+  10 s. Only the basic Latin set is rendered before the Library appears; the rest is rendered off-screen a few glyphs
+  per frame during the first seconds (and timed in `log.txt`).
+- **"Save image" no longer freezes the reader.** The page is kept as downloaded by default (new setting value
+  *Original*): converting a 5000 px strip to PNG took seconds, and the copy itself is now done in steps over several
+  frames. PNG, JPEG or WebP can still be chosen in Settings; the conversion then takes a few seconds. Installs with the
+  old PNG default move to *Original* (data version 2); a JPEG or WebP choice is kept.
+- `log.txt` lines are appended instead of rewriting the whole file each time: every screen change, chapter opening or
+  error rewrote a 30 KB file.
+- The network stack stays up 60 s after the last request (2 s before): turning pages or going back to a list after a
+  short pause reuses the connections and TLS sessions instead of paying DNS, TCP and TLS again.
+- Leaving Browse or the reader, and changing a cover, no longer run a full garbage collection (a visible pause); the
+  incremental collector takes care of it.
+
 ## 1.1.3
 
 ### Fixed

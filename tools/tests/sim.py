@@ -157,7 +157,7 @@ SCENARIOS = {
     "readercolors": [("wait", 30), "DOWN", "RIGHT", "CROSS", ("wait", 120), "DOWN", "CROSS", ("wait", 200), "START", ("wait", 40),
                      ("touch", 930, 40), ("wait", 30), "DOWN", "DOWN", "DOWN", "RIGHT", "DOWN", "LEFT", "LEFT", "LEFT",
                      "DOWN", "CROSS", ("wait", 10), "DOWN", "RIGHT", ("wait", 10), "CIRCLE", ("wait", 60)],
-    # after 'import': 3rd imported manga, page 2 is a PNG -> "Save image" must write a JPEG
+    # after 'import': 3rd imported manga, page 2 is a PNG -> "Save image" keeps it as it is (Original)
     "savepng": [("wait", 30), "DOWN", "RIGHT", "RIGHT", "CROSS", ("wait", 120), "DOWN", "CROSS", ("wait", 200), "RIGHT", ("wait", 80),
                 "START", ("wait", 40), ("touch", 930, 40), ("wait", 30), "UP", "CROSS", ("wait", 60)],
     # Extensions > Available with every language chip, then the Downloads tab
@@ -462,6 +462,7 @@ def main():
     sim.maxFrames = frames
     import time as _t2
     sim.now = _t2.perf_counter
+    sim.traceReader = bool(os.environ.get("SIM_TRACE_READER"))
     sim.netSeconds = lambda: (globals().get("NETSTATS") or {}).get("net_s", 0.0) + globals()["MOCKSTATS"]["s"]
     L.execute("""
         SIM.worst = {}
@@ -483,6 +484,12 @@ def main():
             SIM.samples[#SIM.samples + 1] = where
         end, "", 20000)
         SIM.onFrame = function(frame)
+            -- SIM_TRACE_READER=1: on every scripted button press inside the reader, where the current page stands
+            if SIM.traceReader and SIM.script[frame] and SIM.script[frame].pad and AppMode == READER and Reader and Reader.debugView then
+                local p, x, y, w, h = Reader.debugView()
+                local function f(v) return v and tostring(math.floor(v)) or "-" end
+                print(string.format("   reader@%d: page %s x=%s y=%s w=%s h=%s", frame, tostring(p), f(x), f(y), f(w), f(h)))
+            end
             -- frame time without the (synchronous, simulated) network: the Lua work the Vita would really do
             local t, net = SIM.now(), SIM.netSeconds()
             if SIM.lastT then

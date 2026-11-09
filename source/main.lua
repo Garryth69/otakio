@@ -121,6 +121,58 @@ local function stage(name)
 	Timer.reset(stageClock)
 end
 
+-- Glyph warm-up. FreeType reads every glyph it renders for the first time from the font files on the memory card
+-- (13 MB each, with the CJK ideograms), so pre-rendering the whole character set took about 10 s at start-up. Now the
+-- start-up renders only the basic Latin set and the rest is rendered off-screen a few glyphs per frame (within a time
+-- budget) once the Library is up; the measured rate goes to log.txt.
+FontWarmup = {pending = {}, glyphs = 0, ms = 0, frames = 0}
+do
+	local clock = Timer.new()
+	local BUDGET_MS = 4
+
+	---Queues every character of `text` for each font in `fontList`
+	function FontWarmup.queue(fontList, text)
+		local chars, seen = {}, {}
+		for ch in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+			if ch ~= "\n" and ch ~= "\r" and ch ~= " " and not seen[ch] then
+				seen[ch] = true
+				chars[#chars + 1] = ch
+			end
+		end
+		for _, font in ipairs(fontList) do
+			FontWarmup.pending[#FontWarmup.pending + 1] = {font = font, chars = chars, next = 1}
+		end
+	end
+
+	---Called inside the drawing phase: renders a few more glyphs off-screen, one at a time, within the budget
+	function FontWarmup.tick()
+		local job = FontWarmup.pending[1]
+		if not job then
+			return
+		end
+		Timer.reset(clock)
+		FontWarmup.frames = FontWarmup.frames + 1
+		repeat
+			Font.print(job.font, 0, -200, job.chars[job.next], COLOR_BLACK)
+			FontWarmup.glyphs = FontWarmup.glyphs + 1
+			job.next = job.next + 1
+			if job.next > #job.chars then
+				table.remove(FontWarmup.pending, 1)
+				job = FontWarmup.pending[1]
+			end
+		until not job or Timer.getTime(clock) >= BUDGET_MS
+		FontWarmup.ms = FontWarmup.ms + Timer.getTime(clock)
+		if not job then
+			pcall(ExtLog, string.format("font warm-up: %d glyphs in %d ms over %d frames (%.1f ms per glyph)",
+				FontWarmup.glyphs, FontWarmup.ms, FontWarmup.frames, FontWarmup.ms / math.max(1, FontWarmup.glyphs)))
+		end
+	end
+
+	function FontWarmup.isActive()
+		return FontWarmup.pending[1] ~= nil
+	end
+end
+
 local function preloadData()
 	-- data written by older versions is converted before anything reads it (migrations.lua)
 	local migrated, result = pcall(Migrations.run)
@@ -150,14 +202,20 @@ local function preloadData()
 			loadFontString = loadFontString .. (LanguageNames and LanguageNames[langName] and LanguageNames[langName][langName] or "")
 		end
 		stage("fonts")
-		-- the full set only for the sizes most of the interface uses; the others get the basic Latin set
-		-- (rasterizing every script in all six fonts was a large part of the start-up time)
+		-- start-up renders only the basic Latin set, so the Library shows up at once; the full set for the three sizes
+		-- most of the interface uses is rendered in the background afterwards (FontWarmup above)
 		local basic = '1234567890AaBbCcDdEeFf\nGgHhIiJjKkLlMmNnOoPpQqRr\nSsTtUuVvWwXxYyZz!?.,:;()-/'
-		local full = {[FONT16] = true, [BONT16] = true, [FONT20] = true}
+		local fontClock = Timer.new()
+		local timings = {}
 		for k, v in ipairs(fonts) do
 			coroutine.yield("Loading fonts " .. k .. "/" .. #fonts)
-			Font.print(v, 0, 0, full[v] and loadFontString or basic, COLOR_BLACK)
+			Timer.reset(fontClock)
+			Font.print(v, 0, 0, basic, COLOR_BLACK)
+			timings[#timings + 1] = math.floor(Timer.getTime(fontClock)) .. " ms"
 		end
+		Timer.destroy(fontClock)
+		pcall(ExtLog, "fonts (basic set): " .. table.concat(timings, ", "))
+		FontWarmup.queue({FONT16, BONT16, FONT20}, loadFontString)
 	end
 	stage("cache")
 	coroutine.yield("Loading cache, checking existing data")
@@ -353,11 +411,12 @@ local function update()
 	local rx, ry = Controls.readRightAnalog()
 	local stick = math.abs(lx - 128) > 40 or math.abs(ly - 128) > 40 or math.abs(rx - 128) > 40 or math.abs(ry - 128) > 40
 	Perf.update(fade > 0 or pad ~= 0 or touch.x ~= nil or stick or Threads.isDownloadRunning() or ParserManager.isBusy()
-		or ChapterSaver.is_download_running() or Extensions.isWorking() or AppUpdate.isBusy())
+		or ChapterSaver.is_download_running() or Extensions.isWorking() or AppUpdate.isBusy() or FontWarmup.isActive())
 end
 
 local fpsTimer = Timer.new()
 local fpsFrames = 0
+local frameClock = Timer.new() -- CPU time of the frame (input + update + draw), for the hitch log (diag.lua)
 
 local function draw()
 	Graphics.initBlend()
@@ -385,8 +444,13 @@ local function draw()
 	Panel.draw()
 	AppUpdate.draw() -- over the button bar too: the menu doesn't take input meanwhile
 	Debug.draw()
+	FontWarmup.tick()
 	Graphics.termBlend() -- waits for the GPU to finish the frame
 	DRAW_PHASE = false
+	local frameMs = Timer.getTime(frameClock)
+	if frameMs > 50 then
+		Diag.hitch(frameMs, FontWarmup.isActive())
+	end
 	Screen.flip()
 	Screen.waitVblankStart()
 	fpsFrames = fpsFrames + 1
@@ -437,6 +501,7 @@ local function recover(err)
 end
 
 local function frame()
+	Timer.reset(frameClock)
 	Textures.flush() -- the GPU finished the previous frame: queued textures can go now
 	input()
 	update()

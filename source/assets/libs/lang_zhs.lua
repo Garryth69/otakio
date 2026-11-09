@@ -72,14 +72,14 @@ Language.ChineseSimplified = {
 		Network = "超时、图片转换、代理", Data = "备份、缓存、存储", Other = "字体、章节顺序、通知",
 		Controls = "按键和摇杆", About = "版本和致谢",
 		AutoDownloadNew = "在书架更新之后", PreloadPages = "在后台下载后面的页面",
-		Incognito = "不保存历史和进度", SaveImageFormat = "用于阅读器中的“保存图片”", ImageProxy = "仅用于 Vita 无法打开的格式（AVIF、JXL、GIF）",
+		Incognito = "不保存历史和进度", SaveImageFormat = "用于阅读器中的“保存图片”。转换为其他格式需要几秒钟", ImageProxy = "仅用于 Vita 无法打开的格式（AVIF、JXL、GIF）",
 		DataSaver = "通过代理获取较小的图片（960px）", ImportNoboruData = "书架、进度和解析器"
 	},
 	THEME = {Otakio = "Otakio（深紫）", AMOLED = "AMOLED 纯黑", Dark = "深色", Ocean = "海洋", Matcha = "抹茶", Crimson = "绯红", Sakura = "樱花（浅色）", Light = "浅色"},
 	WARNINGS = {NO_CHAPTERS = "没有章节"},
 	OTAKIO = {
 		REPO_UNOFFICIAL_Q = "添加第三方仓库？", REPO_UNOFFICIAL_MSG = "扩展是在应用中运行的代码。\n请只添加你信任的仓库。",
-		SETUP_INSTALL_RECOMMENDED = "安装推荐图源", SETUP_INSTALL_RECOMMENDED_SUB = "添加仓库 Garryth69/otakio-extensions", RECOMMENDED_QUEUED = "正在安装 %d 个推荐图源", RECOMMENDED_NONE = "无法读取扩展仓库（请检查网络连接）。请在 扩展 > 仓库 中重试", RECOMMENDED_ALL_INSTALLED = "推荐图源已全部安装", RECOMMENDED_NONE_LANG = "所选语言没有推荐图源",
+		SETUP_INSTALL_RECOMMENDED = "安装推荐图源", SETUP_INSTALL_RECOMMENDED_SUB = "添加仓库 Garryth69/otakio-extensions", RECOMMENDED_QUEUED = "正在安装 %d 个推荐图源", RECOMMENDED_NONE = "无法读取扩展仓库（请检查网络连接）。请在 扩展 > 仓库 中重试", RECOMMENDED_ALL_INSTALLED = "推荐图源已全部安装", RECOMMENDED_NONE_LANG = "所选语言没有推荐图源", SAVE_FORMAT_ORIGINAL = "原格式",
 		REMOVED_FROM_REPO = "已从仓库移除 · 仍可使用，可以卸载",
 		SETUP_STEP = "初始设置 %d/%d", SETUP_LANG_HINT = "菜单和按钮的语言。", SETUP_EXTLANG_HINT = "扩展和浏览中只显示这些语言。\n都不勾选 = 所有语言。", SETUP_NSFW_HINT = "除非你允许，否则成人图源会被隐藏。", SETUP_DIRECTION_HINT = "日漫：从右到左。美漫：从左到右。\n条漫：从上到下。", SETUP_ORIENTATION_HINT = "阅读时 Vita 的握持方向。", SETUP_KEYS_HINT = "确认键（另一个键为返回）。", SETUP_DONE_TITLE = "设置完成！", SETUP_DONE = "现在去“扩展”安装图源吧。\n之后可在“更多”中修改所有设置。", SETUP_FINISH = "完成",
 		NAV = {LIBRARY = "书架", UPDATES = "更新", HISTORY = "历史", BROWSE = "浏览", EXTENSIONS = "扩展", DOWNLOADS = "下载", IMPORT = "导入", MORE = "更多"},

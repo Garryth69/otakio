@@ -201,7 +201,6 @@ local function updateChaptersList()
 				end
 				selectedManga.ImageLink = manga.NewImageLink
 				selectedManga.ImageDownload = nil
-				collectgarbage("collect")
 			end
 		end
 	end
@@ -787,7 +786,6 @@ function Details.actionsMenu()
 			end
 			CustomCovers.setMangaCover(selectedManga, nil)
 			selectedManga.ImageDownload = nil
-			collectgarbage("collect")
 			Notifications.push(Language[Settings.Language].NOTIFICATIONS.COVER_SET_COMPLETED)
 		end
 		if v == "allread" or v == "allunread" or v == "prevread" then

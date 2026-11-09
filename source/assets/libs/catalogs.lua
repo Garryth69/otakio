@@ -1061,7 +1061,8 @@ local function settingInfo(task)
 	elseif task == "ImageProxy" then
 		return L().PROXY_MODES[Settings.ImageProxy or "Auto"]
 	elseif task == "SaveImageFormat" then
-		return Settings.SaveImageFormat or "PNG"
+		local format = Settings.SaveImageFormat or "Original"
+		return format == "Original" and L().SAVE_FORMAT_ORIGINAL or format
 	elseif task == "PreloadPages" then
 		return tostring(Settings.PreloadPages or 3)
 	elseif task == "ExtensionRepos" then
@@ -1454,7 +1455,6 @@ function Catalogs.shrink()
 	for _, i in ipairs(downloadedImages) do
 		freeMangaImage(currentMangaList[i])
 	end
-	collectgarbage("collect")
 	ParserManager.remove(currentMangaList)
 	Loading.setStatus("NONE")
 end

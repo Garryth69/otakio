@@ -9,11 +9,23 @@
 ---To change a data format later: bump CURRENT, add STEPS[CURRENT] = {name = "...", run = function(dir) ... end}.
 Migrations = {}
 
-Migrations.CURRENT = 1
+Migrations.CURRENT = 2
 
 local STEPS = {
 	-- 1.1.2: first numbered version. Data written by Otakio 1.0 - 1.1.2 already is in this format.
 	[1] = {name = "baseline", baseline = true, run = function()
+	end},
+	-- 1.1.4: "Save image" keeps the page as downloaded by default. "PNG" was the old default rather than a choice, and
+	-- converting a page to PNG froze the reader for seconds, so it goes to the new default (other choices are kept).
+	[2] = {name = "save image format", run = function(dir)
+		local path = dir .. "settings.ini"
+		local text = FS.read(path)
+		if text then
+			local new, n = text:gsub('SaveImageFormat%s*=%s*"PNG"', 'SaveImageFormat = "Original"')
+			if n > 0 then
+				FS.write(path, new)
+			end
+		end
 	end}
 }
 

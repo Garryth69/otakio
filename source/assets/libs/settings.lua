@@ -35,7 +35,7 @@ Settings = {
 	ImageProxy = "Auto",
 	DataSaver = false,
 	PreloadPages = 3,
-	SaveImageFormat = "PNG",
+	SaveImageFormat = "Original",
 	AutoUpdateExtensions = false,
 	CheckExtUpdatesAtStart = true,
 	AppAutoUpdate = true,
@@ -290,7 +290,7 @@ function settings.load()
 				setSetting(new, "ImageProxy", { "Auto", "Off" })
 				setSetting(new, "DataSaver", { true, false })
 				setSetting(new, "PreloadPages", { 0, 1, 2, 3, 5, 8 })
-				setSetting(new, "SaveImageFormat", { "PNG", "JPEG", "WebP" })
+				setSetting(new, "SaveImageFormat", { "Original", "PNG", "JPEG", "WebP" })
 				setSetting(new, "AutoUpdateExtensions", { true, false })
 				setSetting(new, "CheckExtUpdatesAtStart", { true, false })
 				setSetting(new, "AppAutoUpdate", { true, false })
@@ -588,7 +588,7 @@ SettingsFunctions = {
 		settings.Incognito = not settings.Incognito
 	end,
 	SaveImageFormat = function()
-		settings.SaveImageFormat = table.next(settings.SaveImageFormat or "PNG", { "PNG", "JPEG", "WebP" })
+		settings.SaveImageFormat = table.next(settings.SaveImageFormat or "Original", { "Original", "PNG", "JPEG", "WebP" })
 	end,
 	ImageProxy = function()
 		settings.ImageProxy = table.next(settings.ImageProxy or "Auto", { "Auto", "Off" })
