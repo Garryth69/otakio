@@ -38,11 +38,20 @@ def load_image(path):
     return _load(path)
 
 
+# SIM_BLUR_IMAGES=<radius>: downloaded images (covers, pages) are blurred as they load, for README screenshots that
+# don't show third-party artwork; the app's own icons stay sharp
+_BLUR = float(os.environ.get("SIM_BLUR_IMAGES") or 0)
+
+
 def _load(path):
     try:
         im = Image.open(path)
         im.load()
-        return im.convert("RGBA")
+        im = im.convert("RGBA")
+        if _BLUR and "ux0" in path.replace("\\", "/").split("/"):
+            from PIL import ImageFilter
+            im = im.filter(ImageFilter.GaussianBlur(_BLUR * max(1.0, max(im.size) / 512)))
+        return im
     except Exception:
         return None
 

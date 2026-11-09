@@ -30,6 +30,55 @@ index 14cb9bc..317c341 100644
  		-DHAVE_LIBSNDFILE -DHAVE_MPG123 -DWANT_FMMIDI=1 -DWANT_FASTAIFF \
  		-DUSE_AUDIO_RESAMPLER -DHAVE_OGGVORBIS -DHAVE_OPUSFILE \
  		-DSQLITE_OS_OTHER=1 -DSQLITE_TEMP_STORE=3 -DSQLITE_THREADSAFE=0
+diff --git a/source/include/Archives.c b/source/include/Archives.c
+index 5dcd982..078bb63 100644
+--- a/source/include/Archives.c
++++ b/source/include/Archives.c
+@@ -1024,20 +1024,36 @@ int ZipExtractCurrentFile(Zip *zip, int *nopath, const char *password, const cha
+ 		if(err != _ZIP_OK)
+ 			printf("Error with zipfile in ZipOpenCurrentFile\n");
+ 		
+-		sprintf(extract_path,"%s/%s",path, writeFilename);
++		snprintf(extract_path, sizeof(extract_path), "%s/%s", path, writeFilename);
+ 		fout = fopen(extract_path, "wb");
+ 
+-		if((fout == NULL) && ((*nopath) == 0) && (filenameWithoutPath != (char *)filenameinzip))
++		if(fout == NULL)
+ 		{
+-			char c = *(filenameWithoutPath - 1);
+-			*(filenameWithoutPath - 1) = '\0';
+-			sceIoMkdir(writeFilename, 0777);
+-			*(filenameWithoutPath - 1) = c;
+-			fout = fopen(writeFilename, "wb");
++			// zips without entries for their folders (common in .cbz): create every parent folder of the full
++			// output path, then try again (the old code created the folder relative to the current directory)
++			char *slash;
++			for(slash = extract_path + strlen(path) + 1; *slash; slash++)
++			{
++				if(*slash == '/' || *slash == '\\')
++				{
++					char c = *slash;
++					*slash = '\0';
++					sceIoMkdir(extract_path, 0777);
++					*slash = c;
++				}
++			}
++			fout = fopen(extract_path, "wb");
+ 		}
+ 
+ 		if(fout == NULL)
+-			printf("Error opening file\n");
++		{
++			// never write to a NULL FILE*: skip this file, keep extracting the others
++			printf("Error opening file %s\n", extract_path);
++			ZipCloseCurrentFile(zip);
++			if(buffer)
++				FreePatch(buffer);
++			return _ZIP_OK;
++		}
+ 			
+ 		void* extractBuffer = buffer;
+ 		unsigned int remainingSize = buffersize;
 diff --git a/source/include/dl_stubs.c b/source/include/dl_stubs.c
 new file mode 100644
 index 0000000..ed1f29e
@@ -684,3 +733,18 @@ index 95cf902..5f82e7b 100644
    {"executeUri",                lua_executeuri},
    {"reboot",                    lua_reboot},  
    {"isSafeMode",                lua_issafe},
+diff --git a/source/main.cpp b/source/main.cpp
+index 9a10a62..c067cd1 100644
+--- a/source/main.cpp
++++ b/source/main.cpp
+@@ -69,7 +69,9 @@ int main()
+ 	unsigned short int vita_port = 0;
+ 
+ 	// Initializing graphics device
+-	vita2d_init_advanced(0x1000000);
++	// per-frame vertex/uniform pool (main RAM, reset every frame): 4 MB is four times vita2d's default and far above
++	// what a frame of Otakio uses; 16 MB kept 12 MB of RAM idle
++	vita2d_init_advanced(0x400000);
+ 	vita2d_set_clear_color(RGBA8(0x00, 0x00, 0x00, 0xFF));
+ 	vita2d_set_vblank_wait(0);
+ 	clr_color = 0xFF000000;

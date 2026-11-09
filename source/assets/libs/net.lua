@@ -72,8 +72,8 @@ function ImageProxy.wrap(link, maxWidth)
 	return proxied
 end
 
----Sites that reject browser-impersonating clients (MangaDex returns an HTML block page for
----"Chrome" user agents) get an honest app identification instead.
+---Sites that reject browser-impersonating clients (some return an HTML block page for "Chrome" user agents) get an
+---honest app identification instead.
 local APP_USERAGENT = "Otakio/" .. tostring(Config.VERSION_NAME or Config.VERSION)
 local APP_UA_HOSTS = {"mangadex%.org", "mangadex%.network", "desu%.uno", "desu%.me"}
 local function userAgentFor(link)
@@ -162,7 +162,7 @@ local MAX_TEXTURE_SIDE = 4096
 -- milliseconds a stage may keep the async slot before it is stopped (network) or reported (decode)
 local DEADLINE = {
 	string = 30000,
-	download = 90000,
+	download = 30000, -- without a new byte (a download that keeps receiving is never stopped)
 	unzip = 60000,
 	decode = 30000,
 	parts = 30000,
@@ -179,10 +179,6 @@ local clock = Timer.new()
 
 local function now()
 	return Timer.getTime(clock)
-end
-
-local function log(msg)
-	Console.write(msg, Color.new(0, 255, 0))
 end
 
 local function enqueue(task, front)
@@ -436,6 +432,8 @@ end
 local function start(task)
 	current = task
 	task.StartedAt = now()
+	-- a retried task gets a fresh deadline (and stall clock)
+	task.TimedOut, task.SlowLogged, task.LastBytes, task.LastProgressAt = nil, nil, nil, nil
 	-- like NOBORU: an image download is "final" only once its texture exists
 	task.Final = task.Kind ~= "ImageDownload"
 	local t = task.Type
@@ -498,7 +496,7 @@ end
 local function freeAsyncImage()
 	local img = getAsyncResult()
 	if img then
-		pcall(Graphics.freeImage, img)
+		Textures.release(img)
 	end
 end
 
@@ -601,7 +599,17 @@ function Threads.update()
 		if getAsyncState() == 0 then
 			-- still running: enforce the deadline
 			local limit = DEADLINE[current.Stage or ""]
-			if limit and not current.TimedOut and now() - (current.StartedAt or now()) > limit then
+			local since = current.StartedAt or now()
+			if current.Stage == "download" then
+				-- a download is stopped only when it stalls: a big file on slow Wi-Fi keeps going while bytes arrive
+				local got = Network.getDownloadedBytes() or 0
+				if got ~= current.LastBytes then
+					current.LastBytes = got
+					current.LastProgressAt = now()
+				end
+				since = current.LastProgressAt or since
+			end
+			if limit and not current.TimedOut and now() - since > limit then
 				if current.Stage == "string" or current.Stage == "download" then
 					current.TimedOut = true
 					current.Retry = math.min(current.Retry, 2)
@@ -810,6 +818,16 @@ function Threads.getProgress(uniqueKey)
 		return 1
 	end
 	return 0
+end
+
+---Bytes received so far by a running download, and its total (0 when the server didn't say)
+---@return integer downloaded, integer total
+function Threads.getBytes(uniqueKey)
+	local task = uniques[uniqueKey]
+	if task and task == current and task.Stage == "download" then
+		return Network.getDownloadedBytes() or 0, Network.getTotalBytes() or 0
+	end
+	return 0, 0
 end
 
 ---Removes task by `UniqueKey` (cancels it when it is running)

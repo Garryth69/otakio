@@ -8,7 +8,7 @@ Language.Japanese = {
 	EXTRA = {DownloadAll = "全話をダウンロード", RemoveAll = "ダウンロード済みの話を削除", CancelAll = "ダウンロードを中止"},
 	IMPORT = {DRIVE = "ドライブ", EXTERNAL_MEMORY = "外部メモリー", FILE = "ファイル", FOLDER = "フォルダー", GOBACK = "戻る", UNSUPFILE = "非対応のファイル"},
 	MESSAGE = {
-		LOST_CONNECTION = "接続が切れました\n\nネットワークを待っています…\n\n（アプリを最小化し、Wi-Fi設定を開いて「接続」を押してください）\n\n×ボタンで全ダウンロードを中止してこのメッセージを閉じます。\nネットワークが戻るとダウンロードを再開します。",
+		LOST_CONNECTION = "接続が切れました\n\nネットワークを待っています…\n\n（アプリを最小化し、Wi-Fi設定を開いて「接続」を押してください）\n\n✕ボタンで全ダウンロードを中止してこのメッセージを閉じます。\nネットワークが戻るとダウンロードを再開します。",
 		NO_CATALOG_MANGA = "見つかりませんでした。\nサイト、接続、またはソースのエラーです。",
 		NO_DOWNLOADING_MANGA = "ダウンロードはありません"
 	},
@@ -108,7 +108,7 @@ Language.Japanese = {
 		NO_RESULTS = "結果がありません", SEARCHING_N = "検索中 %d/%d", OPEN_IN_SOURCE = "ソースで開く",
 		NO_SOURCE_SEARCH = "このソースは検索に対応していません",
 		-- updates / history
-		NO_UPDATES = "最近の更新はありません", NO_UPDATES_HINT = "START（ライブラリでは△）で新しい話を確認します。",
+		NO_UPDATES = "最近の更新はありません", NO_UPDATES_HINT = "△ で新しい章を探します。",
 		CLEAR_UPDATES_Q = "更新リストを消去しますか？", MANGA_NOT_FOUND = "ライブラリに作品が見つかりません", ALREADY_DOWNLOADED = "ダウンロード済み",
 		NO_HISTORY = "最近読んだ作品はありません", NO_HISTORY_HINT = "読んだ話がここに表示されます。",
 		RESUME = "再開", START = "開始", INCOGNITO_ON = "シークレットモードがオンです", DETAILS = "詳細", DOWNLOAD = "ダウンロード", CLEAR = "消去",
@@ -121,7 +121,7 @@ Language.Japanese = {
 		INSTALLED = "インストール済み", AVAILABLE = "利用可能", UPDATES_TAB = "アップデート", INSTALL = "インストール", UPDATE = "アップデート", INSTALLED_LABEL = "インストール済み",
 		UNINSTALL = "アンインストール", UNINSTALL_Q = "%s をアンインストールしますか？", OPEN_SOURCE = "ソースを開く", SOURCE_HIDDEN = "ソースを利用できません（成人向けがオフか、拡張機能の読み込みに失敗）",
 		EXT_INSTALLED = "%s をインストールしました", EXT_UPDATED = "%s をアップデートしました", EXT_UNINSTALLED = "%s をアンインストールしました", EXT_INSTALL_FAILED = "%s をインストールできませんでした",
-		EXT_UPDATES_AVAILABLE = "拡張機能のアップデート: %d件", NO_EXTENSIONS = "拡張機能がインストールされていません", NO_PAGES = "この話にはまだページがありません", ERROR_RECOVERED = "問題が発生したため、ライブラリに戻りました（詳細はlog.txt）", NO_REPOS = "拡張機能のリポジトリがありません", NO_REPOS_HINT = "Otakioにはソースが内蔵されていません。SELECT > リポジトリを追加。", APP_UP_TO_DATE = "Otakioは最新です", APP_UPDATE_AVAILABLE = "Otakio %s が利用できます", APP_UPDATE_Q = "Otakio %s にアップデートしますか？", APP_UPDATE_HINT = "Otakioがダウンロードとインストールを行い、再起動します。ライブラリと設定はそのまま残ります。", APP_UPDATE_DOWNLOADING = "Otakio %s をダウンロード中...", APP_UPDATE_DONE = "%s に保存しました。VitaShellでインストールしてください。", APP_UPDATE_FAILED = "アップデートを確認できませんでした", APP_UPDATE_RESTARTING = "Otakio を閉じて %s をインストールし、自動で再起動します...", APP_UPDATE_DONE_NOW = "Otakio %s に更新しました", APP_UPDATE_DL_FAILED = "アップデートのダウンロードに失敗しました。後でもう一度お試しください。", APP_UPDATE_INSTALLING = "Otakio %s をインストール中...", APP_UPDATE_INSTALLED = "Otakio %s をインストールしました。再起動します...", APP_UPDATE_NO_SPACE = "更新に必要な空き容量が足りません（%d MB 必要）", APP_UPDATE_MANUAL = "アプリ内でインストールできませんでした。%s に保存しました。VitaShellでインストールしてください。", CHECKING = "確認中...",
+		EXT_UPDATES_AVAILABLE = "拡張機能のアップデート: %d件", NO_EXTENSIONS = "拡張機能がインストールされていません", NO_PAGES = "この話にはまだページがありません", ERROR_RECOVERED = "問題が発生したため、ライブラリに戻りました（詳細はlog.txt）", NO_REPOS = "拡張機能のリポジトリがありません", NO_REPOS_HINT = "Otakioにはソースが内蔵されていません。SELECT > リポジトリを追加。", APP_UP_TO_DATE = "Otakioは最新です", APP_UPDATE_AVAILABLE = "Otakio %s が利用できます", APP_UPDATE_Q = "Otakio %s にアップデートしますか？", APP_UPDATE_HINT = "Otakioがダウンロードとインストールを行い、再起動します。ライブラリと設定はそのまま残ります。", APP_UPDATE_DOWNLOADING = "Otakio %s をダウンロード中...", APP_UPDATE_DONE = "%s に保存しました。VitaShellでインストールしてください。", APP_UPDATE_FAILED = "アップデートを確認できませんでした", APP_UPDATE_RESTARTING = "Otakio を閉じて %s をインストールし、自動で再起動します...", APP_UPDATE_DONE_NOW = "Otakio %s に更新しました", APP_UPDATE_DL_FAILED = "アップデートのダウンロードに失敗しました。後でもう一度お試しください。", APP_UPDATE_INSTALLING = "Otakio %s をインストール中...", APP_UPDATE_STEP = "ステップ %d / %d", APP_UPDATE_EXTRACTING = "アップデートを展開中...", APP_UPDATE_PREPARING = "インストーラーを準備中...", APP_UPDATE_DONT_OFF = "電源を切らないでください", APP_UPDATE_CANCEL = "キャンセル", APP_UPDATE_CANCELED = "アップデートをキャンセルしました", RS_TITLE = "リーダー設定", RS_THIS_MANGA = "このマンガ", RS_COLORS = "ページの色", RS_READER = "リーダー", RS_PAGE = "このページ", RS_BACKGROUND = "背景", RS_BG_THEME = "テーマ", RS_BG_BLACK = "黒", RS_BG_GRAY = "グレー", RS_BG_WHITE = "白", RS_BRIGHTNESS = "明るさ", RS_FILTER = "カラーフィルター", RS_PRESET = "プリセット", RS_PRESET_CUSTOM = "カスタム", RS_PRESET_SEPIA = "セピア", RS_PRESET_PAPER = "紙", RS_PRESET_WARM = "暖色", RS_PRESET_NIGHT = "夜間", RS_BLEND = "ブレンドモード", RS_BLEND_DEFAULT = "標準", RS_BLEND_MULTIPLY = "乗算", RS_RED = "赤", RS_GREEN = "緑", RS_BLUE = "青", RS_OPACITY = "不透明度", RS_PAGE_NUMBER = "ページ番号を表示", RS_RESET = "色をリセット", RS_ADJUST = "調整", RS_CLOSE = "閉じる", DL_VIEW_QUEUE = "キュー", DL_VIEW_DONE = "ダウンロード済み", DL_VIEW_HISTORY = "履歴", DL_VIEW = "表示", DL_QUEUE_EMPTY = "ダウンロード中の項目はありません", DL_HISTORY_EMPTY = "ダウンロード履歴はありません", DL_HISTORY_HINT = "完了・失敗・キャンセルしたダウンロードがここに表示されます。", DL_CLEAR_HISTORY = "履歴を消去", DL_CLEAR_HISTORY_Q = "ダウンロードした章は残ります。", DL_HISTORY_CLEARED = "ダウンロード履歴を消去しました", DL_STATUS_OK = "完了", DL_STATUS_FAILED = "失敗", DL_STATUS_CANCELED = "キャンセル", DL_REMOVE_ENTRY = "削除", DL_CHAPTERS = "章", DL_TAP_DELETE = "このダウンロードを削除", DL_DELETE_CHAPTER = "このダウンロード済みの章を削除しますか？", DATA_MIGRATION_FAILED = "データをこのバージョン用に更新できませんでした。データは元のままです（詳細は log.txt）", APP_UPDATE_INSTALLED = "Otakio %s をインストールしました。再起動します...", APP_UPDATE_NO_SPACE = "更新に必要な空き容量が足りません（%d MB 必要）", APP_UPDATE_MANUAL = "アプリ内でインストールできませんでした。%s に保存しました。VitaShellでインストールしてください。", CHECKING = "確認中...",
 		NO_EXTENSIONS_HINT = "□で「利用可能」タブに切り替えます。", ALL_UP_TO_DATE = "すべて最新です",
 		NOTHING_HERE = "ここには何もありません", CHANGE_FILTERS_HINT = "別の言語（START）か検索（△）を試してください。",
 		SEARCH_EXTENSIONS = "拡張機能を検索", ALL_LANGUAGES = "すべての言語", TAB = "タブ", REPOSITORIES = "リポジトリ",
@@ -134,7 +134,7 @@ Language.Japanese = {
 		PROTECTED_CHAPTER = "この話はサイトで保護されており、まだ対応していません",
 		-- import
 		IMPORT_EMPTY = "インポートするものがありません",
-		IMPORT_HELP = "上のフォルダーにコピーしてください（VitaShellのFTPかUSB）:\n• .cbz または .zip ファイル\n• ページ画像の入ったフォルダー\n• 1話ごとにフォルダーか .cbz を入れた作品フォルダー\n×で読み、□でライブラリに追加します。",
+		IMPORT_HELP = "上のフォルダーにコピーしてください（VitaShellのFTPかUSB）:\n• .cbz または .zip ファイル\n• ページ画像の入ったフォルダー\n• 1話ごとにフォルダーか .cbz を入れた作品フォルダー\n✕で読み、□でライブラリに追加します。",
 		IMPORTED_N = "%d件をインポートしました",
 		-- settings / data
 		PROXY_MODES = {Auto = "必要なときだけ", Off = "オフ"}, PROXY_ADDRESS = "アドレス（IP:ポート）",

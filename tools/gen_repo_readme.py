@@ -94,14 +94,16 @@ FOOTER = """
 {{
   "name": "Otakio Extensions", "format": 1, "minEngine": 1,
   "extensions": [
-    {{"id": "otakio.mangapill", "name": "Mangapill", "lang": "en", "version": 1, "nsfw": false,
-      "engine": "native", "baseUrl": "https://mangapill.com", "file": "extensions/otakio.mangapill.lua",
+    {{"id": "otakio.example", "name": "Example", "lang": "en", "version": 1, "nsfw": false,
+      "engine": "native", "baseUrl": "https://example.com", "file": "extensions/otakio.example.lua",
       "origin": "otakio", "compat": "full", "health": "ok", "checked": "2026-11-03", "recommended": true}}
   ]
 }}
 ```
 
 `file` is relative to `index.json` (or `url`, absolute). The app reinstalls an extension when `version` goes up.
+A multi-language extension (`"lang": "all"`) with one source per language can list them in `"langs": ["en", "es"]`
+(native header `-- @langs en,es`): the app then shows it only under those languages.
 Anyone can host their own repository in this format and add it in the app.
 
 ### How the extensions are made

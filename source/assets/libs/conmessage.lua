@@ -10,10 +10,19 @@ local connectionTimer = Timer.new()
 
 local is_active = false
 
+local lines = {}
+local LINE_H = 24
+local PAD = 22
+
+local function boxHeight()
+	return #lines * LINE_H + PAD * 2
+end
+
 function ConnectMessage.show()
 	str = Language[Settings.Language].MESSAGE.LOST_CONNECTION
+	lines = ToLines(str)
 	is_active = true
-	yFinal = 544 / 2 - (Font.getTextHeight(FONT20, str) + 20) / 2
+	yFinal = 544 / 2 - boxHeight() / 2
 	Timer.reset(animationTimer)
 end
 
@@ -44,8 +53,17 @@ end
 
 function ConnectMessage.draw()
 	if str and yOffset < 544 then
-		Graphics.fillRect(60, 900, yOffset, yOffset + Font.getTextHeight(FONT20, str) + 27, Color.new(0, 0, 0, 220))
-		Font.print(FONT20, 80, yOffset + 10, str, COLOR_WHITE)
+		-- a card in the theme's colors, like the other dialogs; ✕ is the physical Cross here (SCE_CTRL_REAL_CROSS)
+		local shade = math.max(0, math.min(1, 1 - (yOffset - yFinal) / 544))
+		Graphics.fillRect(0, 960, 0, 544, Color.new(0, 0, 0, math.floor(150 * shade)))
+		UI.roundRect(100, yOffset, 860, yOffset + boxHeight(), 16, COLOR_SURFACE)
+		for i, line in ipairs(lines) do
+			local font, color = FONT16, COLOR_SUBFONT
+			if i == 1 then
+				font, color = BONT16, COLOR_FONT
+			end
+			UI.textCenterButtons(font, 480, yOffset + PAD + (i - 1) * LINE_H, line, color, true)
+		end
 	end
 end
 

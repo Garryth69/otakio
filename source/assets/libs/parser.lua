@@ -92,16 +92,59 @@ function GetAnyParserByID(ID)
 	return parserTable[ID]
 end
 
----First enabled parser created by an installed extension, ignoring the Browse language filter
+local parserGroup -- defined below (language group of a parser)
+
+---The source an installed extension opens with, ignoring the Browse language filter. An extension with one source per
+---language (EN, ES, FR, DE...) opens the one in `preferGroup` (the Extensions language chip), else in the Browse
+---filter's language, else a multi-language one, else one in an active language (English first), else English; ties by ID,
+---so it's always the same.
 ---@param extensionId string
+---@param preferGroup string|nil language group ("pt", "es"...)
 ---@return table|nil
-function GetParserOfExtension(extensionId)
+function GetParserOfExtension(extensionId, preferGroup)
+	local browseGroup = SourceLangGroupOfCode(Settings and Settings.ParserLanguage or "DIF")
+	local best, bestScore
 	for _, v in pairs(parserTable) do
 		if v.ExtensionID == extensionId and not v.Disabled then
-			return v
+			local g = v.Lang == "DIF" and "all" or parserGroup(v)
+			local score = 0
+			if preferGroup and g == preferGroup then
+				score = 5
+			elseif browseGroup and browseGroup ~= "all" and g == browseGroup then
+				score = 4
+			elseif g == "all" then
+				score = 3
+			elseif IsSourceLangEnabled(g) then
+				score = g == "en" and 2.5 or 2 -- an active language (English first)
+			elseif g == "en" then
+				score = 1
+			end
+			if not best or score > bestScore or (score == bestScore and tostring(v.ID) < tostring(best.ID)) then
+				best, bestScore = v, score
+			end
 		end
 	end
-	return nil
+	return best
+end
+
+---Language groups an installed extension really has sources in (e.g. en, es, fr, de)
+---@return table|nil set of groups; nil when one of its sources is multi-language (or it has none)
+function GetExtensionLangGroups(extensionId)
+	local set, any = {}, false
+	for _, v in pairs(parserTable) do
+		if v.ExtensionID == extensionId and not v.Disabled then
+			if v.Lang == "DIF" then
+				return nil
+			end
+			any = true
+			if v.Lang == "RAW" then
+				set.ja, set.zh = true, true
+			else
+				set[parserGroup(v)] = true
+			end
+		end
+	end
+	return any and set or nil
 end
 
 ---@return table every enabled parser, whatever the language filter
@@ -135,12 +178,80 @@ function IsSourceLangEnabled(group)
 	return set[group] == true
 end
 
+---@return boolean whether an extension has a source in an active language: its "lang", or for a multi-language one
+---("all") that lists its languages ("langs": {"en", "es"...}), any of those
+function IsExtensionLangEnabled(lang, langs)
+	local g = SourceLangGroupOfIso(lang or "all")
+	if g == "all" and type(langs) == "table" and #langs > 0 then
+		for _, l in ipairs(langs) do
+			local lg = SourceLangGroupOfIso(l)
+			if lg == "all" or IsSourceLangEnabled(lg) then
+				return true
+			end
+		end
+		return false
+	end
+	return IsSourceLangEnabled(g)
+end
+
+parserGroup = function(v)
+	return v.IsoLang and SourceLangGroupOfIso(v.IsoLang) or CODE_GROUP[v.Lang] or "other"
+end
+
+---Language group of a Browse filter code ("BRA"/"PRT" -> "pt", "DIF" -> "all", other codes -> "other")
+function SourceLangGroupOfCode(code)
+	return CODE_GROUP[code] or "other"
+end
+
 local function parserLangEnabled(v)
 	if v.Lang == "RAW" then
 		return IsSourceLangEnabled("ja") or IsSourceLangEnabled("zh")
 	end
-	local group = v.IsoLang and SourceLangGroupOfIso(v.IsoLang) or CODE_GROUP[v.Lang] or "other"
-	return IsSourceLangEnabled(group)
+	return IsSourceLangEnabled(parserGroup(v))
+end
+
+---Browse filter code of each language group (Portuguese covers both pt-BR "BRA" and pt "PRT" sources)
+local GROUP_CODE = {en = "ENG", pt = "PRT", es = "ESP", fr = "FRA", de = "DEU", it = "ITA", ru = "RUS", ja = "JAP", zh = "CHN"}
+
+---Browse filter code -> the one code its group uses ("BRA" -> "PRT"); codes outside the groups stay as they are
+local function browseCode(code)
+	local g = CODE_GROUP[code]
+	return g and GROUP_CODE[g] or code
+end
+
+---@return boolean whether a source shows under the Browse language filter `code`
+local function matchesBrowseLang(v, code)
+	if code == "DIF" or v.Lang == "DIF" then
+		return true
+	end
+	if v.Lang == "RAW" then
+		return code == "CHN" or code == "JAP"
+	end
+	local g = CODE_GROUP[code]
+	if g and g ~= "all" then
+		return parserGroup(v) == g
+	end
+	return v.Lang == code
+end
+
+-- Browse filter -> content languages a multi-language source should ask for (first = preferred)
+local BROWSE_ISOS = {
+	ENG = {"en"}, PRT = {"pt-br", "pt", "en"}, ESP = {"es-la", "es", "en"}, FRA = {"fr", "en"}, DEU = {"de", "en"},
+	ITA = {"it", "en"}, RUS = {"ru", "en"}, JAP = {"ja", "en"}, CHN = {"zh", "zh-hk", "en"}
+}
+
+---@return table|nil ISO codes of the Browse language filter (nil = all languages): multi-language extensions use it
+---to list content in the chosen language
+function BrowseLanguageIsos()
+	local list = BROWSE_ISOS[browseCode(Settings.ParserLanguage or "DIF")]
+	if not list then
+		return nil
+	end
+	local copy = {}
+	for i, l in ipairs(list) do
+		copy[i] = l
+	end
+	return copy
 end
 
 ---@return table
@@ -150,9 +261,11 @@ function GetParserList()
 		return cachedList
 	end
 	is_parsers_list_updated = false
+	ValidParserLanguage()
+	is_parsers_list_updated = false
 	local list = {}
 	for _, v in pairs(parserTable) do
-		if (Settings.NSFW and v.NSFW or not v.NSFW) and not v.Disabled and parserLangEnabled(v) and (Settings.ParserLanguage == "DIF" or v.Lang == Settings.ParserLanguage or v.Lang == "DIF" or ((Settings.ParserLanguage == "CHN" or Settings.ParserLanguage == "JAP") and v.Lang == "RAW")) then
+		if (Settings.NSFW and v.NSFW or not v.NSFW) and not v.Disabled and parserLangEnabled(v) and matchesBrowseLang(v, Settings.ParserLanguage or "DIF") then
 			list[#list + 1] = v
 		end
 	end
@@ -176,31 +289,59 @@ function GetParserList()
 	return list
 end
 
+---Languages the Browse language filter cycles through, with "DIF" (all) first:
+---  * languages chosen in More > Extensions > Source languages: each active language, even without a source of its
+---    own (multi-language sources serve it), plus the codes of installed sources in "other" languages;
+---  * no choice made: the languages of the installed sources.
 function GetParserLanguages()
 	local t = {}
+	local set = Settings.ExtLanguages
+	local chosen = type(set) == "table" and next(set) ~= nil
+	local list = {"DIF"}
+	if chosen then
+		for _, g in ipairs(SOURCE_LANG_GROUPS) do
+			if set[g] and GROUP_CODE[g] then
+				list[#list + 1] = GROUP_CODE[g]
+			end
+		end
+	end
 	for _, v in pairs(parserTable) do
-		if not v.Disabled then
-			t[v.Lang] = true
+		if not v.Disabled and parserLangEnabled(v) and (Settings.NSFW or not v.NSFW) then
+			if v.Lang == "RAW" then
+				if not chosen then
+					t["CHN"], t["JAP"] = true, true
+				end
+			elseif v.Lang ~= "DIF" and (not chosen or parserGroup(v) == "other") then
+				t[browseCode(v.Lang)] = true
+			end
 		end
 	end
-	t["DIF"] = nil
-	if t["RAW"] then
-		t["CHN"] = true
-		t["JAP"] = true
-	end
-	t["RAW"] = nil
-	local newLanguageList = {}
+	local extra = {}
 	for k, _ in pairs(t) do
-		newLanguageList[#newLanguageList + 1] = k
+		extra[#extra + 1] = k
 	end
-	table.sort(
-		newLanguageList,
-		function(a, b)
-			return a < b
+	table.sort(extra)
+	for _, k in ipairs(extra) do
+		list[#list + 1] = k
+	end
+	return list
+end
+
+---The Browse language filter, back to "all" when its language is no longer active (or has no source left)
+function ValidParserLanguage()
+	local current = browseCode(Settings.ParserLanguage or "DIF")
+	if current ~= Settings.ParserLanguage then
+		Settings.ParserLanguage = current -- saved "BRA" (Portuguese (Brazil)) is now "PRT", which covers both
+		is_parsers_list_updated = true
+	end
+	for _, l in ipairs(GetParserLanguages()) do
+		if l == current then
+			return current
 		end
-	)
-	table.insert(newLanguageList, 1, "DIF")
-	return newLanguageList
+	end
+	Settings.ParserLanguage = "DIF"
+	is_parsers_list_updated = true
+	return "DIF"
 end
 
 ---Sets update flag to `true`, for regenerating parsers list

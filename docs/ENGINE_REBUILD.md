@@ -14,13 +14,26 @@ The shipped binary is `source/eboot.bin`. `engine/*.bin` are local build outputs
 | Change | Reason |
 |---|---|
 | Current VitaSDK (gcc 10.3), LuaJIT 2.1, vdpm libraries | the 2022 toolchain no longer builds; LuaJIT 2.1 ships its own lua-compat |
-| libcurl rebuilt against OpenSSL 1.1.1, TLS 1.0–1.3 | many sites (MangaDex and others) refuse TLS 1.2-only clients |
+| libcurl rebuilt against OpenSSL 1.1.1, TLS 1.0–1.3 | many sites refuse TLS 1.2-only clients |
 | No forced `User-Agent` header | the engine overrode the script's UA with Chrome 58, and some sites block browser UAs from apps. Lua now sets the UA per request (`net.lua`) |
 | Text responses no longer count the trailing NUL | every text body had one extra byte, and strict JSON decoding failed with "trailing data" |
 | `Content-Type`/`Content-Length` only on POST, `SCE_O_TRUNC` on downloads | correct GETs; re-downloads no longer leave stale bytes |
 | Native WebP (libwebp) | WebP covers and pages without an image proxy |
 | `System.convertImage(src, dst, "jpg"\|"png"\|"webp"[, q])` | "Save image" in the reader, at full resolution |
+| Zip extraction creates missing parent folders and skips files it can't open | zips without folder entries (common in .cbz) made it write to a NULL file and close the app |
+| vita2d per-frame pool of 4 MB instead of 16 MB | the pool is reset every frame; 16 MB kept 12 MB of main RAM idle |
 | Release flags `-DSKIP_ERROR_HANDLING -fno-optimize-sibling-calls` | NOBORU's engine was a release build. Without `-fno-optimize-sibling-calls` the new toolchain crashed in `png_read_info` (jump to an unrelocated stub) |
+
+## Automatic build
+
+The fork builds the engine with GitHub Actions on every push to `otakio` (`.github/workflows/build.yml`):
+- the same toolchain as the shipped binary: the VitaSDK autobuild of 2025-03-11, gcc 10.3, checked by SHA-256;
+- the same vdpm packages, plus libcurl 8.17.0 rebuilt against OpenSSL 1.1.1;
+- NOBORU's libvita2d at a fixed commit.
+
+Each run keeps `eboot_unsafe.bin` with its SHA-256 and `build-info.txt` as an artifact. A tag named `engine-*` publishes
+them as a release. The output is not byte-identical to a local build, because debug info records the build paths and
+the fself is compressed, but it is built from the same source and the same toolchain.
 
 ## Quick rebuild (WSL/Linux with VitaSDK)
 

@@ -307,6 +307,20 @@ local function readHeader(data)
 	return h
 end
 
+---A multi-language extension's languages from its index entry ("langs": ["en", "es"]); nil when absent or invalid
+local function validLangs(list)
+	if type(list) ~= "table" then
+		return nil
+	end
+	local out = {}
+	for _, l in ipairs(list) do
+		if type(l) == "string" and l:match("^[%w%-]+$") then
+			out[#out + 1] = l
+		end
+	end
+	return #out > 0 and out or nil
+end
+
 ---Extensions the user copied by hand to ux0:data/otakio/extensions/manual/ (optional; any repository-free .lua with
 ---the header above). They load like installed ones, are labelled "Manual" and are never updated by the app.
 local function loadManual()
@@ -393,6 +407,7 @@ local function mergeIndex(index, repo, base)
 				id = e.id,
 				name = e.name,
 				lang = e.lang or "all",
+				langs = validLangs(e.langs),
 				version = tonumber(e.version) or 1,
 				nsfw = e.nsfw and true or false,
 				engine = e.engine,
@@ -529,6 +544,7 @@ function Extensions.refresh(force)
 	end
 	refreshing = true
 	addJob("refresh", function()
+		local refreshClock = Timer.new()
 		local ok, err = pcall(function()
 		local newCatalog, newById = {}, {}
 		catalog, catalogById = newCatalog, newById
@@ -604,7 +620,10 @@ function Extensions.refresh(force)
 		end)
 		if not ok then
 			ExtLog("refresh failed: " .. tostring(err))
+		else
+			ExtLog("extension catalog: " .. #catalog .. " entries in " .. math.floor(Timer.getTime(refreshClock)) .. " ms")
 		end
+		Timer.destroy(refreshClock)
 		refreshing = false
 		touch()
 		if refreshAgain then
@@ -654,6 +673,11 @@ end
 
 function Extensions.isInstalling(id)
 	return installing[id] == true
+end
+
+---True while anything is being installed, refreshed or queued (the app update waits for it)
+function Extensions.isWorking()
+	return refreshing or Extensions.isBusy() or next(installing) ~= nil
 end
 
 local function disableParsersOf(id)

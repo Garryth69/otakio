@@ -5,22 +5,58 @@
 string.rawsub = string.rawsub or string.sub
 ---Loaded before every other UI library, so all existing code benefits automatically.
 
--- Overclock: 444MHz CPU / 222MHz bus / 222MHz GPU makes decoding, Lua and rendering
--- noticeably faster (same profile used by most Vita homebrew emulators).
-pcall(function()
-	if System.setCpuSpeed then
-		System.setCpuSpeed(444)
+-- Adaptive clocks: 444 MHz CPU / 222 MHz bus / 222 MHz GPU while there is work (input, downloads, image decoding,
+-- extension jobs, app update), the system's default 333/166/166 once nothing has happened for a few seconds (reading
+-- a page). Same speed when it matters, less battery and heat the rest of the time.
+Perf = {}
+do
+	local setCpu, setBus, setGpu, setXbar = System.setCpuSpeed, System.setBusSpeed, System.setGpuSpeed, System.setGpuXbarSpeed
+	local FAST = {444, 222, 222, 166}
+	local NORMAL = {333, 166, 166, 111}
+	local IDLE_MS = 4000
+	local current = nil
+	local clock = Timer.new()
+	local lastActive = 0
+
+	local function apply(profile)
+		if current == profile then
+			return
+		end
+		current = profile
+		pcall(function()
+			if setCpu then
+				setCpu(profile[1])
+			end
+			if setBus then
+				setBus(profile[2])
+			end
+			if setGpu then
+				setGpu(profile[3])
+			end
+			if setXbar then
+				setXbar(profile[4])
+			end
+		end)
 	end
-	if System.setBusSpeed then
-		System.setBusSpeed(222)
+
+	---Called every frame; `busy`: something is happening (input, loading, downloading...)
+	function Perf.update(busy)
+		local now = Timer.getTime(clock)
+		if busy then
+			lastActive = now
+			apply(FAST)
+		elseif now - lastActive > IDLE_MS then
+			apply(NORMAL)
+		end
 	end
-	if System.setGpuSpeed then
-		System.setGpuSpeed(222)
+
+	---@return boolean true while running at the fast clocks
+	function Perf.isFast()
+		return current == FAST
 	end
-	if System.setGpuXbarSpeed then
-		System.setGpuXbarSpeed(166)
-	end
-end)
+
+	apply(FAST) -- start-up is all work
+end
 
 -- Text measurement is a C call that rasterizes glyph metrics every time. The UI asks for
 -- the width of the same strings every frame, so memoize it per font.

@@ -38,7 +38,7 @@ body:
     id: source
     attributes:
       label: Source involved (if any)
-      placeholder: "MangaDex"
+      placeholder: "Source name"
   - type: textarea
     id: log
     attributes:

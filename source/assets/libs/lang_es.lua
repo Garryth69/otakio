@@ -8,7 +8,7 @@ Language.Spanish = {
 	EXTRA = {DownloadAll = "Descargar todos los capítulos", RemoveAll = "Borrar capítulos descargados", CancelAll = "Cancelar descargas"},
 	IMPORT = {DRIVE = "Unidad", EXTERNAL_MEMORY = "Memoria externa", FILE = "Archivo", FOLDER = "Carpeta", GOBACK = "Volver", UNSUPFILE = "Archivo no compatible"},
 	MESSAGE = {
-		LOST_CONNECTION = "Conexión perdida\n\nEsperando la red…\n\n(Minimiza la app, abre los ajustes de Wi-Fi y pulsa Conectar)\n\nPulsa X para cancelar todas las descargas y cerrar este mensaje.\nLas descargas continúan cuando vuelva la red.",
+		LOST_CONNECTION = "Conexión perdida\n\nEsperando la red…\n\n(Minimiza la app, abre los ajustes de Wi-Fi y pulsa Conectar)\n\nPulsa ✕ para cancelar todas las descargas y cerrar este mensaje.\nLas descargas continúan cuando vuelva la red.",
 		NO_CATALOG_MANGA = "No se encontró nada.\nFalló el sitio, la conexión o la fuente.",
 		NO_DOWNLOADING_MANGA = "No hay descargas"
 	},
@@ -91,8 +91,8 @@ Language.Spanish = {
 		HINT_TOGGLE_APPLY = "X marcar   O / △ aplicar", HINT_SELECT_BACK = "X elegir   O volver",
 		STATUS_OK = "Funciona", STATUS_UNSTABLE = "Inestable", STATUS_BROKEN = "No funciona",
 		-- biblioteca
-		LIBRARY_EMPTY = "Tu biblioteca está vacía", LIBRARY_EMPTY_HINT = "Busca algo en Explorar y pulsa Start\npara añadirlo a tu biblioteca.",
-		LIBRARY_FILTER_EMPTY = "Nada coincide con este filtro", LIBRARY_FILTER_EMPTY_HINT = "Pulsa Start para cambiar orden/filtro o Cuadrado para cambiar de categoría.",
+		LIBRARY_EMPTY = "Tu biblioteca está vacía", LIBRARY_EMPTY_HINT = "Busca algo en Explorar y pulsa START\npara añadirlo a tu biblioteca.",
+		LIBRARY_FILTER_EMPTY = "Nada coincide con este filtro", LIBRARY_FILTER_EMPTY_HINT = "Pulsa START para cambiar orden/filtro o □ para cambiar de categoría.",
 		LIBRARY_OPTIONS = "Opciones de la biblioteca", SORT_BY = "Ordenar por", FILTER = "Filtro",
 		SORT_NAMES = {["Date added"] = "Fecha de adición", ["A-Z"] = "A → Z", ["Z-A"] = "Z → A", Unread = "Sin leer", ["Last read"] = "Leído por última vez", ["Latest chapter"] = "Último capítulo"},
 		FILTER_NAMES = {All = "Todos", Unread = "Sin leer", Downloaded = "Descargados", Completed = "Leídos por completo"},
@@ -103,17 +103,17 @@ Language.Spanish = {
 		NEW_CHAPTERS_FOUND = "¡%d capítulos nuevos!",
 		-- explorar
 		NO_SOURCES = "No hay fuentes instaladas", NO_SOURCES_HINT = "Abre la pestaña Extensiones (R) y elige las fuentes que quieras.",
-		NO_SOURCES_LANG = "No hay fuentes en este idioma", NO_SOURCES_LANG_HINT = "Pulsa Start para cambiar el filtro de idioma.",
+		NO_SOURCES_LANG = "No hay fuentes en este idioma", NO_SOURCES_LANG_HINT = "Pulsa START para cambiar el filtro de idioma.",
 		PIN = "Fijar", UNPIN = "Desfijar", LANGUAGE = "Idioma", NEW = "NUEVO",
 		NO_RESULTS = "Sin resultados", SEARCHING_N = "Buscando %d/%d", OPEN_IN_SOURCE = "Abrir en la fuente",
 		NO_SOURCE_SEARCH = "Esta fuente no tiene búsqueda",
 		-- novedades / historial
-		NO_UPDATES = "No hay novedades recientes", NO_UPDATES_HINT = "Pulsa Start (o △ en la Biblioteca) para buscar capítulos nuevos.",
+		NO_UPDATES = "No hay novedades recientes", NO_UPDATES_HINT = "Pulsa △ para buscar capítulos nuevos.",
 		CLEAR_UPDATES_Q = "¿Vaciar la lista de novedades?", MANGA_NOT_FOUND = "Manga no encontrado en la biblioteca", ALREADY_DOWNLOADED = "Ya descargado",
 		NO_HISTORY = "No has leído nada recientemente", NO_HISTORY_HINT = "Los capítulos que leas aparecerán aquí.",
 		RESUME = "Reanudar", START = "Empezar", INCOGNITO_ON = "Modo incógnito activado", DETAILS = "Detalles", DOWNLOAD = "Descargar", CLEAR = "Vaciar",
 		-- descargas
-		DOWNLOADS_HINT = "Usa Cuadrado en un capítulo o Start en la página del manga para descargar.", PREPARING = "preparando…", QUEUED = "en cola",
+		DOWNLOADS_HINT = "Usa □ en un capítulo o START en la página del manga para descargar.", PREPARING = "preparando…", QUEUED = "en cola",
 		QUEUED_N = "%d capítulos en cola", CANCEL_ALL = "Cancelar todo", DOWNLOADED_N = "Descargados (%d)",
 		MARK_ALL_READ = "Marcar todo como leído", MARK_ALL_UNREAD = "Marcar todo como no leído", MARK_PREVIOUS_READ = "Marcar anteriores como leídos",
 		DOWNLOAD_NEXT_5 = "Descargar los 5 siguientes sin leer", DOWNLOAD_UNREAD = "Descargar todos los no leídos",
@@ -121,9 +121,9 @@ Language.Spanish = {
 		INSTALLED = "Instaladas", AVAILABLE = "Disponibles", UPDATES_TAB = "Actualizaciones", INSTALL = "Instalar", UPDATE = "Actualizar", INSTALLED_LABEL = "Instalada",
 		UNINSTALL = "Desinstalar", UNINSTALL_Q = "¿Desinstalar %s?", OPEN_SOURCE = "Abrir fuente", SOURCE_HIDDEN = "Fuente no disponible (contenido para adultos desactivado o la extensión no cargó)",
 		EXT_INSTALLED = "%s instalada", EXT_UPDATED = "%s actualizada", EXT_UNINSTALLED = "%s desinstalada", EXT_INSTALL_FAILED = "No se pudo instalar %s",
-		EXT_UPDATES_AVAILABLE = "Actualizaciones de extensiones disponibles: %d", NO_EXTENSIONS = "No hay extensiones instaladas", NO_PAGES = "Este capítulo aún no tiene páginas", ERROR_RECOVERED = "Algo salió mal, volviendo a la Biblioteca (detalles en log.txt)", NO_REPOS = "Ningún repositorio de extensiones", NO_REPOS_HINT = "Otakio no incluye fuentes. Select > Añadir repositorio.", APP_UP_TO_DATE = "Otakio está actualizado", APP_UPDATE_AVAILABLE = "Otakio %s disponible", APP_UPDATE_Q = "¿Actualizar a Otakio %s?", APP_UPDATE_HINT = "Otakio la descarga, la instala y se reinicia. Tu biblioteca y ajustes se conservan.", APP_UPDATE_DOWNLOADING = "Descargando Otakio %s...", APP_UPDATE_DONE = "Guardado en %s. Instálalo con VitaShell.", APP_UPDATE_FAILED = "No se pudo buscar actualizaciones", APP_UPDATE_RESTARTING = "Otakio se cerrará para instalar %s y se abrirá solo...", APP_UPDATE_DONE_NOW = "Actualizado a Otakio %s", APP_UPDATE_DL_FAILED = "Falló la descarga de la actualización. Inténtalo más tarde.", APP_UPDATE_INSTALLING = "Instalando Otakio %s...", APP_UPDATE_INSTALLED = "Otakio %s instalado. Reiniciando...", APP_UPDATE_NO_SPACE = "No hay espacio libre suficiente para la actualización (se necesitan %d MB)", APP_UPDATE_MANUAL = "No se pudo instalar desde la app. Guardado en %s: instálalo con VitaShell.", CHECKING = "Comprobando...",
-		NO_EXTENSIONS_HINT = "Cuadrado cambia a la pestaña Disponibles.", ALL_UP_TO_DATE = "Todo está actualizado",
-		NOTHING_HERE = "No hay nada aquí", CHANGE_FILTERS_HINT = "Prueba otro idioma (Start) o busca (△).",
+		EXT_UPDATES_AVAILABLE = "Actualizaciones de extensiones disponibles: %d", NO_EXTENSIONS = "No hay extensiones instaladas", NO_PAGES = "Este capítulo aún no tiene páginas", ERROR_RECOVERED = "Algo salió mal, volviendo a la Biblioteca (detalles en log.txt)", NO_REPOS = "Ningún repositorio de extensiones", NO_REPOS_HINT = "Otakio no incluye fuentes. SELECT > Añadir repositorio.", APP_UP_TO_DATE = "Otakio está actualizado", APP_UPDATE_AVAILABLE = "Otakio %s disponible", APP_UPDATE_Q = "¿Actualizar a Otakio %s?", APP_UPDATE_HINT = "Otakio la descarga, la instala y se reinicia. Tu biblioteca y ajustes se conservan.", APP_UPDATE_DOWNLOADING = "Descargando Otakio %s...", APP_UPDATE_DONE = "Guardado en %s. Instálalo con VitaShell.", APP_UPDATE_FAILED = "No se pudo buscar actualizaciones", APP_UPDATE_RESTARTING = "Otakio se cerrará para instalar %s y se abrirá solo...", APP_UPDATE_DONE_NOW = "Actualizado a Otakio %s", APP_UPDATE_DL_FAILED = "Falló la descarga de la actualización. Inténtalo más tarde.", APP_UPDATE_INSTALLING = "Instalando Otakio %s...", APP_UPDATE_STEP = "Paso %d de %d", APP_UPDATE_EXTRACTING = "Descomprimiendo la actualización...", APP_UPDATE_PREPARING = "Preparando el instalador...", APP_UPDATE_DONT_OFF = "No apagues el sistema", APP_UPDATE_CANCEL = "Cancelar", APP_UPDATE_CANCELED = "Actualización cancelada", RS_TITLE = "Opciones de lectura", RS_THIS_MANGA = "Este manga", RS_COLORS = "Colores de página", RS_READER = "Lector", RS_PAGE = "Esta página", RS_BACKGROUND = "Fondo", RS_BG_THEME = "Tema", RS_BG_BLACK = "Negro", RS_BG_GRAY = "Gris", RS_BG_WHITE = "Blanco", RS_BRIGHTNESS = "Brillo", RS_FILTER = "Filtro de color", RS_PRESET = "Ajuste", RS_PRESET_CUSTOM = "Personalizado", RS_PRESET_SEPIA = "Sepia", RS_PRESET_PAPER = "Papel", RS_PRESET_WARM = "Cálido", RS_PRESET_NIGHT = "Noche", RS_BLEND = "Modo de mezcla", RS_BLEND_DEFAULT = "Predeterminado", RS_BLEND_MULTIPLY = "Multiplicar", RS_RED = "Rojo", RS_GREEN = "Verde", RS_BLUE = "Azul", RS_OPACITY = "Opacidad", RS_PAGE_NUMBER = "Mostrar número de página", RS_RESET = "Restablecer colores", RS_ADJUST = "Ajustar", RS_CLOSE = "Cerrar", DL_VIEW_QUEUE = "Cola", DL_VIEW_DONE = "Descargados", DL_VIEW_HISTORY = "Historial", DL_VIEW = "Ver", DL_QUEUE_EMPTY = "No se está descargando nada", DL_HISTORY_EMPTY = "Sin historial de descargas", DL_HISTORY_HINT = "Aquí aparecen las descargas completadas, fallidas y canceladas.", DL_CLEAR_HISTORY = "Borrar historial", DL_CLEAR_HISTORY_Q = "Los capítulos descargados se conservan.", DL_HISTORY_CLEARED = "Historial de descargas borrado", DL_STATUS_OK = "Descargado", DL_STATUS_FAILED = "Falló", DL_STATUS_CANCELED = "Cancelado", DL_REMOVE_ENTRY = "Quitar", DL_CHAPTERS = "Capítulos", DL_TAP_DELETE = "Eliminar esta descarga", DL_DELETE_CHAPTER = "¿Eliminar este capítulo descargado?", DATA_MIGRATION_FAILED = "No se pudieron actualizar tus datos a esta versión: se dejaron como estaban (detalles en log.txt)", APP_UPDATE_INSTALLED = "Otakio %s instalado. Reiniciando...", APP_UPDATE_NO_SPACE = "No hay espacio libre suficiente para la actualización (se necesitan %d MB)", APP_UPDATE_MANUAL = "No se pudo instalar desde la app. Guardado en %s: instálalo con VitaShell.", CHECKING = "Comprobando...",
+		NO_EXTENSIONS_HINT = "□ cambia a la pestaña Disponibles.", ALL_UP_TO_DATE = "Todo está actualizado",
+		NOTHING_HERE = "No hay nada aquí", CHANGE_FILTERS_HINT = "Prueba otro idioma (START) o busca (△).",
 		SEARCH_EXTENSIONS = "Buscar extensiones", ALL_LANGUAGES = "Todos los idiomas", TAB = "Pestaña", REPOSITORIES = "Repositorios",
 		REFRESH_REPOS = "Actualizar repositorios", UPDATE_ALL = "Actualizar todo", ADD_REPO = "Añadir repositorio", REPO_URL = "usuario/repositorio de GitHub o URL del index.json",
 		REPO_EXISTS = "Repositorio ya añadido", REMOVE_REPO_Q = "¿Quitar %s?", REPO_BUILTIN = "Integrado · en línea", REPO_OFFLINE = "Integrado · copia sin conexión",
@@ -134,7 +134,7 @@ Language.Spanish = {
 		PROTECTED_CHAPTER = "Este capítulo está protegido por el sitio y todavía no es compatible",
 		-- importar
 		IMPORT_EMPTY = "Todavía no hay nada para importar",
-		IMPORT_HELP = "Copia a la carpeta de arriba (FTP de VitaShell o USB):\n• un archivo .cbz o .zip\n• una carpeta con las imágenes de las páginas\n• una carpeta del manga con un capítulo por carpeta o .cbz\nLuego, X lo lee y Cuadrado lo añade a la Biblioteca.",
+		IMPORT_HELP = "Copia a la carpeta de arriba (FTP de VitaShell o USB):\n• un archivo .cbz o .zip\n• una carpeta con las imágenes de las páginas\n• una carpeta del manga con un capítulo por carpeta o .cbz\nLuego, ✕ lo lee y □ lo añade a la Biblioteca.",
 		IMPORTED_N = "%d elementos importados",
 		-- ajustes / datos
 		PROXY_MODES = {Auto = "Solo cuando haga falta", Off = "Desactivado"}, PROXY_ADDRESS = "Dirección (IP:puerto)",

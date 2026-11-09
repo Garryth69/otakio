@@ -204,6 +204,79 @@ function UI.toggle(x, y, on)
 	end
 end
 
+-- Help texts name buttons as ✕ ○ □ △ START SELECT; on screen they become the same button icons as the hint bar
+-- (the font's own symbols have mismatched sizes). ButtonIcon swaps ✕/○ for the Japanese layout.
+local BUTTON_TOKENS = {{"✕", "Cross"}, {"○", "Circle"}, {"□", "Square"}, {"△", "Triangle"}, {"START", "Start"}, {"SELECT", "Select"}, {"(L)", "L"}, {"(R)", "R"}}
+local rawsub = string.rawsub or string.sub
+local segmentCache = {}
+
+---@return table {"text" | {icon = name}, ...}
+local function buttonSegments(line)
+	local segs = segmentCache[line]
+	if segs then
+		return segs
+	end
+	segs = {}
+	local pos = 1
+	while true do
+		local best, bestEnd, bestIcon = nil, nil, nil
+		for _, t in ipairs(BUTTON_TOKENS) do
+			local s, e = line:find(t[1], pos, true)
+			if s and (not best or s < best) then
+				best, bestEnd, bestIcon = s, e, t[2]
+			end
+		end
+		if not best then
+			break
+		end
+		if best > pos then
+			segs[#segs + 1] = rawsub(line, pos, best - 1)
+		end
+		segs[#segs + 1] = {icon = bestIcon}
+		pos = bestEnd + 1
+	end
+	if pos <= #line then
+		segs[#segs + 1] = rawsub(line, pos)
+	end
+	segmentCache[line] = segs
+	return segs
+end
+
+---Centered line where button names are drawn as button icons.
+---physical: the icons of the buttons as printed (no ✕/○ swap for the Japanese layout)
+function UI.textCenterButtons(font, cx, y, line, color, physical)
+	local function iconOf(name)
+		return physical and ButtonsIcons[name] or ButtonIcon(name)
+	end
+	local segs = buttonSegments(line)
+	if #segs == 1 and type(segs[1]) == "string" then
+		print(font, cx - floor(getTextWidth(font, line) / 2), y, line, color)
+		return
+	end
+	local width = 0
+	for _, seg in ipairs(segs) do
+		if type(seg) == "string" then
+			width = width + getTextWidth(font, seg)
+		else
+			local icon = iconOf(seg.icon)
+			width = width + (icon and Graphics.getImageWidth(icon.e) + 6 or 0)
+		end
+	end
+	local x = cx - floor(width / 2)
+	for _, seg in ipairs(segs) do
+		if type(seg) == "string" then
+			print(font, x, y, seg, color)
+			x = x + getTextWidth(font, seg)
+		else
+			local icon = iconOf(seg.icon)
+			if icon then
+				Graphics.drawImage(x + 3, y + 4, icon.e)
+				x = x + Graphics.getImageWidth(icon.e) + 6
+			end
+		end
+	end
+end
+
 ---Centered empty state message with a kaomoji
 function UI.emptyState(cx, cy, title, subtitle, face)
 	if face then
@@ -213,7 +286,7 @@ function UI.emptyState(cx, cy, title, subtitle, face)
 	if subtitle then
 		local lines = ToLines(subtitle)
 		for i, line in ipairs(lines) do
-			UI.textCenter(FONT16, cx, cy + 14 + (i - 1) * 22, line, COLOR_SUBFONT, 680)
+			UI.textCenterButtons(FONT16, cx, cy + 14 + (i - 1) * 22, line, COLOR_SUBFONT)
 		end
 	end
 end

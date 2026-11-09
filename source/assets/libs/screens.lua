@@ -242,7 +242,7 @@ function Upd.input(oldPad, pad, oldTouch, touch)
 		openUpdate(row)
 	elseif pressed(pad, oldPad, SCE_CTRL_CROSS) and row and row.entry then
 		openUpdate(row)
-	elseif pressed(pad, oldPad, SCE_CTRL_TRIANGLE) and row and row.manga then
+	elseif pressed(pad, oldPad, SCE_CTRL_START) and row and row.manga then
 		Details.setManga(row.manga)
 	elseif pressed(pad, oldPad, SCE_CTRL_SQUARE) and row and row.entry then
 		local chapter = Updates.resolve(row.entry)
@@ -253,7 +253,8 @@ function Upd.input(oldPad, pad, oldTouch, touch)
 				ChapterSaver.downloadChapter(chapter)
 			end
 		end
-	elseif pressed(pad, oldPad, SCE_CTRL_START) then
+	elseif pressed(pad, oldPad, SCE_CTRL_TRIANGLE) then
+		-- Triangle refreshes, like in the Library
 		ParserManager.updateCounters()
 	elseif pressed(pad, oldPad, SCE_CTRL_SELECT) and #Updates.getList() > 0 then
 		Dialog.confirm(L().CLEAR_UPDATES_Q, nil, function()
@@ -288,8 +289,9 @@ function Upd.draw()
 			ensureThumb(manga)
 		end
 		drawThumb(manga, X0 + 14, y + 7, 38, 57)
-		UI.text(BONT16, X0 + 66, y + 12, row.entry.MangaName, COLOR_FONT, 600)
-		UI.text(FONT16, X0 + 66, y + 38, row.entry.ChapterName, COLOR_SUBFONT, 600)
+		-- same row type as Browse, Extensions and Downloads: title in FONT20, details in FONT16
+		UI.text(FONT20, X0 + 66, y + 9, row.entry.MangaName, COLOR_FONT, 600)
+		UI.text(FONT16, X0 + 66, y + 39, row.entry.ChapterName, COLOR_SUBFONT, 600)
 		UI.textRight(FONT16, X1 - 16, y + 12, Clock.relative(row.entry.Date), COLOR_SUBFONT)
 		if manga then
 			local chapter = {Link = row.entry.ChapterLink, Manga = manga}
@@ -384,7 +386,7 @@ function Hist.input(oldPad, pad, oldTouch, touch)
 		end
 	elseif pressed(pad, oldPad, SCE_CTRL_CROSS) and row then
 		resume(row.manga)
-	elseif pressed(pad, oldPad, SCE_CTRL_TRIANGLE) and row then
+	elseif pressed(pad, oldPad, SCE_CTRL_START) and row then
 		Details.setManga(row.manga)
 	elseif pressed(pad, oldPad, SCE_CTRL_SQUARE) and row then
 		Cache.removeHistory(row.manga)
@@ -415,7 +417,7 @@ function Hist.draw()
 		local manga = row.manga
 		ensureThumb(manga)
 		drawThumb(manga, X0 + 14, y + 8, 42, 63)
-		UI.text(BONT16, X0 + 70, y + 10, manga.Name, COLOR_FONT, 560)
+		UI.text(FONT20, X0 + 70, y + 6, manga.Name, COLOR_FONT, 560)
 		local info = historyInfo(manga)
 		local sub
 		if info.chapter then
@@ -462,7 +464,7 @@ local LANG_GROUPS = {
 	{id = "ja", label = "LANG_JA", codes = {ja = true}},
 	{id = "zh", label = "LANG_ZH", codes = {zh = true, ["zh-Hans"] = true, ["zh-Hant"] = true, ["zh-hans"] = true, ["zh-hant"] = true}}
 }
--- multi-language sources (MangaDex, Webtoons…) have no chip: they show up under every language
+-- multi-language sources have no chip: they show up under every language (or under the languages they list)
 local MULTI_GROUP = {id = "all", label = "LANG_MULTI", codes = {all = true, multi = true}}
 
 local function groupOf(lang)
@@ -510,8 +512,58 @@ local function langChipLabel(g)
 	return string.upper(g.id)
 end
 
-local function langMatches(lang)
+---Set of language groups from a list of ISO codes (a multi-language extension's "langs": {"en", "es"...})
+local function langSet(list)
+	if type(list) ~= "table" or #list == 0 then
+		return nil
+	end
+	local set = {}
+	for _, code in ipairs(list) do
+		local g = groupOf(code).id
+		if g == "all" then
+			return nil
+		end
+		set[g] = true
+	end
+	return set
+end
+
+---Row label of a multi-language extension with known languages ("en/es/fr/de"), else nil (its own code is shown)
+local function langLabel(lang, groups)
+	if groupOf(lang).id ~= "all" or not groups then
+		return nil
+	end
+	local t = {}
+	for g in pairs(groups) do
+		t[#t + 1] = g
+	end
+	table.sort(t, function(a, b)
+		local _, ia = groupOf(a)
+		local _, ib = groupOf(b)
+		if ia ~= ib then
+			return ia < ib
+		end
+		return a < b
+	end)
+	return table.concat(t, "/")
+end
+
+---@param lang string the extension's language ("all" for multi-language)
+---@param langs table|nil set of the groups a multi-language extension really has sources in (nil = every language)
+local function langMatches(lang, langs)
 	local id = groupOf(lang).id
+	if id == "all" and langs then
+		-- an extension with sources in en, es, fr, de shows under those chips only, and only while one of them is active
+		if Ext.lang ~= "*" then
+			return langs[Ext.lang] == true and IsSourceLangEnabled(Ext.lang)
+		end
+		for g in pairs(langs) do
+			if IsSourceLangEnabled(g) then
+				return true
+			end
+		end
+		return false
+	end
 	if id ~= "all" and not IsSourceLangEnabled(id) then
 		return false
 	end
@@ -522,7 +574,9 @@ local function extVisible(e)
 	if e.nsfw and not Settings.NSFW then
 		return false
 	end
-	if not langMatches(e.lang) then
+	e.langGroups = e.langGroups or langSet(e.langs)
+	e.langLabel = e.langLabel or langLabel(e.lang, e.langGroups)
+	if not langMatches(e.lang, e.langGroups) then
 		return false
 	end
 	if Ext.query ~= "" and not e.name:lower():find(Ext.query:lower(), 1, true) then
@@ -568,7 +622,9 @@ local function buildExtRows()
 		for id, meta in pairs(installed) do
 			local entry = Extensions.getEntry(id)
 			local e = {id = id, name = meta.name, lang = meta.lang or "all", version = meta.version, nsfw = meta.nsfw, compat = meta.compat, origin = meta.origin, installed = true, entry = entry, error = meta.error}
-			if (Ext.tab == 1 or Extensions.hasUpdate(id)) and langMatches(e.lang) and (Ext.query == "" or e.name:lower():find(Ext.query:lower(), 1, true)) then
+			e.langGroups = GetExtensionLangGroups(id) or langSet(entry and entry.langs)
+			e.langLabel = langLabel(e.lang, e.langGroups)
+			if (Ext.tab == 1 or Extensions.hasUpdate(id)) and langMatches(e.lang, e.langGroups) and (Ext.query == "" or e.name:lower():find(Ext.query:lower(), 1, true)) then
 				list[#list + 1] = e
 			end
 		end
@@ -643,7 +699,8 @@ local function extAction(e)
 			end)
 		elseif item.value == "open" then
 			-- straight into the source's catalog in Browse, whatever language Browse is filtered to
-			local p = GetParserOfExtension(e.id)
+			-- an extension with one source per language opens the one of the language chip that is selected
+			local p = GetParserOfExtension(e.id, Ext.lang ~= "*" and Ext.lang or nil)
 			if p and (Settings.NSFW or not p.NSFW) then
 				Menu.setMode("CATALOGS")
 				Catalogs.openParser(p)
@@ -813,7 +870,7 @@ function Ext.draw()
 			local label = L()["STATUS_" .. status:upper()] or status
 			local color = (status == "ok" and COLOR_SUCCESS) or (status == "broken" and COLOR_DANGER) or COLOR_WARNING
 			Font.print(FONT16, tx, y + 40, label, color)
-			local sub = "  ·  " .. (e.lang or "all") .. "  ·  v" .. tostring(e.version or "?") .. "  ·  " .. (ORIGIN_LABEL[e.origin] or e.origin or "")
+			local sub = "  ·  " .. (e.langLabel or e.lang or "all") .. "  ·  v" .. tostring(e.version or "?") .. "  ·  " .. (ORIGIN_LABEL[e.origin] or e.origin or "")
 			UI.text(FONT16, tx + Font.getTextWidth(FONT16, label), y + 40, sub, COLOR_SUBFONT, 560 - Font.getTextWidth(FONT16, label))
 		end
 		-- action button
@@ -1078,10 +1135,10 @@ end
 function Screens.genPanels()
 	local P = Language[Settings.Language].PANEL
 	local O = Language[Settings.Language].OTAKIO
-	Panels.UPDATES = {"L\\R", "Cross", "Triangle", "Square", "Start", "Select",
-		["L\\R"] = P.CHANGE_SECTION, Cross = P.READ, Triangle = O.DETAILS, Square = O.DOWNLOAD, Start = P.UPDATE, Select = O.CLEAR}
-	Panels.HISTORY = {"L\\R", "Cross", "Triangle", "Square",
-		["L\\R"] = P.CHANGE_SECTION, Cross = O.RESUME, Triangle = O.DETAILS, Square = P.DELETE}
+	Panels.UPDATES = {"L\\R", "Cross", "Square", "Triangle", "Start", "Select",
+		["L\\R"] = P.CHANGE_SECTION, Cross = P.READ, Square = O.DOWNLOAD, Triangle = P.UPDATE, Start = O.DETAILS, Select = O.CLEAR}
+	Panels.HISTORY = {"L\\R", "Cross", "Square", "Start",
+		["L\\R"] = P.CHANGE_SECTION, Cross = O.RESUME, Square = P.DELETE, Start = O.DETAILS}
 	Panels.EXTENSIONS = {"L\\R", "Cross", "Square", "Triangle", "Start", "Select",
 		["L\\R"] = P.CHANGE_SECTION, Cross = P.SELECT, Square = O.TAB, Triangle = P.SEARCH, Start = O.LANGUAGE, Select = O.REPOSITORIES}
 	Panels.GLOBALSEARCH = {"Cross", "Square", "Triangle", "Circle",

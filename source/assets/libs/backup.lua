@@ -18,8 +18,30 @@ local function copyManga(m)
 	return t
 end
 
+local AUTO_PREFIX = "otakio_auto_" -- backups made before an app update
+local AUTO_KEEP = 3
+
+---Keeps only the newest AUTO_KEEP automatic backups (the user's own backups are never removed)
+local function pruneAuto()
+	local auto = {}
+	for _, f in ipairs(FS.list(DIR)) do
+		if not f.directory and f.name:find("^" .. AUTO_PREFIX) and f.name:find("%.otk$") then
+			auto[#auto + 1] = f.name
+		end
+	end
+	table.sort(auto, function(a, b)
+		return a > b
+	end)
+	for i = AUTO_KEEP + 1, #auto do
+		FS.delete(DIR .. auto[i])
+	end
+end
+
 ---Creates ux0:data/otakio/backups/otakio_YYYY-MM-DD_HHMM.otk
-function Backup.create()
+---opts.auto: before an app update, silent, named otakio_auto_YYYY-MM-DD_HHMMSS_from-<version>.otk (the last 3 are kept)
+---@return string|nil path of the backup, nil if it couldn't be written
+function Backup.create(opts)
+	local auto = opts and opts.auto
 	local data = {
 		format = 1,
 		app = Config.VERSION_NAME,
@@ -53,12 +75,22 @@ function Backup.create()
 			data.repos[#data.repos + 1] = r.url
 		end
 	end
+	FS.mkdir(DIR)
 	local name = "otakio_" .. Clock.date("%Y-%m-%d_%H%M") .. ".otk"
-	if FS.saveTable(DIR .. name, data) then
+	if auto then
+		name = AUTO_PREFIX .. Clock.date("%Y-%m-%d_%H%M%S") .. "_from-" .. Config.VERSION_NAME .. ".otk"
+	end
+	local ok = FS.saveTable(DIR .. name, data)
+	if auto then
+		if ok then
+			pruneAuto()
+		end
+	elseif ok then
 		Notifications.push(string.format(L().BACKUP_CREATED, "ux0:data/otakio/backups/" .. name), 2000)
 	else
 		Notifications.push(L().BACKUP_FAILED)
 	end
+	return ok and (DIR .. name) or nil
 end
 
 local function restore(path)

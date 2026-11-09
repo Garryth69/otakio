@@ -599,7 +599,7 @@ function Engines.Keyoapp(cfg)
 end
 
 -------------------------------------------------------------------------------
--- HeanCms — JSON API (api.<site>) used by scanlators like Omega Scans
+-- HeanCms — JSON API (api.<site>) used by some scanlator sites
 -------------------------------------------------------------------------------
 
 function Engines.HeanCms(cfg)
@@ -906,7 +906,7 @@ function Engines.FoolSlide(cfg)
 end
 
 -------------------------------------------------------------------------------
--- MangaK — Next.js sites with an api.<host> backend (MangaBuddy family)
+-- MangaK — Next.js sites with an api.<host> backend
 -------------------------------------------------------------------------------
 
 function Engines.MangaK(cfg)

@@ -130,9 +130,6 @@ local function gesture_touch_update()
 	end
 end
 
-local function gesture_edge_change_page()
-end
-
 local Chapters = {}
 local currentChapterNumber = 1
 
@@ -388,11 +385,6 @@ local function changePage(page)
 	return true
 end
 
-local function changeOrientation()
-	orientation = table.next(orientation, {"Horizontal", "Vertical"})
-	updateMeasurements()
-end
-
 local buttonTimer = Timer.new()
 local buttonTimeSpace = 800
 
@@ -526,7 +518,26 @@ local function exit()
 	toggleContextMenu = false
 end
 
+---Reader settings sheet (readersheet.lua). Always available while a chapter is open; the page actions (cover, save)
+---are offered only when the current page can be used for them
+local function openSettings()
+	local chapter = Chapters[currentChapterNumber]
+	if not chapter or not chapter.Manga then
+		return
+	end
+	local page = allPages[allPages.Page or -1]
+	if not (page and (page.Link or page.Path)) then
+		page = nil
+	end
+	Extra.setChapters(chapter.Manga, chapter, page)
+end
+
 function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
+	-- Select: reader settings (layout, page colors, page actions), from any state of the reader
+	if Controls.check(pad, SCE_CTRL_SELECT) and not Controls.check(oldPad, SCE_CTRL_SELECT) then
+		openSettings()
+		return
+	end
 	if Controls.check(pad, SCE_CTRL_CIRCLE) or ContextMenu and touch.x and touch.x < 88 and touch.y < 80 * MenuFade and not oldTouch.x then
 		if allPages.Page > 0 then
 			local bookmark
@@ -550,9 +561,7 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 		if ContextMenu then
 			if touch.x and touch.y < 80 * MenuFade and not oldTouch.x then
 				if touch.x > 960 - 88 then
-					if allPages[allPages.Page or -1] and (allPages[allPages.Page or -1].Link or allPages[allPages.Page or -1].Path) then
-						Extra.setChapters(Chapters[currentChapterNumber].Manga, Chapters[currentChapterNumber], allPages[allPages.Page])
-					end
+					openSettings()
 				elseif touch.x > 960 - 88 - 88 then
 					if allPages[allPages.Page or -1] then
 						deletePageImage(allPages.Page)
@@ -606,8 +615,6 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 					swipe("RIGHT")
 					buttonTimeSpace = math.max(buttonTimeSpace / 2, 10)
 					Timer.reset(buttonTimer)
-				elseif Controls.check(pad, SCE_CTRL_SELECT) and not Controls.check(oldPad, SCE_CTRL_SELECT) then
-					changeOrientation()
 				elseif Controls.check(pad, SCE_CTRL_SQUARE) then
 					scale(0.95, page)
 				elseif Controls.check(pad, SCE_CTRL_TRIANGLE) then
@@ -908,9 +915,7 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 								loadPageImage(allPages.Page)
 							end
 						elseif CursorIndex == 2 and currentState == STATE_READING then
-							if allPages[allPages.Page or -1] and (allPages[allPages.Page or -1].Link or allPages[allPages.Page or -1].Path) then
-								Extra.setChapters(Chapters[currentChapterNumber].Manga, Chapters[currentChapterNumber], allPages[allPages.Page])
-							end
+							openSettings()
 						else
 							if readDirection == "LEFT" or is_down and orientation == "Vertical" then
 								if CursorIndex == 3 and currentChapterNumber < #Chapters then
@@ -1519,8 +1524,20 @@ local function lazySliceTick(image, k, center, half, axis)
 	end
 end
 
+---Page textures go through the reader look (readersheet.lua): tinted when brightness or a Multiply filter is set
+local drawImageExtended = Graphics.drawImageExtended
+local pageTint = nil
+local function drawPage(x, y, tex, sx, sy, w, h, rot, zx, zy)
+	if pageTint then
+		drawImageExtended(x, y, tex, sx, sy, w, h, rot, zx, zy, pageTint)
+	else
+		drawImageExtended(x, y, tex, sx, sy, w, h, rot, zx, zy)
+	end
+end
+
 function Reader.draw()
-	Screen.clear(COLOR_BACK)
+	pageTint = ReaderLook.tint()
+	Screen.clear(currentState == STATE_READING and ReaderLook.background() or COLOR_BACK)
 	if currentState == STATE_LOADING then
 		local manga_name = Chapters[currentChapterNumber].Manga.Name
 		local prepare_message = Language[Settings.Language].READER.PREPARING_PAGES .. string.sub("...", 1, math.ceil(Timer.getTime(GlobalTimer) / 250) % 4)
@@ -1553,11 +1570,11 @@ function Reader.draw()
 							if orientation == "Horizontal" then
 								local x, y = math.ceil((currentPageOffset.x + page.x) * 4) / 4, currentPageOffset.y + page.y + (k - 1) * page.Image.SliceHeight * page.Zoom - page.Height / 2 * page.Zoom + page.Image.SliceHeight / 2 * page.Zoom
 								Graphics.fillRect(x - page.Width / 2 * page.Zoom, x + page.Width / 2 * page.Zoom, y - Height / 2 * page.Zoom, y + Height / 2 * page.Zoom, COLOR_BLACK)
-								Graphics.drawImageExtended(x, y, page.Image[k].e, 0, 0, page.Width, Height, 0, page.Zoom, page.Zoom)
+								drawPage(x, y, page.Image[k].e, 0, 0, page.Width, Height, 0, page.Zoom, page.Zoom)
 							elseif orientation == "Vertical" then
 								local x, y = math.ceil((currentPageOffset.x + page.x) * 4) / 4 - (k - 1) * page.Image.SliceHeight * page.Zoom + page.Height / 2 * page.Zoom - page.Image.SliceHeight / 2 * page.Zoom, currentPageOffset.y + page.y
 								Graphics.fillRect(x - Height / 2 * page.Zoom, x + Height / 2 * page.Zoom, y - page.Width / 2 * page.Zoom, y + page.Width / 2 * page.Zoom, COLOR_BLACK)
-								Graphics.drawImageExtended(x, y, page.Image[k].e, 0, 0, page.Width, Height, PI / 2, page.Zoom, page.Zoom)
+								drawPage(x, y, page.Image[k].e, 0, 0, page.Width, Height, PI / 2, page.Zoom, page.Zoom)
 							end
 						else
 							if orientation == "Horizontal" then
@@ -1591,20 +1608,20 @@ function Reader.draw()
 							local x, y = math.ceil((currentPageOffset.x + page.x) * 4) / 4, math.ceil((currentPageOffset.y + page.y) * 4) / 4
 							if orientation == "Horizontal" then
 								Graphics.fillRect(x - page.Width / 2 * page.Zoom, x + page.Width / 2 * page.Zoom, y - page.Height / 2 * page.Zoom, y + page.Height / 2 * page.Zoom, COLOR_BLACK)
-								Graphics.drawImageExtended(x, y, page.Image[frame].Image.e, 0, 0, page.Width, page.Height, 0, page.Zoom, page.Zoom)
+								drawPage(x, y, page.Image[frame].Image.e, 0, 0, page.Width, page.Height, 0, page.Zoom, page.Zoom)
 							elseif orientation == "Vertical" then
 								Graphics.fillRect(x - page.Height / 2 * page.Zoom, x + page.Height / 2 * page.Zoom, y - page.Width / 2 * page.Zoom, y + page.Width / 2 * page.Zoom, COLOR_BLACK)
-								Graphics.drawImageExtended(x, y, page.Image[frame].Image.e, 0, 0, page.Width, page.Height, PI / 2, page.Zoom, page.Zoom)
+								drawPage(x, y, page.Image[frame].Image.e, 0, 0, page.Width, page.Height, PI / 2, page.Zoom, page.Zoom)
 							end
 						end
 					else
 						local x, y = math.ceil((currentPageOffset.x + page.x) * 4) / 4, math.ceil((currentPageOffset.y + page.y) * 4) / 4
 						if orientation == "Horizontal" then
 							Graphics.fillRect(x - page.Width / 2 * page.Zoom, x + page.Width / 2 * page.Zoom, y - page.Height / 2 * page.Zoom, y + page.Height / 2 * page.Zoom, COLOR_BLACK)
-							Graphics.drawImageExtended(x, y, page.Image.e, 0, 0, page.Width, page.Height, 0, page.Zoom, page.Zoom)
+							drawPage(x, y, page.Image.e, 0, 0, page.Width, page.Height, 0, page.Zoom, page.Zoom)
 						elseif orientation == "Vertical" then
 							Graphics.fillRect(x - page.Height / 2 * page.Zoom, x + page.Height / 2 * page.Zoom, y - page.Width / 2 * page.Zoom, y + page.Width / 2 * page.Zoom, COLOR_BLACK)
-							Graphics.drawImageExtended(x, y, page.Image.e, 0, 0, page.Width, page.Height, PI / 2, page.Zoom, page.Zoom)
+							drawPage(x, y, page.Image.e, 0, 0, page.Width, page.Height, PI / 2, page.Zoom, page.Zoom)
 						end
 					end
 				end
@@ -1623,7 +1640,11 @@ function Reader.draw()
 				end
 			end
 		end
-		if allPages.Page <= (allPages.Count or 0) and allPages.Page > 0 then
+		local overlay = ReaderLook.overlay()
+		if overlay then
+			Graphics.fillRect(0, 960, 0, 544, overlay)
+		end
+		if ReaderLook.showPageNumber() and allPages.Page <= (allPages.Count or 0) and allPages.Page > 0 then
 			local Counter = allPages.Page .. "/" .. allPages.Count
 			if readDirection == "LEFT" then
 				Counter = (allPages.Count - allPages.Page + 1) .. "/" .. allPages.Count
@@ -1634,9 +1655,9 @@ function Reader.draw()
 		end
 	end
 	if MenuFade > 0 then
-		local BACK_COLOR = Color.new(0, 0, 0, 255 * MenuFade)
-		local GRAY_COLOR = Color.new(128, 128, 128, 255 * MenuFade)
-		local BLUE_COLOR = CloneColorWithNewAlpha(COLOR_ROYAL_BLUE, 255 * MenuFade)
+		local BACK_COLOR = CloneColorWithNewAlpha(COLOR_SURFACE, 245 * MenuFade) -- the theme's bars, like the rest of Otakio
+		local GRAY_COLOR = CloneColorWithNewAlpha(COLOR_SURFACE2, 255 * MenuFade)
+		local BLUE_COLOR = CloneColorWithNewAlpha(COLOR_ACCENT, 255 * MenuFade)
 		Graphics.fillRect(88, 960 - 88 - 32 - 24 - 32, 0, 80 * MenuFade, BACK_COLOR)
 		Graphics.fillRect(0, 960, 544 - 80 * MenuFade, 544, BACK_COLOR)
 		if currentState == STATE_READING then
@@ -1654,8 +1675,8 @@ function Reader.draw()
 				Graphics.drawImage(200 + point - 6, 544 - 80 * MenuFade + 40 - 6, CircleIcon.e, BLUE_COLOR)
 				current_page = (allPages.Count - allPages.Page + 1)
 				current_page = math.max(1, math.min(current_page, allPages.Count))
-				Font.print(FONT26, 180 - Font.getTextWidth(FONT26, allPages.Count), 544 - 80 * MenuFade + 23, allPages.Count, COLOR_WHITE)
-				Font.print(FONT26, 780, 544 - 80 * MenuFade + 23, current_page, COLOR_WHITE)
+				Font.print(FONT26, 180 - Font.getTextWidth(FONT26, allPages.Count), 544 - 80 * MenuFade + 23, allPages.Count, COLOR_FONT)
+				Font.print(FONT26, 780, 544 - 80 * MenuFade + 23, current_page, COLOR_FONT)
 			elseif orientation == "Vertical" and is_down then
 				if allPages.Count == 1 then
 					point = 560
@@ -1665,23 +1686,23 @@ function Reader.draw()
 				Graphics.fillRect(200, 760, 544 - 80 * MenuFade + 39, 544 - 80 * MenuFade + 41, BLUE_COLOR)
 				Graphics.fillRect(200, 200 + point, 544 - 80 * MenuFade + 39, 544 - 80 * MenuFade + 41, GRAY_COLOR)
 				Graphics.drawImage(200 + point - 6, 544 - 80 * MenuFade + 40 - 6, CircleIcon.e, BLUE_COLOR)
-				Font.print(FONT26, 180 - Font.getTextWidth(FONT26, allPages.Count), 544 - 80 * MenuFade + 23, allPages.Count, COLOR_WHITE)
-				Font.print(FONT26, 780, 544 - 80 * MenuFade + 23, current_page, COLOR_WHITE)
+				Font.print(FONT26, 180 - Font.getTextWidth(FONT26, allPages.Count), 544 - 80 * MenuFade + 23, allPages.Count, COLOR_FONT)
+				Font.print(FONT26, 780, 544 - 80 * MenuFade + 23, current_page, COLOR_FONT)
 			else
 				Graphics.fillRect(200, 760, 544 - 80 * MenuFade + 39, 544 - 80 * MenuFade + 41, GRAY_COLOR)
 				Graphics.fillRect(200, 200 + point, 544 - 80 * MenuFade + 39, 544 - 80 * MenuFade + 41, BLUE_COLOR)
 				Graphics.drawImage(200 + point - 6, 544 - 80 * MenuFade + 40 - 6, CircleIcon.e, BLUE_COLOR)
-				Font.print(FONT26, 180 - Font.getTextWidth(FONT26, current_page), 544 - 80 * MenuFade + 23, current_page, COLOR_WHITE)
-				Font.print(FONT26, 780, 544 - 80 * MenuFade + 23, allPages.Count, COLOR_WHITE)
+				Font.print(FONT26, 180 - Font.getTextWidth(FONT26, current_page), 544 - 80 * MenuFade + 23, current_page, COLOR_FONT)
+				Font.print(FONT26, 780, 544 - 80 * MenuFade + 23, allPages.Count, COLOR_FONT)
 			end
 		end
 		if currentChapterNumber > 1 and not (orientation == "Vertical" and is_down or readDirection == "LEFT") or currentChapterNumber < #Chapters and (orientation == "Vertical" and is_down or readDirection == "LEFT") then
-			Graphics.drawImage(32, 544 - 80 * MenuFade + 40 - 12, leftArrowIcon.e, COLOR_WHITE)
+			Graphics.drawImage(32, 544 - 80 * MenuFade + 40 - 12, leftArrowIcon.e, COLOR_FONT)
 		else
 			Graphics.drawImage(32, 544 - 80 * MenuFade + 40 - 12, leftArrowIcon.e, COLOR_GRAY)
 		end
 		if currentChapterNumber < #Chapters and not (orientation == "Vertical" and is_down or readDirection == "LEFT") or currentChapterNumber > 1 and (orientation == "Vertical" and is_down or readDirection == "LEFT") then
-			Graphics.drawImage(960 - 32 - 24, 544 - 80 * MenuFade + 40 - 12, rightArrowIcon.e, COLOR_WHITE)
+			Graphics.drawImage(960 - 32 - 24, 544 - 80 * MenuFade + 40 - 12, rightArrowIcon.e, COLOR_FONT)
 		else
 			Graphics.drawImage(960 - 32 - 24, 544 - 80 * MenuFade + 40 - 12, rightArrowIcon.e, COLOR_GRAY)
 		end
@@ -1694,18 +1715,14 @@ function Reader.draw()
 			local ms_ch = 50 * string.len(chapter_name)
 			local t = math.min(math.max(0, Timer.getTime(mangaNameTickerTimer) - 1500), ms)
 			local t_ch = math.min(math.max(0, Timer.getTime(chapterNameTickerTimer) - 1500), ms_ch)
-			Font.print(BONT30, 88 - dif * t / ms, 80 * MenuFade - 73, manga_name, COLOR_WHITE)
-			Font.print(FONT16, 88 - dif_ch * t_ch / ms_ch, 80 * MenuFade - 32, chapter_name, COLOR_WHITE)
+			Font.print(BONT30, 88 - dif * t / ms, 80 * MenuFade - 73, manga_name, COLOR_FONT)
+			Font.print(FONT16, 88 - dif_ch * t_ch / ms_ch, 80 * MenuFade - 32, chapter_name, COLOR_FONT)
 			Graphics.fillRect(0, 88, 0, 80 * MenuFade, BACK_COLOR)
-			Graphics.drawImage(32, 80 * MenuFade - 40 - 12, BackIcon.e, COLOR_WHITE)
+			Graphics.drawImage(32, 80 * MenuFade - 40 - 12, BackIcon.e, COLOR_FONT)
 			Graphics.fillRect(960 - 88 - 32 - 24 - 32, 960, 0, 80 * MenuFade, BACK_COLOR)
 			if currentState == STATE_READING then
-				Graphics.drawImage(960 - 32 - 24 - 32 - 32 - 24, 80 * MenuFade - 40 - 12, RefreshIcon.e, COLOR_WHITE)
-				if allPages[allPages.Page] and (allPages[allPages.Page].Link or Chapters[currentChapterNumber].Manga.ParserID == "IMPORTED" or allPages[allPages.Page].Path) then
-					Graphics.drawImage(960 - 32 - 24, 80 * MenuFade - 40 - 12, OptionsIcon.e, COLOR_WHITE)
-				else
-					Graphics.drawImage(960 - 32 - 24, 80 * MenuFade - 40 - 12, OptionsIcon.e, COLOR_GRAY)
-				end
+				Graphics.drawImage(960 - 32 - 24 - 32 - 32 - 24, 80 * MenuFade - 40 - 12, RefreshIcon.e, COLOR_FONT)
+				Graphics.drawImage(960 - 32 - 24, 80 * MenuFade - 40 - 12, OptionsIcon.e, COLOR_FONT)
 			end
 			if Timer.getTime(mangaNameTickerTimer) > 3500 + ms then
 				Timer.reset(mangaNameTickerTimer)
@@ -1799,6 +1816,10 @@ function Reader.updateSettings()
 end
 
 function Reader.load(chapters, num)
+	local ch = chapters and chapters[num]
+	if ch and ch.Manga then
+		Diag.trail("reader", tostring(ch.Manga.ParserID) .. " / " .. tostring(ch.Manga.Name) .. " / " .. tostring(ch.Name))
+	end
 	if not chapters[1] then
 		Console.error("Error loading chapter")
 		AppMode = MENU

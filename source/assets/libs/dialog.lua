@@ -16,6 +16,7 @@ local function L()
 end
 
 local function open(t)
+	Diag.trail("dialog", tostring(t.title or t.kind))
 	t.selected = t.selected or 1
 	t.scroll = 0
 	t.openTime = Timer.getTime(GlobalTimer)
@@ -39,11 +40,14 @@ function Dialog.menu(title, items, onSelect, selectedIndex)
 	open({kind = "menu", title = title, items = items, onSelect = onSelect, selected = selectedIndex})
 end
 
-function Dialog.choice(title, items, selectedIndex, onSelect)
+---opts (optional): {onMove(item) = called when the cursor moves (live preview), onCancel() = closed without choosing}
+---items may carry `swatches = {color, ...}`, drawn at the right of the row
+function Dialog.choice(title, items, selectedIndex, onSelect, opts)
 	for i, item in ipairs(items) do
 		item.checked = i == selectedIndex
 	end
-	open({kind = "single", title = title, items = items, selected = selectedIndex or 1, onSelect = onSelect})
+	open({kind = "single", title = title, items = items, selected = selectedIndex or 1, onSelect = onSelect,
+		onMove = opts and opts.onMove, onClose = opts and opts.onCancel})
 end
 
 function Dialog.checklist(title, items, onConfirm)
@@ -140,8 +144,14 @@ function Dialog.input(oldPad, pad, oldTouch, touch)
 	local n = #state.items
 	if pressed(SCE_CTRL_UP) then
 		state.selected = state.selected > 1 and state.selected - 1 or n
+		if state.onMove then
+			state.onMove(state.items[state.selected])
+		end
 	elseif pressed(SCE_CTRL_DOWN) then
 		state.selected = state.selected < n and state.selected + 1 or 1
+		if state.onMove then
+			state.onMove(state.items[state.selected])
+		end
 	elseif pressed(SCE_CTRL_CROSS) then
 		activate(state.selected)
 	elseif pressed(SCE_CTRL_CIRCLE) then
@@ -229,6 +239,13 @@ function Dialog.draw()
 				tx = tx + 34
 			end
 			local color = item.danger and COLOR_DANGER or COLOR_FONT
+			if item.swatches then
+				-- small color chips at the right (theme picker)
+				local sx = x1 - 30 - #item.swatches * 22
+				for s, c in ipairs(item.swatches) do
+					UI.roundRect(sx + (s - 1) * 22, ry + 12, sx + (s - 1) * 22 + 18, ry + 30, 5, c)
+				end
+			end
 			if item.sub then
 				UI.text(FONT16, tx, ry + 2, item.label, color, x1 - tx - 30)
 				UI.text(FONT13, tx, ry + 23, item.sub, COLOR_SUBFONT, x1 - tx - 30)

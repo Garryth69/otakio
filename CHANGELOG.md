@@ -2,9 +2,96 @@
 
 All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the GitHub release with that tag.
 
-## Unreleased
+## 1.1.2
+
+### Added
+- **Reader settings sheet** (Select while reading, or the menu icon), in Otakio's style, with the page still visible
+  beside it:
+  - this manga's orientation, direction and scaling;
+  - **page colors**, like Mihon: background (theme, black, gray, white), brightness, and a color filter with presets
+    (Sepia, Paper, Warm, Night) or your own red/green/blue/opacity, blended as an overlay or multiplied;
+  - show page number, double tap to zoom, tap page edges;
+  - set the page as cover, save the page.
+  It opens at any time while a chapter is open, also while the page is still loading (before, it could not be reached
+  until the page had loaded). Select no longer switches the orientation: it is the sheet's first option.
+- **Downloads** tab views: *Queue* (downloading now), *Downloaded* (what is on the memory card; Start lists a manga's
+  downloaded chapters to delete them one by one) and *History* (finished, failed and canceled downloads, with dates).
+  Triangle clears the history; downloaded chapters are kept.
+- **Backup before every app update:** library, reading progress, settings and extensions are saved to
+  `ux0:data/otakio/backups/otakio_auto_<date>_from-<version>.otk` before the download starts (the last 3 are kept;
+  your own backups are never removed). More → Data → *Restore backup* brings them back.
+- **Data migrations:** the data on the memory card now has a version (`data_version.txt`). When a future version
+  changes a data format, Otakio converts the data at startup, after copying the files to
+  `backups/pre-migration-<n>/`; if the conversion fails, the files are put back and the app starts with them as they were.
+- **Automatic diagnostics** in `ux0:data/otakio/log.txt`, with nothing to do on the console:
+  - internal errors (they only reached the debug overlay before), each repeated message counted instead of repeated;
+  - the last screens, dialogs and chapters opened, so the log shows where the app was if it closes;
+  - system crash dumps that appeared since the last session;
+  - free RAM/GPU memory when it changes a lot, and how long each step of the start-up took.
+
+  Nothing is sent anywhere, and log lines are cleaned: URLs lose their query strings; e-mail and IP addresses, tokens,
+  cookies and passwords are removed.
+- Theme picker shows each theme's colors and previews the theme under the cursor (Circle goes back).
+- App updates show a progress panel: download bar with MB, percent, speed and time left (Circle cancels), then the
+  unpacking and installer steps. Otakio Updater shows its steps too.
+- Every update step is timed in `ux0:data/otakio/log.txt`.
+
+### Changed
+- **The same buttons do the same things on every screen:** Triangle refreshes (Library, Updates) or searches
+  (Browse, catalogs, Extensions); Square switches tabs (Library categories, Extensions, Downloads); Start opens the
+  screen's or the item's options. In Updates, Triangle now refreshes and Start opens the manga's details (the other
+  way round before); in History, Start opens the details. Button hints are listed in the same order everywhere.
+- Help texts show button icons, the same as the hint bar, instead of words in each language ("Square", "Quadrado"...).
+  With the Japanese button layout the confirm/back icons follow the swap.
+- Downloads: the Queue / Downloaded / History chips sit under the title like the other tabs; Square switches them and
+  Start opens the selected manga's or entry's options.
+- Updates and History rows use the same text styles as the other lists.
+- The "connection lost" message is a card in the theme's colors.
+- Otakio Updater uses the app's font (Roboto, cut down to 22 KB) and theme colors instead of the engine's debug font.
+- The reader's top and bottom bars follow the theme.
+- Themes: clearer cards on Light, a more visible selection on Dark, visible dividers on AMOLED, darker secondary text
+  on Sakura, and Crimson's "delete" color no longer matches its accent.
+- **Adaptive clocks:** the console runs at 444 MHz (CPU) / 222 MHz (GPU) while something happens (input, loading,
+  downloads, extension jobs, updates) and goes back to the default 333/166 MHz after a few seconds without activity,
+  e.g. while reading a page: the same speed when it matters, less battery and heat.
+- Engine: 12 MB more free RAM (the per-frame drawing pool is 4 MB instead of 16 MB).
+- Faster start-up: the full character set is pre-rendered only for the three font sizes most of the interface uses.
+- Faster app updates: shorter fixed waits in the app and in Otakio Updater.
+- If an update can't be installed inside the app, the VPK is now kept in `ux0:data/otakio/vpk/` (install it with
+  VitaShell). It is removed after the next successful update.
 
 ### Fixed
+- **GPU crashes:** textures could be freed in the middle of drawing a frame (by the code or by Lua's garbage
+  collector) while the GPU was still going to read them. Textures are now freed only between frames, when the GPU is
+  idle. The error barrier also closes a half-drawn frame correctly (its draw-phase flag was never set).
+- Engine: extracting a zip without entries for its folders (common in .cbz files) wrote to a file that failed to
+  open and closed the app. The engine now creates the missing folders and skips a file it still can't write.
+- Browse offered languages turned off in *Source languages* (Start and More → Browse → language), and a language
+  turned off later stayed selected. Only active languages are offered now, and an inactive one goes back to all.
+- Browse's language filter now lists every language chosen in *Source languages*, also one without a source of its
+  own: multi-language sources serve it. Before, with Portuguese and English chosen but only
+  multi-language and English sources installed, it offered just "All languages" and English.
+  - *Portuguese* now shows both Brazilian and European Portuguese sources.
+  - The chosen filter is kept after restarting the app. It always went back to "All languages", because it was
+    checked before the chosen languages were loaded.
+  - Multi-language extensions can list titles in the filter's language (`BrowseLanguageIsos()`); before, they could
+    only follow the interface language.
+- Extensions with one source per language (for example English, Spanish, French and German):
+  - opening one could show another language's titles. The background source check shared its preloaded list
+    between all the sources of an extension, so the English source could show the Spanish or German list. Each
+    source now keeps its own list;
+  - in Extensions they appear only under their languages (no longer under a language they don't have), and the
+    row shows them ("en/es/fr/de");
+  - "Open source" opens the one in the selected language chip or the Browse language, else one in an active
+    language (English first), always the same one. Before, it was a random one;
+  - the first-run "Install recommended sources" skips them when none of their languages is active.
+  Extensions can declare this with a `-- @langs en,es` header (`langs` in `index.json`).
+- Large downloads on slow Wi-Fi were stopped after 90 seconds and started over from zero. A download is now stopped
+  only when no data arrives for 30 seconds.
+- A retried download had no deadline at all and could hang the download queue.
+- On first run, the app update prompt could take the place of the setup's last screen: accepting it skipped
+  *Install recommended sources*, so the app came back with no repository. The prompt now waits for the setup and for
+  extension installs to finish.
 - In-app update crashed while unpacking the new version: the engine's extractor can't create folders that have no
   entry of their own in the VPK. Release VPKs now list every folder, and the app creates them before extracting.
 

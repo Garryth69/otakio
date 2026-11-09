@@ -8,7 +8,7 @@ Language.ChineseTraditional = {
 	EXTRA = {DownloadAll = "下載全部章節", RemoveAll = "刪除已下載章節", CancelAll = "取消下載"},
 	IMPORT = {DRIVE = "儲存裝置", EXTERNAL_MEMORY = "外部記憶體", FILE = "檔案", FOLDER = "資料夾", GOBACK = "返回", UNSUPFILE = "不支援的檔案"},
 	MESSAGE = {
-		LOST_CONNECTION = "連線已中斷\n\n正在等待網路…\n\n（請將應用程式縮小，開啟 Wi-Fi 設定並點選「連線」）\n\n按 X 取消所有下載並關閉此訊息。\n網路恢復後會繼續下載。",
+		LOST_CONNECTION = "連線已中斷\n\n正在等待網路…\n\n（請將應用程式縮小，開啟 Wi-Fi 設定並點選「連線」）\n\n按 ✕ 取消所有下載並關閉此訊息。\n網路恢復後會繼續下載。",
 		NO_CATALOG_MANGA = "什麼都沒找到。\n網站、網路或來源發生錯誤。",
 		NO_DOWNLOADING_MANGA = "沒有下載項目"
 	},
@@ -91,8 +91,8 @@ Language.ChineseTraditional = {
 		HINT_TOGGLE_APPLY = "X 切換   O / △ 套用", HINT_SELECT_BACK = "X 選擇   O 返回",
 		STATUS_OK = "可用", STATUS_UNSTABLE = "不穩定", STATUS_BROKEN = "無法使用",
 		-- library
-		LIBRARY_EMPTY = "書櫃是空的", LIBRARY_EMPTY_HINT = "在「瀏覽」中找到作品後按 Start\n即可加入書櫃。",
-		LIBRARY_FILTER_EMPTY = "沒有符合篩選的作品", LIBRARY_FILTER_EMPTY_HINT = "按 Start 變更排序/篩選，按方塊切換分類。",
+		LIBRARY_EMPTY = "書櫃是空的", LIBRARY_EMPTY_HINT = "在「瀏覽」中找到作品後按 START\n即可加入書櫃。",
+		LIBRARY_FILTER_EMPTY = "沒有符合篩選的作品", LIBRARY_FILTER_EMPTY_HINT = "按 START 變更排序/篩選，按 □ 切換分類。",
 		LIBRARY_OPTIONS = "書櫃選項", SORT_BY = "排序", FILTER = "篩選",
 		SORT_NAMES = {["Date added"] = "加入日期", ["A-Z"] = "A → Z", ["Z-A"] = "Z → A", Unread = "未讀數", ["Last read"] = "最近閱讀", ["Latest chapter"] = "最新章節"},
 		FILTER_NAMES = {All = "全部", Unread = "未讀", Downloaded = "已下載", Completed = "已讀完"},
@@ -103,17 +103,17 @@ Language.ChineseTraditional = {
 		NEW_CHAPTERS_FOUND = "%d 個新章節！",
 		-- browse
 		NO_SOURCES = "尚未安裝來源", NO_SOURCES_HINT = "開啟「擴充功能」分頁（R），選擇你想要的來源。",
-		NO_SOURCES_LANG = "此語言沒有來源", NO_SOURCES_LANG_HINT = "按 Start 變更語言篩選。",
+		NO_SOURCES_LANG = "此語言沒有來源", NO_SOURCES_LANG_HINT = "按 START 變更語言篩選。",
 		PIN = "釘選", UNPIN = "取消釘選", LANGUAGE = "語言", NEW = "新",
 		NO_RESULTS = "沒有結果", SEARCHING_N = "正在搜尋 %d/%d", OPEN_IN_SOURCE = "在來源中開啟",
 		NO_SOURCE_SEARCH = "此來源不支援搜尋",
 		-- updates / history
-		NO_UPDATES = "最近沒有更新", NO_UPDATES_HINT = "按 Start（書櫃中按 △）尋找新章節。",
+		NO_UPDATES = "最近沒有更新", NO_UPDATES_HINT = "按 △ 尋找新章節。",
 		CLEAR_UPDATES_Q = "清空更新清單？", MANGA_NOT_FOUND = "書櫃中找不到這部漫畫", ALREADY_DOWNLOADED = "已下載",
 		NO_HISTORY = "最近沒有閱讀紀錄", NO_HISTORY_HINT = "讀過的章節會顯示在這裡。",
 		RESUME = "繼續", START = "開始", INCOGNITO_ON = "無痕模式已開啟", DETAILS = "詳細資訊", DOWNLOAD = "下載", CLEAR = "清除",
 		-- downloads
-		DOWNLOADS_HINT = "在章節上按方塊，或在漫畫頁按 Start 下載。", PREPARING = "準備中…", QUEUED = "排隊中",
+		DOWNLOADS_HINT = "在章節上按 □，或在漫畫頁按 START 下載。", PREPARING = "準備中…", QUEUED = "排隊中",
 		QUEUED_N = "%d 個章節排隊中", CANCEL_ALL = "全部取消", DOWNLOADED_N = "已下載（%d）",
 		MARK_ALL_READ = "全部標為已讀", MARK_ALL_UNREAD = "全部標為未讀", MARK_PREVIOUS_READ = "之前的標為已讀",
 		DOWNLOAD_NEXT_5 = "下載接下來 5 個未讀", DOWNLOAD_UNREAD = "下載全部未讀",
@@ -121,9 +121,9 @@ Language.ChineseTraditional = {
 		INSTALLED = "已安裝", AVAILABLE = "可用", UPDATES_TAB = "更新", INSTALL = "安裝", UPDATE = "更新", INSTALLED_LABEL = "已安裝",
 		UNINSTALL = "解除安裝", UNINSTALL_Q = "解除安裝 %s？", OPEN_SOURCE = "開啟來源", SOURCE_HIDDEN = "來源無法使用（成人內容已關閉或擴充功能載入失敗）",
 		EXT_INSTALLED = "已安裝 %s", EXT_UPDATED = "已更新 %s", EXT_UNINSTALLED = "已解除安裝 %s", EXT_INSTALL_FAILED = "無法安裝 %s",
-		EXT_UPDATES_AVAILABLE = "可用的擴充功能更新：%d", NO_EXTENSIONS = "尚未安裝擴充功能", NO_PAGES = "這一章還沒有頁面", ERROR_RECOVERED = "發生問題，已返回書櫃（詳細資訊見 log.txt）", NO_REPOS = "沒有擴充功能儲存庫", NO_REPOS_HINT = "Otakio 不內建來源。Select > 新增儲存庫。", APP_UP_TO_DATE = "Otakio 已是最新版本", APP_UPDATE_AVAILABLE = "Otakio %s 可供下載", APP_UPDATE_Q = "更新到 Otakio %s？", APP_UPDATE_HINT = "Otakio 會自動下載、安裝並重新啟動。書櫃與設定都會保留。", APP_UPDATE_DOWNLOADING = "正在下載 Otakio %s...", APP_UPDATE_DONE = "已儲存到 %s。請用 VitaShell 安裝。", APP_UPDATE_FAILED = "無法檢查更新", APP_UPDATE_RESTARTING = "Otakio 將關閉以安裝 %s，然後自動重新開啟...", APP_UPDATE_DONE_NOW = "已更新到 Otakio %s", APP_UPDATE_DL_FAILED = "更新下載失敗，請稍後再試。", APP_UPDATE_INSTALLING = "正在安裝 Otakio %s...", APP_UPDATE_INSTALLED = "Otakio %s 已安裝，正在重新啟動...", APP_UPDATE_NO_SPACE = "可用空間不足，無法更新（需要 %d MB）", APP_UPDATE_MANUAL = "無法在應用程式內安裝。已儲存到 %s：請用 VitaShell 安裝。", CHECKING = "正在檢查...",
-		NO_EXTENSIONS_HINT = "按方塊切換到「可用」分頁。", ALL_UP_TO_DATE = "全部已是最新",
-		NOTHING_HERE = "這裡什麼都沒有", CHANGE_FILTERS_HINT = "試試其他語言（Start）或搜尋（△）。",
+		EXT_UPDATES_AVAILABLE = "可用的擴充功能更新：%d", NO_EXTENSIONS = "尚未安裝擴充功能", NO_PAGES = "這一章還沒有頁面", ERROR_RECOVERED = "發生問題，已返回書櫃（詳細資訊見 log.txt）", NO_REPOS = "沒有擴充功能儲存庫", NO_REPOS_HINT = "Otakio 不內建來源。SELECT > 新增儲存庫。", APP_UP_TO_DATE = "Otakio 已是最新版本", APP_UPDATE_AVAILABLE = "Otakio %s 可供下載", APP_UPDATE_Q = "更新到 Otakio %s？", APP_UPDATE_HINT = "Otakio 會自動下載、安裝並重新啟動。書櫃與設定都會保留。", APP_UPDATE_DOWNLOADING = "正在下載 Otakio %s...", APP_UPDATE_DONE = "已儲存到 %s。請用 VitaShell 安裝。", APP_UPDATE_FAILED = "無法檢查更新", APP_UPDATE_RESTARTING = "Otakio 將關閉以安裝 %s，然後自動重新開啟...", APP_UPDATE_DONE_NOW = "已更新到 Otakio %s", APP_UPDATE_DL_FAILED = "更新下載失敗，請稍後再試。", APP_UPDATE_INSTALLING = "正在安裝 Otakio %s...", APP_UPDATE_STEP = "第 %d 步，共 %d 步", APP_UPDATE_EXTRACTING = "正在解壓更新...", APP_UPDATE_PREPARING = "正在準備安裝程式...", APP_UPDATE_DONT_OFF = "請勿關閉主機", APP_UPDATE_CANCEL = "取消", APP_UPDATE_CANCELED = "已取消更新", RS_TITLE = "閱讀設定", RS_THIS_MANGA = "此漫畫", RS_COLORS = "頁面顏色", RS_READER = "閱讀器", RS_PAGE = "此頁", RS_BACKGROUND = "背景", RS_BG_THEME = "主題", RS_BG_BLACK = "黑色", RS_BG_GRAY = "灰色", RS_BG_WHITE = "白色", RS_BRIGHTNESS = "亮度", RS_FILTER = "顏色濾鏡", RS_PRESET = "預設", RS_PRESET_CUSTOM = "自訂", RS_PRESET_SEPIA = "復古", RS_PRESET_PAPER = "紙張", RS_PRESET_WARM = "暖色", RS_PRESET_NIGHT = "夜間", RS_BLEND = "混合模式", RS_BLEND_DEFAULT = "預設值", RS_BLEND_MULTIPLY = "色彩增值", RS_RED = "紅", RS_GREEN = "綠", RS_BLUE = "藍", RS_OPACITY = "不透明度", RS_PAGE_NUMBER = "顯示頁碼", RS_RESET = "重設顏色", RS_ADJUST = "調整", RS_CLOSE = "關閉", DL_VIEW_QUEUE = "佇列", DL_VIEW_DONE = "已下載", DL_VIEW_HISTORY = "歷史", DL_VIEW = "檢視", DL_QUEUE_EMPTY = "目前沒有正在下載的內容", DL_HISTORY_EMPTY = "沒有下載歷史", DL_HISTORY_HINT = "已完成、失敗和取消的下載會顯示在這裡。", DL_CLEAR_HISTORY = "清除歷史", DL_CLEAR_HISTORY_Q = "已下載的章節會保留。", DL_HISTORY_CLEARED = "已清除下載歷史", DL_STATUS_OK = "已下載", DL_STATUS_FAILED = "失敗", DL_STATUS_CANCELED = "已取消", DL_REMOVE_ENTRY = "移除", DL_CHAPTERS = "章節", DL_TAP_DELETE = "刪除此下載", DL_DELETE_CHAPTER = "刪除此已下載章節？", DATA_MIGRATION_FAILED = "無法將資料更新到此版本：資料保持不變（詳情見 log.txt）", APP_UPDATE_INSTALLED = "Otakio %s 已安裝，正在重新啟動...", APP_UPDATE_NO_SPACE = "可用空間不足，無法更新（需要 %d MB）", APP_UPDATE_MANUAL = "無法在應用程式內安裝。已儲存到 %s：請用 VitaShell 安裝。", CHECKING = "正在檢查...",
+		NO_EXTENSIONS_HINT = "按 □ 切換到「可用」分頁。", ALL_UP_TO_DATE = "全部已是最新",
+		NOTHING_HERE = "這裡什麼都沒有", CHANGE_FILTERS_HINT = "試試其他語言（START）或搜尋（△）。",
 		SEARCH_EXTENSIONS = "搜尋擴充功能", ALL_LANGUAGES = "所有語言", TAB = "分頁", REPOSITORIES = "儲存庫",
 		REFRESH_REPOS = "重新整理儲存庫", UPDATE_ALL = "全部更新", ADD_REPO = "新增儲存庫", REPO_URL = "GitHub 使用者/儲存庫 或 index.json 網址",
 		REPO_EXISTS = "儲存庫已新增", REMOVE_REPO_Q = "移除 %s？", REPO_BUILTIN = "內建 · 線上", REPO_OFFLINE = "內建 · 離線副本",
@@ -134,7 +134,7 @@ Language.ChineseTraditional = {
 		PROTECTED_CHAPTER = "此章節受網站保護，目前尚不支援",
 		-- import
 		IMPORT_EMPTY = "目前沒有可匯入的內容",
-		IMPORT_HELP = "複製到上方的資料夾（VitaShell FTP 或 USB）：\n• .cbz 或 .zip 檔案\n• 含有頁面圖片的資料夾\n• 每章一個資料夾或 .cbz 的漫畫資料夾\n然後按 X 閱讀，按方塊加入書櫃。",
+		IMPORT_HELP = "複製到上方的資料夾（VitaShell FTP 或 USB）：\n• .cbz 或 .zip 檔案\n• 含有頁面圖片的資料夾\n• 每章一個資料夾或 .cbz 的漫畫資料夾\n然後按 ✕ 閱讀，按 □ 加入書櫃。",
 		IMPORTED_N = "已匯入 %d 項",
 		-- settings / data
 		PROXY_MODES = {Auto = "僅在需要時", Off = "關閉"}, PROXY_ADDRESS = "位址（IP:連接埠）",

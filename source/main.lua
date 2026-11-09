@@ -18,6 +18,7 @@ local createDirectory = System.createDirectory
 loadlib("utils")
 loadlib("sha256")
 loadlib("fs")
+loadlib("migrations")
 loadlib("json")
 loadlib("html")
 loadlib("globals")
@@ -41,6 +42,7 @@ loadlib("engines")
 loadlib("engines_extra")
 loadlib("engines_intl")
 loadlib("extensions")
+loadlib("diag")
 loadlib("sourcestatus")
 loadlib("appupdate")
 loadlib("updates")
@@ -49,12 +51,14 @@ loadlib("setup")
 loadlib("catalogs")
 loadlib("screens")
 loadlib("backup")
+loadlib("readersheet")
 loadlib("extra")
 loadlib("details")
 loadlib("menu")
 loadlib("panel")
 loadlib("notifications")
 loadlib("debug")
+loadlib("dlhistory")
 loadlib("chsaver")
 loadlib("cache")
 loadlib("reader")
@@ -108,13 +112,29 @@ local FIRST_RUN_FLAG = "ux0:data/otakio/.firstrun_v2"
 -- fresh install: the first-run setup opens once the loading screen is gone
 local runSetup = false
 
+-- startup timing: each loading stage's time goes to log.txt (one line), to find what makes the start slow
+local stageClock = Timer.new()
+local stageTimes, stageName = {}, "start"
+local function stage(name)
+	stageTimes[#stageTimes + 1] = stageName .. " " .. math.floor(Timer.getTime(stageClock)) .. " ms"
+	stageName = name
+	Timer.reset(stageClock)
+end
+
 local function preloadData()
+	-- data written by older versions is converted before anything reads it (migrations.lua)
+	local migrated, result = pcall(Migrations.run)
+	if not migrated then
+		Console.error("migrations: " .. tostring(result))
+	end
+	stage("settings")
 	coroutine.yield("Loading settings")
 	local suc, err = pcall(Settings.load, Settings)
 	if not suc then
 		Console.error(err)
 	end
 	pcall(ExtLog, "engine: " .. tostring(ENGINE_VERSION))
+	pcall(Diag.startup)
 	if not Settings.SkipFontLoad then
 		local loadFontString = '1234567890AaBbCcDdEeFf\nGgHhIiJjKkLlMmNnOoPpQqRr\nSsTtUuVvWwXxYyZzАаБб\nВвГгДдЕеЁёЖжЗзИиЙйКкЛлМм\nНнОоПпРрСсТтУуФфХхЦцЧчШшЩщ\nЫыЪъЬьЭэЮюЯя!@#$%^&*()\n_+-=[]"\\/.,{}:;\'|? №~<>`\r—…·›✓↓♥⚠\nÁáÀàÂâÃãÉéÊêÍíÓóÔôÕõÚúÇç'
 		-- accents of the interface languages (French, German, Italian, Spanish)
@@ -129,21 +149,29 @@ local function preloadData()
 		for langName, _ in pairs(Language) do
 			loadFontString = loadFontString .. (LanguageNames and LanguageNames[langName] and LanguageNames[langName][langName] or "")
 		end
+		stage("fonts")
+		-- the full set only for the sizes most of the interface uses; the others get the basic Latin set
+		-- (rasterizing every script in all six fonts was a large part of the start-up time)
+		local basic = '1234567890AaBbCcDdEeFf\nGgHhIiJjKkLlMmNnOoPpQqRr\nSsTtUuVvWwXxYyZz!?.,:;()-/'
+		local full = {[FONT16] = true, [BONT16] = true, [FONT20] = true}
 		for k, v in ipairs(fonts) do
 			coroutine.yield("Loading fonts " .. k .. "/" .. #fonts)
-			Font.print(v, 0, 0, loadFontString, COLOR_BLACK)
+			Font.print(v, 0, 0, full[v] and loadFontString or basic, COLOR_BLACK)
 		end
 	end
+	stage("cache")
 	coroutine.yield("Loading cache, checking existing data")
 	suc, err = pcall(Cache.load)
 	if not suc then
 		Console.error(err)
 	end
+	stage("history")
 	coroutine.yield("Loading history")
 	suc, err = pcall(Cache.loadHistory)
 	if not suc then
 		Console.error(err)
 	end
+	stage("library")
 	coroutine.yield("Loading library")
 	suc, err = pcall(Database.load)
 	if not suc then
@@ -153,11 +181,13 @@ local function preloadData()
 	if not suc then
 		Console.error(err)
 	end
+	stage("saved chapters")
 	coroutine.yield("Checking saved chapters")
 	suc, err = pcall(ChapterSaver.load)
 	if not suc then
 		Console.error(err)
 	end
+	stage("covers")
 	coroutine.yield("Loading custom covers")
 	suc, err = pcall(CustomCovers.load)
 	if not suc then
@@ -165,6 +195,7 @@ local function preloadData()
 	end
 	Menu.setMode("LIBRARY")
 	Panel.show()
+	stage("extensions")
 	coroutine.yield("Checking for updates")
 	-- first run starts with no extensions: the user picks the sources in the Extensions tab
 	if not FS.exists(FIRST_RUN_FLAG) then
@@ -174,8 +205,11 @@ local function preloadData()
 	elseif Settings.CheckExtUpdatesAtStart then
 		Extensions.refresh(true)
 	end
+	stage("done")
+	pcall(ExtLog, "startup: " .. table.concat(stageTimes, ", "))
 	-- new Otakio release on GitHub? asks to install it (unless turned off in Settings > About)
 	AppUpdate.startup()
+	Migrations.notify()
 end
 
 Screen.flip()
@@ -266,8 +300,12 @@ local function input()
 	end
 
 	if Keyboard.getState() ~= RUNNING then
-		if Dialog.isOpen() then
+		if AppUpdate.isBusy() then
+			AppUpdate.input(oldPad, pad)
+		elseif Dialog.isOpen() then
 			Dialog.input(oldPad, pad, oldTouch, touch)
+		elseif ReaderSheet.takesInput(pad) then
+			ReaderSheet.input(oldPad, pad, oldTouch, touch)
 		elseif AppMode == MENU then
 			Menu.input(oldPad, pad, oldTouch, touch)
 		elseif AppMode == READER then
@@ -287,6 +325,7 @@ local function update()
 		Extensions.update()
 		SourceStatus.update()
 		AppUpdate.update()
+		Diag.update()
 		Backup.update()
 		ConnectMessage.update()
 	end
@@ -309,6 +348,12 @@ local function update()
 	end
 	Dialog.update()
 	Notifications.update()
+	-- fast clocks while anything happens; the default ones a few seconds after everything went quiet (perf.lua)
+	local lx, ly = Controls.readLeftAnalog()
+	local rx, ry = Controls.readRightAnalog()
+	local stick = math.abs(lx - 128) > 40 or math.abs(ly - 128) > 40 or math.abs(rx - 128) > 40 or math.abs(ry - 128) > 40
+	Perf.update(fade > 0 or pad ~= 0 or touch.x ~= nil or stick or Threads.isDownloadRunning() or ParserManager.isBusy()
+		or ChapterSaver.is_download_running() or Extensions.isWorking() or AppUpdate.isBusy())
 end
 
 local fpsTimer = Timer.new()
@@ -316,10 +361,12 @@ local fpsFrames = 0
 
 local function draw()
 	Graphics.initBlend()
+	DRAW_PHASE = true -- textures freed from here to termBlend wait in a queue (image.lua)
 	if AppMode == MENU then
 		Menu.draw()
 	elseif AppMode == READER then
 		Reader.draw()
+		ReaderSheet.draw()
 	end
 	Loading.draw()
 	if fade > 0 then
@@ -336,8 +383,10 @@ local function draw()
 	Dialog.draw()
 	Notifications.draw()
 	Panel.draw()
+	AppUpdate.draw() -- over the button bar too: the menu doesn't take input meanwhile
 	Debug.draw()
-	Graphics.termBlend()
+	Graphics.termBlend() -- waits for the GPU to finish the frame
+	DRAW_PHASE = false
 	Screen.flip()
 	Screen.waitVblankStart()
 	fpsFrames = fpsFrames + 1
@@ -363,6 +412,7 @@ local function recover(err)
 	end
 	if DRAW_PHASE then
 		pcall(Graphics.termBlend)
+		DRAW_PHASE = false
 		pcall(Screen.flip)
 	end
 	if Timer.getTime(recoverTimer) > 10000 then
@@ -387,6 +437,7 @@ local function recover(err)
 end
 
 local function frame()
+	Textures.flush() -- the GPU finished the previous frame: queued textures can go now
 	input()
 	update()
 	draw()

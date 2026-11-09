@@ -1,5 +1,5 @@
----Reader page actions (menu icon / Triangle while reading): per-manga reader layout,
----use the page as cover, save the page to the memory card
+---Reader page actions (menu icon / Triangle while reading): use the page as cover, save the page to the memory card.
+---The menu itself is the reader settings sheet (readersheet.lua)
 Extra = {}
 
 local doesFileExist = System.doesFileExist
@@ -136,37 +136,12 @@ local function pageAction(action, selectedManga)
 	end
 end
 
----Opens the reader menu for `manga` at `page`
-function Extra.setChapters(manga, chapter, page, selected)
-	if not manga or not page then
+---Opens the reader settings sheet for `manga` at `page` (layout, page colors, reader options, page actions)
+function Extra.setChapters(manga, chapter, page)
+	if not manga then
 		return
 	end
-	local LS = Language[Settings.Language]
-	local cs = CuSettings.load(manga)
-	local items = {
-		{label = LS.SETTINGS.ReaderOrientation, sub = LS.READER[cs.Orientation], value = "orientation"},
-		{label = LS.SETTINGS.ReaderDirection, sub = LS.READER[cs.ReaderDirection], value = "direction"},
-		{label = LS.SETTINGS.ZoomReader, sub = LS.READER[cs.ZoomReader], value = "zoom"}
-	}
-	if manga.ParserID ~= "IMPORTED" then
-		items[#items + 1] = {label = LS.SETTINGS.SetPageAsCover, value = "cover"}
-	end
-	items[#items + 1] = {label = LS.SETTINGS.DownloadImageToMemory, value = "save"}
-	Dialog.menu(manga.Name, items, function(item, index)
-		local v = item.value
-		if v == "orientation" or v == "direction" or v == "zoom" then
-			if v == "orientation" then
-				CuSettings.changeOrientation(manga)
-			elseif v == "direction" then
-				CuSettings.changeDirection(manga)
-			else
-				CuSettings.changeZoom(manga)
-			end
-			Reader.updateSettings()
-			-- stay in the menu so the value can be cycled again
-			Extra.setChapters(manga, chapter, page, index)
-		else
-			pageAction(v, manga)
-		end
-	end, selected)
+	ReaderSheet.open({manga = manga, chapter = chapter, page = page, onAction = function(action)
+		pageAction(action, manga)
+	end})
 end

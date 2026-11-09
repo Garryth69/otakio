@@ -67,6 +67,7 @@ function Menu.setMode(newMode)
 	if mode == newMode then
 		return
 	end
+	Diag.trail("screen", tostring(newMode))
 	if mode and isScreen(mode) and Screens[mode].onLeave then
 		Screens[mode].onLeave()
 	end

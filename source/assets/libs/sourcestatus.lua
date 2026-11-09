@@ -71,6 +71,14 @@ local function nextStale()
 			best, bestT = p, t
 		end
 	end
+	-- an extension with one source per language is checked through the source the user would open
+	-- (Browse language, else English...), so its preloaded list is the one that gets used
+	if best and best.ExtensionID and GetParserOfExtension then
+		local preferred = GetParserOfExtension(best.ExtensionID)
+		if preferred and preferred.getPopularManga and (not preferred.NSFW or Settings.NSFW) then
+			best = preferred
+		end
+	end
 	return best
 end
 
@@ -81,7 +89,7 @@ local fresh = {} -- key -> {list =, t =}
 ---@return table|nil page 1 of the source's Popular list, when the background check fetched it in the last minutes
 ---(handed out once: the catalog takes ownership of the manga entries)
 function SourceStatus.takeFreshPopular(parser)
-	local key = keyOf(parser)
+	local key = parser and parser.ID
 	local f = key and fresh[key]
 	fresh[key or ""] = nil
 	if f and Clock.now() - f.t <= FRESH_FOR and #f.list > 0 then
@@ -93,7 +101,8 @@ local function backgroundCheck()
 	if probe then
 		if not ParserManager.check(probe.list) then
 			if #probe.list > 0 then
-				fresh[keyOf(probe.parser)] = {list = probe.list, t = Clock.now()}
+				-- per source, not per extension: an extension's EN/ES/FR/DE sources each have their own list
+				fresh[probe.parser.ID] = {list = probe.list, t = Clock.now()}
 			end
 			probe = nil
 			Timer.reset(probeTimer)

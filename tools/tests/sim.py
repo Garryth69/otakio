@@ -54,6 +54,11 @@ SCENARIOS = {
     "setup": [("wait", 60), "DOWN", "UP", "CROSS", ("wait", 20), "DOWN", "CROSS", "CIRCLE", ("wait", 20), "DOWN", "CROSS", ("wait", 20),
               "CIRCLE", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20),
               "CROSS", ("wait", 40), "CROSS", ("wait", 80)],
+    # first run (--setup --online, SIM_FAKE_RELEASE) with an app update out: the update prompt must wait for the setup
+    # and its recommended sources, then the update keeps the repository and the sources
+    "setupupdate": [("wait", 60), "DOWN", "UP", "CROSS", ("wait", 20), "DOWN", "CROSS", "CIRCLE", ("wait", 20), "DOWN", "CROSS", ("wait", 20),
+                    "CIRCLE", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20),
+                    "CROSS", ("wait", 40), "CROSS", ("wait", 1500), "UP", "CROSS", ("wait", 300)],
     # add a Mihon (APK) repository URL: Otakio reports which of its sources have Lua equivalents
     "mihonrepo": [("wait", 150), "R", "R", "R", "R", ("wait", 60), "SELECT", "DOWN", "DOWN", "CROSS", ("wait", 400), "SELECT", ("wait", 30)],
     # needs a data dir from 'browse' (--tmp): library grid, refresh/updates feed, history list, continue reading
@@ -63,7 +68,7 @@ SCENARIOS = {
     "madara": [("wait", 150), "R", "R", "R", "R", ("wait", 30), "SQUARE", "TRIANGLE", ("wait", 30), "DOWN", "CROSS", ("wait", 150),
                "L", ("wait", 20), "DOWN", "CROSS", ("wait", 500), "DOWN", "CROSS", ("wait", 600), "DOWN", "CROSS", ("wait", 600),
                "RIGHT", ("wait", 300), "CIRCLE", ("wait", 60), "START", ("wait", 20), "DOWN", "DOWN", "CROSS", ("wait", 30), "CIRCLE", "CIRCLE"],
-    # open MangaDex (installed on first run), browse popular, open a manga, read, global search
+    # open the first source (installed on first run), browse popular, open a manga, read, global search
     "browse": [("wait", 150), "R", "R", "R", ("wait", 20), "DOWN", "CROSS", ("wait", 400), "DOWN", "RIGHT", "RIGHT", "CROSS", ("wait", 400),
                "DOWN", "CROSS", ("wait", 500), "RIGHT", ("wait", 200), "CIRCLE", ("wait", 60), "TRIANGLE", ("wait", 60), "CIRCLE", ("wait", 60),
                "CIRCLE", "CIRCLE", ("wait", 30), "TRIANGLE", ("wait", 700), "DOWN", "CROSS", ("wait", 300), "CIRCLE", ("wait", 40), "CIRCLE"],
@@ -71,7 +76,7 @@ SCENARIOS = {
     "tour": ["R", "START", "CIRCLE", "R", "DOWN", "R", "START", "CIRCLE", "R", "SQUARE", "SQUARE", "START", "CIRCLE",
              "SELECT", "DOWN", "CROSS", ("wait", 20), "CIRCLE", "R", "R", "R", "DOWN", "CROSS", "CIRCLE", "DOWN", "DOWN", "CROSS",
              "DOWN", "CROSS", "CIRCLE", "L", "L", "L", "L", "L", "L", "L", "START", "DOWN", "CROSS", "CIRCLE", "CIRCLE"],
-    # install the built-in MangaDex extension, open Browse, open the source (offline -> empty grid)
+    # install a built-in extension, open Browse, open the source (offline -> empty grid)
     "extensions": ["R", "R", "R", "R", ("wait", 120), "SQUARE", "DOWN", "CROSS", ("wait", 60), "SQUARE", "SQUARE", "DOWN", "CROSS",
                    ("wait", 30), "L", "DOWN", "CROSS", ("wait", 60), "SQUARE", ("wait", 30), "CIRCLE", "CIRCLE", ("wait", 20),
                    "TRIANGLE", ("wait", 120), "DOWN", "CIRCLE"],
@@ -86,6 +91,10 @@ SCENARIOS = {
                  + ["RIGHT", "RIGHT", "DOWN"] * 40 + [("wait", 200)],
     # app update: run with --online and SIM_FAKE_RELEASE=<vpk>; accept the startup prompt, install, restart
     "appupdate": [("wait", 150), "UP", "CROSS", ("wait", 500)],
+    # same with SIM_SLOW_DL=7200 (a 2-minute download): must finish without being stopped, the progress panel on screen
+    "appupdateslow": [("wait", 150), "UP", "CROSS", ("wait", 1200), ("wait", 3600), ("wait", 3600), ("wait", 600)],
+    # cancel with Circle while the update downloads (SIM_SLOW_DL=3000)
+    "appupdatecancel": [("wait", 150), "UP", "CROSS", ("wait", 600), "CIRCLE", ("wait", 200)],
     # More > About: version row and the credits card (scrolled into view)
     "about": ["R", "R", "R", "R", "R", "R", "R", ("wait", 20)] + ["DOWN"] * 11 + ["CROSS", ("wait", 60)],
     # online: add a manga from an installed source, More > Data > create backup, clear library, restore it
@@ -111,6 +120,24 @@ SCENARIOS = {
                   "CROSS", ("wait", 120)],
     # Downloads tab of an existing data dir (--tmp)
     "downloads": ["R", "R", "R", "R", "R", ("wait", 120)],
+    # after 'dlcover' (same --tmp): Downloads views with Square (Downloaded -> History -> Queue -> Downloaded), Start on
+    # a downloaded manga lists its chapters, then History > Triangle clears it (the chapter stays downloaded)
+    "dlviews": ["R", "R", "R", "R", "R", ("wait", 60), "SQUARE", ("wait", 40), "SQUARE", ("wait", 40), "SQUARE", ("wait", 40),
+                "DOWN", "START", ("wait", 40), "CIRCLE", ("wait", 20), "SQUARE", ("wait", 20), "TRIANGLE", ("wait", 20), "UP", "CROSS", ("wait", 60),
+                "SQUARE", "SQUARE", ("wait", 60)],
+    # More > Theme: the picker shows color chips; moving the cursor previews the theme, Circle restores the one in use
+    "themepick": ["R", "R", "R", "R", "R", "R", "R", ("wait", 20), "DOWN", "DOWN", "CROSS", ("wait", 30), "DOWN", "DOWN", ("wait", 30),
+                  "CIRCLE", ("wait", 30)],
+    # after 'import': Select opens the reader settings while the chapter is still loading and again on a page;
+    # Circle closes only the sheet (the reader stays open)
+    "readerselect": [("wait", 30), "DOWN", "RIGHT", "CROSS", ("wait", 120), "DOWN", "CROSS", "SELECT", ("wait", 30), "CIRCLE",
+                     ("wait", 200), "SELECT", ("wait", 30), "CIRCLE", ("wait", 40)],
+    # every tab in turn (Library ... More), 60 frames each: screenshots for UI consistency checks
+    "alltabs": [("wait", 60)] + ["DOWN", ("wait", 30), "R", ("wait", 60)] * 7 + ["DOWN", ("wait", 30)],
+    # Browse with sources in two languages but only one active: Start cycles only the active languages
+    "browselang": [("wait", 150), "R", "R", "R", ("wait", 40), "START", ("wait", 30), "START", ("wait", 30), "START", ("wait", 30)],
+    # adaptive clocks: idle for 6+ s (default clocks), a button (fast), idle again (default)
+    "idleclock": [("wait", 500), "DOWN", ("wait", 60), ("wait", 400)],
     # empty Import tab (help text)
     "importempty": ["R", "R", "R", "R", "R", "R", ("wait", 40)],
     # online: open a manga, download a chapter (Square), then the Downloads tab lists it with its cover
@@ -118,10 +145,15 @@ SCENARIOS = {
                 "DOWN", "SQUARE", ("wait", 700), "CIRCLE", ("wait", 40), "R", "R", ("wait", 120)],
     # after 'import' (same --tmp): read the 2nd imported manga, reader menu (Start + top-right icon) > Save image
     "saveimage": [("wait", 30), "DOWN", "RIGHT", "CROSS", ("wait", 120), "DOWN", "CROSS", ("wait", 200), "START", ("wait", 40),
-                  ("touch", 930, 40), ("wait", 30), "DOWN", "DOWN", "DOWN", "CROSS", ("wait", 60)],
+                  ("touch", 930, 40), ("wait", 30), "UP", "CROSS", ("wait", 60)],
+    # after 'import': reader sheet (menu icon): background Black, brightness 85%, color filter on (Warm), then the
+    # Night preset (Multiply), close; shots at 330 (sheet), 345 (Night) and 380 (closed, filtered page)
+    "readercolors": [("wait", 30), "DOWN", "RIGHT", "CROSS", ("wait", 120), "DOWN", "CROSS", ("wait", 200), "START", ("wait", 40),
+                     ("touch", 930, 40), ("wait", 30), "DOWN", "DOWN", "DOWN", "RIGHT", "DOWN", "LEFT", "LEFT", "LEFT",
+                     "DOWN", "CROSS", ("wait", 10), "DOWN", "RIGHT", ("wait", 10), "CIRCLE", ("wait", 60)],
     # after 'import': 3rd imported manga, page 2 is a PNG -> "Save image" must write a JPEG
     "savepng": [("wait", 30), "DOWN", "RIGHT", "RIGHT", "CROSS", ("wait", 120), "DOWN", "CROSS", ("wait", 200), "RIGHT", ("wait", 80),
-                "START", ("wait", 40), ("touch", 930, 40), ("wait", 30), "DOWN", "DOWN", "DOWN", "CROSS", ("wait", 60)],
+                "START", ("wait", 40), ("touch", 930, 40), ("wait", 30), "UP", "CROSS", ("wait", 60)],
     # Extensions > Available with every language chip, then the Downloads tab
     "extlang": ["R", "R", "R", "R", ("wait", 120), "SQUARE", ("wait", 30), "START", "START", "START", "START", ("wait", 30),
                 "L", "L", "L", ("wait", 30)],
@@ -300,12 +332,18 @@ def main():
     sim = L.globals().SIM
     sim.fs = L.globals().PYFS
     sim.installFails = bool(os.environ.get("SIM_INSTALL_FAILS"))  # app update test: the promoter does nothing
+    if os.environ.get("SIM_SLOW_DL"):  # app update test: the .vpk download takes this many frames (16.7 ms each)
+        sim.slowFrames = int(os.environ["SIM_SLOW_DL"])
+    if os.environ.get("SIM_STALL_AT"):  # ...and its bytes stop arriving at this fraction (0-1)
+        sim.stallAt = float(os.environ["SIM_STALL_AT"])
     sim.language = args.lang
     sim.keyboardText = args.keyboard
     if args.install:
         sim.install = L.table_from(args.install.split(","))
     if args.inject_error:
         sim.injectError = args.inject_error
+    if os.environ.get("SIM_CONN_LOST"):
+        sim.showConnLost = int(os.environ["SIM_CONN_LOST"])
     sys.path.insert(0, os.path.join(ROOT, "tools", "tests"))
     import render
     sim.textWidth = lambda size, bold, text: render.text_width(size, bold, text)
@@ -384,7 +422,7 @@ def main():
             stats["req"] += 1
             stats["bytes"] += len(body)
             if os.environ.get("SIM_HTTP_LOG"):
-                print("   GET", len(body), url[:140], flush=True)
+                print("   GET", len(body), url[:400], flush=True)
             return body
 
         def http(url, ua=None, method=None, post=None, ctype=None, cookie=None, h1=None, h2=None, h3=None, h4=None, *rest):
@@ -505,6 +543,9 @@ def main():
                 end
                 SIM.log[#SIM.log + 1] = "inject@" .. frame
             end
+            if SIM.showConnLost and frame == SIM.showConnLost and ConnectMessage then
+                ConnectMessage.show() -- the "connection lost" card (SIM_CONN_LOST=<frame>)
+            end
             if frame == 30 and SIM.install then
                 Backup.pendingExtensions = SIM.install
                 Extensions.refresh(true)
@@ -590,6 +631,10 @@ def main():
         print("   installed extension files:", os.listdir(ext))
     if L.eval("SIM.installedFrom") or L.eval("SIM.launched") or L.eval("SIM.exited"):
         print("   app update: installApp(%s) launchApp(%s) exit=%s" % (L.eval("SIM.installedFrom"), L.eval("SIM.launched"), L.eval("SIM.exited")))
+    if L.eval("SIM.cpuLog"):
+        print("   cpu clock changes:", L.eval("SIM.cpuLog"))
+    if L.eval("SIM.dlStarts"):
+        print("   app update: vpk download started %s time(s), stopped %s time(s)" % (L.eval("SIM.dlStarts"), L.eval("SIM.stopped or 0")))
     if not args.keep and not args.tmp:
         shutil.rmtree(tmp, ignore_errors=True)
     else:

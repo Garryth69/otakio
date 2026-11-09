@@ -74,7 +74,7 @@ Otherwise, write the parser by hand with `Engines.util.newParser` and implement:
 | `prepareChapter(chapter, dt)` | one entry per page (image URLs, or page URLs resolved later) |
 | `loadChapterPage(link, dt)` | `dt.Link` = the final image (`Http.image(url, referer)`) |
 
-`repo/native/mangatown.lua` is a complete, commented example. Extensions run sandboxed: no file system,
+The native extensions in `repo/native/` are complete examples. Extensions run sandboxed: no file system,
 `io`, `os` or module loading. Use `Http.*` for network and `Engines.*` helpers for parsing.
 
 Test it against the live site:

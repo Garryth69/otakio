@@ -44,7 +44,8 @@ Settings = {
 	LibraryFilter = "All",
 	Categories = {},
 	ExtLanguages = {},
-	ShowFPS = false
+	ShowFPS = false,
+	ReaderLook = {} -- page colors: readersheet.lua (ReaderLook.get completes it)
 }
 
 NSFWLock = System.doesFileExist("ux0:data/otakio/.lock")
@@ -265,7 +266,6 @@ function settings.load()
 				setSetting(new, "HideInOffline", { true, false })
 				setSetting(new, "DoubleTapReader", { true, false })
 				setSetting(new, "Theme", Themes)
-				setSetting(new, "ParserLanguage", GetParserLanguages())
 				setSetting(new, "ChapterSorting", { "1->N", "N->1" })
 				setSetting(new, "RefreshLibAtStart", { true, false })
 				setSetting(new, "ChangingPageButtons", { "DPAD", "LR" })
@@ -306,8 +306,17 @@ function settings.load()
 					end
 					settings.ExtLanguages = set
 				end
+				-- the Browse language filter is checked after the chosen source languages are loaded (it depends on them);
+				-- "BRA" saved by older versions is now "PRT" (Portuguese covers pt-BR and pt sources)
+				if new.ParserLanguage == "BRA" then
+					new.ParserLanguage = "PRT"
+				end
+				setSetting(new, "ParserLanguage", GetParserLanguages())
 				if type(new.Categories) == "table" then
 					settings.Categories = new.Categories
+				end
+				if type(new.ReaderLook) == "table" then
+					settings.ReaderLook = new.ReaderLook -- checked by ReaderLook.get
 				end
 			end
 		end
@@ -480,16 +489,26 @@ SettingsFunctions = {
 	ChangeUI = function()
 		local items, sel = {}, 1
 		for i, name in ipairs(GetThemes()) do
-			items[i] = {label = Language[settings.Language].THEME[name] or name, value = name}
+			local t = Themes[name]
+			items[i] = {label = Language[settings.Language].THEME[name] or name, value = name,
+				swatches = {t.COLOR_BACK, t.COLOR_SURFACE2, t.COLOR_ACCENT}}
 			if name == settings.Theme then
 				sel = i
 			end
 		end
+		-- the whole app previews the theme under the cursor; Circle goes back to the one in use
 		Dialog.choice(Language[settings.Language].SETTINGS.ChangeUI, items, sel, function(item)
 			settings.Theme = item.value
 			setTheme(settings.Theme)
 			settings.save()
-		end)
+		end, {
+			onMove = function(item)
+				setTheme(item.value)
+			end,
+			onCancel = function()
+				setTheme(settings.Theme)
+			end
+		})
 	end,
 	ShowNSFW = function()
 		ChangeNSFW()

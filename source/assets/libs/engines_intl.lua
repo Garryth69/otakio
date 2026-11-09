@@ -1,7 +1,7 @@
 ---Otakio engines for Russian, Japanese and Chinese sites: Lua ports of keiyoushi "multisrc" themes
 ---(keiyoushi/extensions-source, Apache-2.0). Same contract as engines.lua / engines_extra.lua:
 ---
----  Engines.Grouple { id = "KEI_RU_READMANGA", name = "ReadManga", baseUrl = "https://a.zazaza.me", lang = "ru" }
+---  Engines.Grouple { id = "EXAMPLE_RU", name = "Example", baseUrl = "https://example.com", lang = "ru" }
 local U = Engines.util
 local trim, pathOf, absolute, newParser, headers, addManga = U.trim, U.pathOf, U.absolute, U.newParser, U.headers, U.addManga
 local co_yield = coroutine.yield
@@ -63,7 +63,7 @@ end
 Engines.intl = {nn = nn, enc = enc, pushReversed = pushReversed, setCover = setCover, textOf = textOf, attrImg = attrImg, getJson = getJson}
 
 -------------------------------------------------------------------------------
--- Grouple — ReadManga, MintManga, SeiManga, SelfManga, Usagi, AllHentai (ru)
+-- Grouple — Russian reader platform (ru)
 -- Catalog: JSON API /api/catalog/search; chapters: table on the series page; pages: rm_h.readerInit(...) script
 -------------------------------------------------------------------------------
 
@@ -199,7 +199,7 @@ function Engines.Grouple(cfg)
 end
 
 -------------------------------------------------------------------------------
--- LibGroup — MangaLib, SlashLib, HentaiLib (ru). Public JSON API (api.cdnlibs.org) keyed by a Site-Id header
+-- LibGroup — "Lib" family sites (ru). Public JSON API (api.cdnlibs.org) keyed by a Site-Id header
 -------------------------------------------------------------------------------
 
 ---ProseMirror-like summary ({type="doc", content={...}}) or plain string -> text
@@ -356,7 +356,7 @@ function Engines.LibGroup(cfg)
 end
 
 -------------------------------------------------------------------------------
--- MultiChan — MangaChan, YaoiChan, HenChan (ru). DataLife Engine sites; pages listed in a "fullimg" script array
+-- MultiChan — DataLife Engine sites (ru); pages listed in a "fullimg" script array
 -------------------------------------------------------------------------------
 
 function Engines.MultiChan(cfg)
@@ -453,7 +453,7 @@ function Engines.MultiChan(cfg)
 end
 
 -------------------------------------------------------------------------------
--- FMReader — RawINU, WeLoveManga, Love4u, NihonKuni (ja raw sites)
+-- FMReader — FMReader-based sites (ja raw)
 -------------------------------------------------------------------------------
 
 local function styleUrl(el)
@@ -478,7 +478,7 @@ function Engines.FMReader(cfg)
 	local function list(url, dt)
 		local doc = Http.getDocument(url, headers(p))
 		local count = 0
-		-- classic FMReader cards, and the newer "manga-card" layout (NihonKuni)
+		-- classic FMReader cards, and the newer "manga-card" layout
 		for _, el in ipairs(doc:select("div.thumb-item-flow, div.media, div.manga-card")) do
 			local a = el:selectFirst(".series-title a, h3 a, a.manga-title")
 			local title = a and trim(a:text()) or ""
@@ -536,7 +536,7 @@ function Engines.FMReader(cfg)
 		setCover(self, manga, attrImg(info:selectFirst("img.thumbnail")))
 		local rows = doc:select("div#list-chapters p, table.table tr, .list-chapters > a, ul.list-chapters li")
 		if rows:size() == 0 then
-			-- chapters loaded by the page script from app/manga/controllers (RawINU family)
+			-- chapters loaded by the page script from app/manga/controllers
 			local slug = match(manga.Link, "/manga%-([^/]-)%.html") or match(manga.Link, "/m/([^/?#]+)")
 			if slug then
 				local listUrl = cfg.baseUrl .. "/app/manga/controllers/cont.Listchapter.php?slug=" .. enc(slug)
@@ -595,7 +595,7 @@ function Engines.FMReader(cfg)
 end
 
 -------------------------------------------------------------------------------
--- NatsuId — Rawkuma (ja). WordPress theme: listings/details from the public wp-json REST API,
+-- NatsuId — (ja) WordPress theme: listings/details from the public wp-json REST API,
 -- chapters from admin-ajax "chapter_list", pages from section[data-image-data]
 -------------------------------------------------------------------------------
 
@@ -704,7 +704,7 @@ function Engines.NatsuId(cfg)
 end
 
 -------------------------------------------------------------------------------
--- MangaReader — Jmanga, Raw Otaku (ja). "mangareader.to"-style sites; pages come from an ajax JSON {html = "..."}
+-- MangaReader — "mangareader.to"-style sites (ja); pages come from an ajax JSON {html = "..."}
 -------------------------------------------------------------------------------
 
 ---Percent-encodes raw UTF-8 bytes (headers such as Referer can't carry Japanese/Chinese text)
@@ -826,7 +826,7 @@ function Engines.MangaReader(cfg)
 end
 
 -------------------------------------------------------------------------------
--- Liliana — Raw1001 (ja). Pages from /ajax/image/list/chap/<CHAPTER_ID> ({status, html})
+-- Liliana — (ja) Pages from /ajax/image/list/chap/<CHAPTER_ID> ({status, html})
 -------------------------------------------------------------------------------
 
 function Engines.Liliana(cfg)
@@ -918,7 +918,7 @@ end
 
 
 -------------------------------------------------------------------------------
--- GalleryAdults — nhentai.to, HentaiFox, AsmHentai, HentaiEra, HentaiEnvy (NSFW galleries, en)
+-- GalleryAdults — NSFW gallery sites (en)
 -- One gallery = one chapter. Pages come from the plain $.parseJSON('{"1":"j,w,h",...}') list when the gallery
 -- page has it, else every reader page (/<pageUri>/<id>/<n>/) is opened for its image.
 -------------------------------------------------------------------------------

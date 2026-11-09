@@ -2,7 +2,7 @@
 ---The latest release's tag (e.g. "v1.1.0") is compared with Config.VERSION_NAME. When it is newer, Otakio downloads
 ---the release's .vpk to ux0:data/otakio/update/, extracts it, checks it is Otakio (TITLE_ID in param.sfo) and hands it
 ---to the system installer (System.installApp, the same promoter VitaShell uses), then restarts. ux0:data/otakio is
----never touched, so the library and settings survive. If anything fails, the VPK is left in ux0:/vpk/ for VitaShell.
+---never touched, so the library and settings survive. If anything fails, the VPK is left in ux0:data/otakio/vpk/ for VitaShell.
 ---Settings > About > "Check for app updates at startup" (AppAutoUpdate) turns the startup check and prompt off.
 AppUpdate = {}
 
@@ -28,7 +28,7 @@ local function L()
 end
 
 local API = "https://api.github.com/repos/%s/releases/latest"
-local VPK_DIR = "ux0:/vpk/"
+local VPK_DIR = Config.DATA .. "vpk/" -- a VPK that couldn't be installed in the app, for VitaShell
 local UPDATE_DIR = Config.DATA .. "update/"
 local MB = 1024 * 1024
 
@@ -37,6 +37,15 @@ local state = "idle" -- idle | checking | none | available | downloading | insta
 local latest = nil -- {version = "1.1.0", url = "https://...vpk", name = "Otakio-1.1.0.vpk", size = 12345678}
 local notified = false
 local downloadKey, unzipKey = {}, {}
+-- progress panel: step = download | extract | prepare | restart; canceled by Circle while downloading
+local step = nil
+local canceled = false
+local clock = Timer.new()
+local dlStartedAt, dlBytes, dlSpeed, dlSpeedAt, dlSpeedBytes = 0, 0, 0, 0, 0
+
+local function ms()
+	return Timer.getTime(clock)
+end
 
 ---@return integer[] numeric parts of "v1.2.3"
 local function parts(v)
@@ -111,7 +120,7 @@ end
 
 ---Installing inside the app didn't work: leave the VPK where VitaShell finds it
 local function fallback(vpk)
-	state = "error"
+	state, step = "error", nil
 	if not doesDirExist(VPK_DIR) then
 		createDirectory(VPK_DIR)
 	end
@@ -139,7 +148,7 @@ end
 
 local copyFile = CopyFile
 local HELPER_FILES = {
-	"index.lua", "sce_sys/param.sfo", "sce_sys/icon0.png",
+	"index.lua", "regular.ttf", "bold.ttf", "sce_sys/param.sfo", "sce_sys/icon0.png",
 	"sce_sys/livearea/contents/template.xml", "sce_sys/livearea/contents/bg.png", "sce_sys/livearea/contents/startup.png"
 }
 
@@ -171,11 +180,15 @@ local function afterUpdate()
 		FS.delete(RESULT)
 		local ver = result:match("^ok%s+(%S+)")
 		if ver then
-			log("updated to APP_VER " .. ver)
+			local took = result:match("(%d+)ms")
+			log("updated to APP_VER " .. ver .. (took and (", the updater took " .. took .. " ms") or ""))
+			if removeDirectory and doesDirExist(VPK_DIR) then
+				removeDirectory(VPK_DIR) -- a VPK left by an earlier failed attempt is outdated now
+			end
 			Notifications.push(string.format(L().APP_UPDATE_DONE_NOW, Config.VERSION_NAME), 6000)
 		elseif result:find("^failed") then
 			log("the updater could not install the package")
-			Notifications.push(string.format(L().APP_UPDATE_MANUAL, "ux0:/vpk/"), 8000)
+			Notifications.push(string.format(L().APP_UPDATE_MANUAL, VPK_DIR), 8000)
 		end
 	end
 	local ok, present = pcall(checkApp, Config.UPDATER_TITLE_ID)
@@ -198,28 +211,39 @@ local function install()
 	end
 	cleanup()
 	createDirectory(UPDATE_DIR)
+	-- library, reading progress, settings and extensions saved first: More > Data > Restore backup brings them back
+	local okBackup, backupPath = pcall(Backup.create, {auto = true})
+	log(okBackup and backupPath and ("backup " .. backupPath) or ("backup failed: " .. tostring(backupPath)))
 	local vpk = UPDATE_DIR .. "otakio.vpk"
 	local pkg = UPDATE_DIR .. "pkg"
 
-	state = "downloading"
-	Notifications.push(string.format(L().APP_UPDATE_DOWNLOADING, latest.version))
+	state, step, canceled = "downloading", "download", false
+	dlStartedAt, dlBytes, dlSpeed, dlSpeedAt, dlSpeedBytes = ms(), 0, 0, ms(), 0
 	log("downloading " .. latest.name)
 	Threads.insertTask(downloadKey, {Type = "FileDownload", Link = latest.url, Path = vpk})
 	waitTask(downloadKey)
+	if canceled then
+		log("download canceled")
+		state, step = "available", nil
+		cleanup()
+		Notifications.push(L().APP_UPDATE_CANCELED)
+		return
+	end
 	local size = fileSize(vpk)
-	log("downloaded " .. size .. " of " .. tostring(latest.size) .. " bytes")
+	log("downloaded " .. size .. " of " .. tostring(latest.size) .. " bytes in " .. math.floor(ms() - dlStartedAt) .. " ms")
 	if size == 0 or (latest.size and size ~= latest.size) then
 		-- incomplete or corrupted download: nothing to install
-		state = "error"
+		state, step = "error", nil
 		cleanup()
 		Notifications.push(L().APP_UPDATE_DL_FAILED)
 		return
 	end
 
-	state = "installing"
-	Notifications.push(string.format(L().APP_UPDATE_INSTALLING, latest.version), 60000)
+	state, step = "installing", "extract"
+	local t0 = ms()
 	Threads.insertTask(unzipKey, {Type = "UnZip", Path = vpk, DestPath = pkg})
 	waitTask(unzipKey)
+	log("unpacked in " .. math.floor(ms() - t0) .. " ms")
 	local sfo = FS.read(pkg .. "/sce_sys/param.sfo")
 	local newVer = sfoValue(sfo, "APP_VER")
 	if not doesFileExist(pkg .. "/eboot.bin") or sfoValue(sfo, "TITLE_ID") ~= Config.TITLE_ID or not newVer then
@@ -231,13 +255,15 @@ local function install()
 	-- the system can't reinstall the app that is running: Otakio Updater (a helper title running this same engine,
 	-- source/updater/) installs the package while Otakio is closed, then reopens it
 	local helper = UPDATE_DIR .. "helper"
+	step = "prepare"
+	-- the copies and the system installer block for a while: let the panel's new step reach the screen first
+	for _ = 1, 6 do
+		coroutine.yield(false)
+	end
+	t0 = ms()
 	if not prepareHelper(helper) then
 		log("helper files missing")
 		return fallback(vpk)
-	end
-	-- the system installer blocks for a while: let the "installing" message reach the screen first
-	for _ = 1, 20 do
-		coroutine.yield(false)
 	end
 	local ok = installApp and installApp(helper)
 	local helperSfo = "ux0:app/" .. Config.UPDATER_TITLE_ID .. "/sce_sys/param.sfo"
@@ -252,10 +278,9 @@ local function install()
 		return fallback(vpk)
 	end
 	FS.write(UPDATE_DIR .. "job.txt", table.concat({pkg, newVer, vpk, latest.name, latest.version}, "\n") .. "\n")
-	log("handing over to the updater")
-	state = "installed"
-	Notifications.push(string.format(L().APP_UPDATE_RESTARTING, latest.version), 60000)
-	for _ = 1, 120 do
+	log("updater ready in " .. math.floor(ms() - t0) .. " ms, handing over")
+	state, step = "installed", "restart"
+	for _ = 1, 45 do -- ~0.75 s: time to read "Restarting to install"
 		coroutine.yield(false)
 	end
 	if launchApp then
@@ -274,7 +299,8 @@ end
 
 ---Asks before installing (startup prompt and the About item); waits for the menu to be free (not reading, no dialog)
 local function offer()
-	while Dialog.isOpen() or AppMode ~= MENU do
+	-- never over the first-run setup, nor while its recommended sources install: the update restarts the app
+	while Dialog.isOpen() or AppMode ~= MENU or (Setup and Setup.isActive()) or Extensions.isWorking() do
 		coroutine.yield(false)
 	end
 	Dialog.confirm(string.format(L().APP_UPDATE_Q, latest.version), L().APP_UPDATE_HINT, function()
@@ -359,6 +385,8 @@ end
 function AppUpdate.status()
 	if state == "checking" then
 		return L().CHECKING
+	elseif state == "downloading" and latest and latest.size and latest.size > 0 then
+		return string.format(L().APP_UPDATE_INSTALLING, latest.version) .. " " .. math.floor(100 * dlBytes / latest.size) .. "%"
 	elseif state == "downloading" or state == "installing" then
 		return string.format(L().APP_UPDATE_INSTALLING, latest and latest.version or "")
 	elseif state == "available" and latest then
@@ -369,8 +397,104 @@ function AppUpdate.status()
 	return ""
 end
 
+---True while the progress panel is up (download, unpack, installer, restart): it takes the input
+function AppUpdate.isBusy()
+	return step ~= nil
+end
+
+---Circle cancels while downloading; nothing else can be stopped safely
+function AppUpdate.input(oldPad, pad)
+	if step == "download" and not canceled and Controls.check(pad, SCE_CTRL_CIRCLE) and not Controls.check(oldPad, SCE_CTRL_CIRCLE) then
+		canceled = true
+		Threads.remove(downloadKey)
+	end
+end
+
+local function mb(bytes)
+	return string.format("%.1f", bytes / MB)
+end
+
+local function clockText(seconds)
+	seconds = math.max(0, math.floor(seconds + 0.5))
+	return string.format("%d:%02d", math.floor(seconds / 60), seconds % 60)
+end
+
+local STEPS = {download = 1, extract = 2, prepare = 3, restart = 3}
+
+---Progress panel, drawn over everything while an update runs
+function AppUpdate.draw()
+	if not step or not latest then
+		return
+	end
+	local l = L()
+	local x0, x1, y0, y1 = 200, 760, 172, 372
+	Graphics.fillRect(0, 960, 0, 544, ColorA(0, 0, 0, 160))
+	UI.roundRect(x0, y0, x1, y1, 16, COLOR_SURFACE)
+	UI.text(BONT16, x0 + 24, y0 + 20, string.format(l.APP_UPDATE_INSTALLING, latest.version), COLOR_FONT, x1 - x0 - 48)
+	local what
+	if step == "download" then
+		what = string.format(l.APP_UPDATE_DOWNLOADING, latest.version)
+	elseif step == "extract" then
+		what = l.APP_UPDATE_EXTRACTING
+	elseif step == "prepare" then
+		what = l.APP_UPDATE_PREPARING
+	else
+		what = string.format(l.APP_UPDATE_RESTARTING, latest.version)
+	end
+	UI.text(FONT13, x0 + 24, y0 + 48, string.format(l.APP_UPDATE_STEP, STEPS[step], 3), COLOR_SUBFONT)
+	UI.text(FONT16, x0 + 24, y0 + 70, what, COLOR_FONT, x1 - x0 - 48)
+	local bx0, bx1, by = x0 + 24, x1 - 24, y0 + 108
+	if step == "download" then
+		local total = latest.size or 0
+		UI.progress(bx0, by, bx1, 12, total > 0 and dlBytes / total or 0)
+		local line = mb(dlBytes) .. " / " .. mb(total) .. " MB"
+		if total > 0 then
+			line = line .. "  ·  " .. math.floor(100 * dlBytes / total) .. "%"
+		end
+		if dlSpeed > 0 then
+			line = line .. "  ·  " .. math.floor(dlSpeed / 1024) .. " KB/s"
+			if total > dlBytes then
+				line = line .. "  ·  " .. clockText((total - dlBytes) / dlSpeed)
+			end
+		end
+		UI.text(FONT13, bx0, by + 22, line, COLOR_SUBFONT, bx1 - bx0)
+		DrawButtonHints(x1 - 24, y1 - 34, {{"Circle", l.APP_UPDATE_CANCEL}})
+	else
+		-- no progress from the engine here: a sliding segment shows it is working
+		UI.progress(bx0, by, bx1, 12, step == "restart" and 1 or 0)
+		if step ~= "restart" then
+			local w = (bx1 - bx0) * 0.25
+			local p = (UI.time / 1400) % 1
+			local s = bx0 + (bx1 - bx0 + w) * p - w
+			local a, b = math.max(bx0, s), math.min(bx1, s + w)
+			if b - a > 12 then
+				UI.roundRect(a, by, b, by + 12, 6, COLOR_ACCENT)
+			end
+		end
+		UI.text(FONT13, bx0, by + 22, l.APP_UPDATE_DONT_OFF, COLOR_SUBFONT, bx1 - bx0)
+	end
+end
+
+---Download speed and bytes for the panel (sampled every half second)
+local function sample()
+	if step ~= "download" then
+		return
+	end
+	local got = Threads.getBytes(downloadKey)
+	if got > 0 then
+		dlBytes = got
+	end
+	local t = ms()
+	if t - dlSpeedAt >= 500 then
+		local speed = (dlBytes - dlSpeedBytes) * 1000 / (t - dlSpeedAt)
+		dlSpeed = dlSpeed > 0 and (dlSpeed * 0.7 + speed * 0.3) or speed
+		dlSpeedAt, dlSpeedBytes = t, dlBytes
+	end
+end
+
 ---Resumed from the main loop
 function AppUpdate.update()
+	sample()
 	if job then
 		local ok, err = coroutine.resume(job)
 		if not ok then

@@ -13,7 +13,7 @@ def vita_url(url):
 
 
 def ua_for(url):
-    """Same choice as net.lua userAgentFor(): MangaDex blocks browser user agents, the app identifies itself"""
+    """Same choice as net.lua userAgentFor(): some sites block browser user agents, the app identifies itself"""
     low = url.lower()
     return "Otakio/1.0" if any(h in low for h in ("mangadex", "desu.uno", "desu.me")) else UA
 _ctx = ssl.create_default_context()

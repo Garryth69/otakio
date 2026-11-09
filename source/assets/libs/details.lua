@@ -253,6 +253,9 @@ end
 ---Sets `manga` to details
 function Details.setManga(manga)
 	if manga then
+		Diag.trail("details", tostring(manga.ParserID) .. " / " .. tostring(manga.Name))
+	end
+	if manga then
 		selectedManga = manga
 		status = "START"
 		oldFade = 1

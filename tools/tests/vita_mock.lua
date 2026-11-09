@@ -314,7 +314,9 @@ System = {
 		return SIM.fs.convert and SIM.fs.convert(mapPath(src), mapPath(dst), fmt or "jpg") or false
 	end,
 	getLanguage = function() return SIM.language or 1 end,
-	getAsyncState = function() return 1 end,
+	-- SIM.slowFrames: a .vpk download keeps the async slot that many frames, its bytes arriving gradually
+	-- (SIM.stallAt: they stop arriving at that fraction, like a dead connection)
+	getAsyncState = function() return (SIM.busyUntil and (SIM.stallAt or SIM.frame < SIM.busyUntil)) and 0 or 1 end,
 	getAsyncResult = function() local r = asyncResult asyncResult = nil return r end,
 	extractZipAsync = function(zip, dst) PYFS.extractall(mapPath(zip), mapPath(dst)) end,
 	extractFromZipAsync = function(zip, name, dst) PYFS.extract(mapPath(zip), name, mapPath(dst)) end,
@@ -339,7 +341,7 @@ System = {
 	checkApp = function(id) return PYFS.isdir(mapPath("ux0:app/" .. id)) end,
 	removeApp = function(id) SIM.removedApp = id PYFS.rmdir(mapPath("ux0:app/" .. id)) end,
 	getFreeSpace = function() return 1024 * 1024 * 1024 end,
-	setCpuSpeed = function() end,
+	setCpuSpeed = function(mhz) SIM.cpu = mhz SIM.cpuLog = (SIM.cpuLog or "") .. mhz .. "@" .. SIM.frame .. " " end,
 	setBusSpeed = function() end,
 	setGpuSpeed = function() end,
 	setGpuXbarSpeed = function() end,
@@ -362,12 +364,39 @@ Network = {
 		if SIM.download then
 			SIM.download(url, mapPath(path), ua, method, post, ctype, cookie, h1, h2, h3, h4)
 		end
+		SIM.busyUntil, SIM.dlTotal = nil, nil
+		if SIM.slowFrames and tostring(url):find("%.vpk$") then
+			local f = io.open(mapPath(path), "rb")
+			SIM.dlTotal = f and f:seek("end") or 0
+			if f then f:close() end
+			SIM.dlStart, SIM.busyUntil = SIM.frame, SIM.frame + SIM.slowFrames
+			SIM.dlPath = mapPath(path)
+			SIM.dlStarts = (SIM.dlStarts or 0) + 1
+		end
 	end,
 	requestString = function() return "" end,
 	downloadFile = function() end,
-	getDownloadedBytes = function() return 0 end,
-	getTotalBytes = function() return 1 end,
-	stopCurrentDownload = function() end,
+	getDownloadedBytes = function()
+		if not SIM.busyUntil then return 0 end
+		local p = math.min(1, (SIM.frame - SIM.dlStart) / SIM.slowFrames)
+		if SIM.stallAt then p = math.min(p, SIM.stallAt) end
+		return math.floor(SIM.dlTotal * p)
+	end,
+	getTotalBytes = function() return SIM.dlTotal or 1 end,
+	stopCurrentDownload = function()
+		SIM.stopped = (SIM.stopped or 0) + 1
+		if SIM.busyUntil and SIM.dlPath then
+			-- what had arrived stays on disk, like a cut connection
+			local got = Network.getDownloadedBytes()
+			local f = io.open(SIM.dlPath, "rb")
+			local data = f and f:read("*a") or ""
+			if f then f:close() end
+			f = io.open(SIM.dlPath, "wb")
+			f:write((string.rawsub or string.sub)(data, 1, got)) -- string.sub is UTF-8 aware in Otakio
+			f:close()
+		end
+		SIM.busyUntil = nil
+	end,
 	setConnectionTime = function() end
 }
 

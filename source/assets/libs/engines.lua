@@ -374,7 +374,7 @@ local function madaraGetChapters(p, manga, dt)
 		end
 	end
 	if #list == 0 and doc:selectFirst("div.chapters-loading") then
-		-- Madara-styled comics platform (KunManga, ZinManga): chapters come from a paginated JSON API
+		-- Madara-styled comics platform: chapters come from a paginated JSON API
 		local slug = match(pathOf(mangaUrl), "^/[^/]+/([^/?#]+)")
 		local page, lastPage = 1, 1
 		while slug and page <= lastPage and page <= 40 do

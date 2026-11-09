@@ -15,6 +15,7 @@ fail = "--fail" in sys.argv
 
 def real(p):
     p = p.replace("ux0:/", "ux0:").replace("ux0:", os.path.join(tmp, "ux0") + "/")
+    p = p.replace("app0:", os.path.join(ROOT, "source", "updater") + "/")  # the helper's own files (fonts)
     return os.path.normpath(p)
 
 
@@ -121,8 +122,14 @@ L.execute("""
 Color = {new = function(r, g, b) return r * 65536 + g * 256 + b end}
 Screen = {clear = function() end, flip = function() end, waitVblankStart = function() end}
 SHOWN = {}
+BARS = {}
 Graphics = {initBlend = function() end, termBlend = function() end,
-  debugPrint = function(x, y, text) if SHOWN[#SHOWN] ~= text then SHOWN[#SHOWN + 1] = text end end}
+  debugPrint = function(x, y, text) if SHOWN[#SHOWN] ~= text then SHOWN[#SHOWN + 1] = text end end,
+  fillRect = function(x0, x1, y0) if x0 == 148 and y0 == 330 and x1 ~= 812 then BARS[#BARS + 1] = math.floor((x1 - 148) / 6.64) end end}
+FONTS = 0
+Font = {load = function(p) FONTS = FONTS + 1 return {path = p} end, setPixelSizes = function() end,
+  print = function(f, x, y, text) if SHOWN[#SHOWN] ~= text then SHOWN[#SHOWN + 1] = text end end}
+Timer = {new = function() return {} end, getTime = function() return 1234.5 end}
 """)
 try:
     L.execute(open(os.path.join(ROOT, "source", "updater", "index.lua"), encoding="utf-8").read())
@@ -132,6 +139,9 @@ except Exception as e:
         raise
 shown = L.eval("SHOWN")
 print("screens:", [shown[i] for i in range(1, len(shown) + 1)])
+print("fonts loaded:", L.eval("FONTS"))
+bars = L.eval("BARS")
+print("progress bar (%):", sorted(set(bars[i] for i in range(1, len(bars) + 1))))
 for line in log:
     print(" ", line)
 res = os.path.join(tmp, "ux0", "data", "otakio", "update_result.txt")

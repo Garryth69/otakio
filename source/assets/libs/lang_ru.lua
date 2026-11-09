@@ -8,7 +8,7 @@ Language.Russian = {
 	EXTRA = {DownloadAll = "Скачать все главы", RemoveAll = "Удалить скачанные главы", CancelAll = "Отменить загрузки"},
 	IMPORT = {DRIVE = "Диск", EXTERNAL_MEMORY = "Внешняя память", FILE = "Файл", FOLDER = "Папка", GOBACK = "Назад", UNSUPFILE = "Неподдерживаемый файл"},
 	MESSAGE = {
-		LOST_CONNECTION = "Соединение потеряно\n\nОжидание сети…\n\n(Сверните приложение, откройте настройки Wi-Fi и нажмите «Подключиться»)\n\nНажмите X, чтобы отменить все загрузки и закрыть это сообщение.\nЗагрузки продолжатся, когда сеть вернётся.",
+		LOST_CONNECTION = "Соединение потеряно\n\nОжидание сети…\n\n(Сверните приложение, откройте настройки Wi-Fi и нажмите «Подключиться»)\n\nНажмите ✕, чтобы отменить все загрузки и закрыть это сообщение.\nЗагрузки продолжатся, когда сеть вернётся.",
 		NO_CATALOG_MANGA = "Ничего не найдено.\nОшибка сайта, соединения или источника.",
 		NO_DOWNLOADING_MANGA = "Нет загрузок"
 	},
@@ -91,8 +91,8 @@ Language.Russian = {
 		HINT_TOGGLE_APPLY = "X переключить   O / △ применить", HINT_SELECT_BACK = "X выбрать   O назад",
 		STATUS_OK = "Работает", STATUS_UNSTABLE = "Нестабильно", STATUS_BROKEN = "Не работает",
 		-- library
-		LIBRARY_EMPTY = "Библиотека пуста", LIBRARY_EMPTY_HINT = "Найдите что-нибудь в Каталоге и нажмите Start,\nчтобы добавить в библиотеку.",
-		LIBRARY_FILTER_EMPTY = "Ничего не подходит под фильтр", LIBRARY_FILTER_EMPTY_HINT = "Start — сортировка/фильтр, Квадрат — сменить категорию.",
+		LIBRARY_EMPTY = "Библиотека пуста", LIBRARY_EMPTY_HINT = "Найдите что-нибудь в Каталоге и нажмите START,\nчтобы добавить в библиотеку.",
+		LIBRARY_FILTER_EMPTY = "Ничего не подходит под фильтр", LIBRARY_FILTER_EMPTY_HINT = "START — сортировка/фильтр, □ — сменить категорию.",
 		LIBRARY_OPTIONS = "Параметры библиотеки", SORT_BY = "Сортировка", FILTER = "Фильтр",
 		SORT_NAMES = {["Date added"] = "Дата добавления", ["A-Z"] = "А → Я", ["Z-A"] = "Я → А", Unread = "Непрочитанные", ["Last read"] = "Последнее чтение", ["Latest chapter"] = "Новая глава"},
 		FILTER_NAMES = {All = "Все", Unread = "Непрочитанные", Downloaded = "Скачанные", Completed = "Прочитанные"},
@@ -103,17 +103,17 @@ Language.Russian = {
 		NEW_CHAPTERS_FOUND = "Новых глав: %d!",
 		-- browse
 		NO_SOURCES = "Источники не установлены", NO_SOURCES_HINT = "Откройте вкладку Расширения (R) и выберите нужные источники.",
-		NO_SOURCES_LANG = "Нет источников на этом языке", NO_SOURCES_LANG_HINT = "Нажмите Start, чтобы сменить фильтр языка.",
+		NO_SOURCES_LANG = "Нет источников на этом языке", NO_SOURCES_LANG_HINT = "Нажмите START, чтобы сменить фильтр языка.",
 		PIN = "Закрепить", UNPIN = "Открепить", LANGUAGE = "Язык", NEW = "НОВОЕ",
 		NO_RESULTS = "Нет результатов", SEARCHING_N = "Поиск %d/%d", OPEN_IN_SOURCE = "Открыть в источнике",
 		NO_SOURCE_SEARCH = "В этом источнике нет поиска",
 		-- updates / history
-		NO_UPDATES = "Нет недавних обновлений", NO_UPDATES_HINT = "Нажмите Start (или △ в Библиотеке), чтобы найти новые главы.",
+		NO_UPDATES = "Нет недавних обновлений", NO_UPDATES_HINT = "Нажмите △, чтобы найти новые главы.",
 		CLEAR_UPDATES_Q = "Очистить список обновлений?", MANGA_NOT_FOUND = "Манга не найдена в библиотеке", ALREADY_DOWNLOADED = "Уже скачано",
 		NO_HISTORY = "Вы ещё ничего не читали", NO_HISTORY_HINT = "Здесь появятся прочитанные главы.",
 		RESUME = "Продолжить", START = "Начать", INCOGNITO_ON = "Включён режим инкогнито", DETAILS = "Подробнее", DOWNLOAD = "Скачать", CLEAR = "Очистить",
 		-- downloads
-		DOWNLOADS_HINT = "Квадрат на главе или Start на странице манги — скачать.", PREPARING = "подготовка…", QUEUED = "в очереди",
+		DOWNLOADS_HINT = "□ на главе или START на странице манги — скачать.", PREPARING = "подготовка…", QUEUED = "в очереди",
 		QUEUED_N = "Глав в очереди: %d", CANCEL_ALL = "Отменить все", DOWNLOADED_N = "Скачано (%d)",
 		MARK_ALL_READ = "Отметить всё прочитанным", MARK_ALL_UNREAD = "Отметить всё непрочитанным", MARK_PREVIOUS_READ = "Отметить предыдущие прочитанными",
 		DOWNLOAD_NEXT_5 = "Скачать следующие 5 непрочитанных", DOWNLOAD_UNREAD = "Скачать все непрочитанные",
@@ -121,9 +121,9 @@ Language.Russian = {
 		INSTALLED = "Установленные", AVAILABLE = "Доступные", UPDATES_TAB = "Обновления", INSTALL = "Установить", UPDATE = "Обновить", INSTALLED_LABEL = "Установлено",
 		UNINSTALL = "Удалить", UNINSTALL_Q = "Удалить %s?", OPEN_SOURCE = "Открыть источник", SOURCE_HIDDEN = "Источник недоступен (контент 18+ выключен или расширение не загрузилось)",
 		EXT_INSTALLED = "%s установлено", EXT_UPDATED = "%s обновлено", EXT_UNINSTALLED = "%s удалено", EXT_INSTALL_FAILED = "Не удалось установить %s",
-		EXT_UPDATES_AVAILABLE = "Доступно обновлений расширений: %d", NO_EXTENSIONS = "Расширения не установлены", NO_PAGES = "В этой главе пока нет страниц", ERROR_RECOVERED = "Что-то пошло не так, возврат в Библиотеку (подробности в log.txt)", NO_REPOS = "Нет репозитория расширений", NO_REPOS_HINT = "В Otakio нет встроенных источников. Select > Добавить репозиторий.", APP_UP_TO_DATE = "Установлена последняя версия Otakio", APP_UPDATE_AVAILABLE = "Доступен Otakio %s", APP_UPDATE_Q = "Обновить до Otakio %s?", APP_UPDATE_HINT = "Otakio скачает и установит его, затем перезапустится. Библиотека и настройки сохранятся.", APP_UPDATE_DOWNLOADING = "Загрузка Otakio %s...", APP_UPDATE_DONE = "Сохранено в %s. Установите через VitaShell.", APP_UPDATE_FAILED = "Не удалось проверить обновления", APP_UPDATE_RESTARTING = "Otakio закроется, установит %s и откроется снова...", APP_UPDATE_DONE_NOW = "Обновлено до Otakio %s", APP_UPDATE_DL_FAILED = "Не удалось скачать обновление. Попробуйте позже.", APP_UPDATE_INSTALLING = "Установка Otakio %s...", APP_UPDATE_INSTALLED = "Otakio %s установлен. Перезапуск...", APP_UPDATE_NO_SPACE = "Недостаточно свободного места для обновления (нужно %d МБ)", APP_UPDATE_MANUAL = "Не удалось установить из приложения. Сохранено в %s: установите через VitaShell.", CHECKING = "Проверка...",
-		NO_EXTENSIONS_HINT = "Квадрат — вкладка «Доступные».", ALL_UP_TO_DATE = "Всё обновлено",
-		NOTHING_HERE = "Здесь пусто", CHANGE_FILTERS_HINT = "Попробуйте другой язык (Start) или поиск (△).",
+		EXT_UPDATES_AVAILABLE = "Доступно обновлений расширений: %d", NO_EXTENSIONS = "Расширения не установлены", NO_PAGES = "В этой главе пока нет страниц", ERROR_RECOVERED = "Что-то пошло не так, возврат в Библиотеку (подробности в log.txt)", NO_REPOS = "Нет репозитория расширений", NO_REPOS_HINT = "В Otakio нет встроенных источников. SELECT > Добавить репозиторий.", APP_UP_TO_DATE = "Установлена последняя версия Otakio", APP_UPDATE_AVAILABLE = "Доступен Otakio %s", APP_UPDATE_Q = "Обновить до Otakio %s?", APP_UPDATE_HINT = "Otakio скачает и установит его, затем перезапустится. Библиотека и настройки сохранятся.", APP_UPDATE_DOWNLOADING = "Загрузка Otakio %s...", APP_UPDATE_DONE = "Сохранено в %s. Установите через VitaShell.", APP_UPDATE_FAILED = "Не удалось проверить обновления", APP_UPDATE_RESTARTING = "Otakio закроется, установит %s и откроется снова...", APP_UPDATE_DONE_NOW = "Обновлено до Otakio %s", APP_UPDATE_DL_FAILED = "Не удалось скачать обновление. Попробуйте позже.", APP_UPDATE_INSTALLING = "Установка Otakio %s...", APP_UPDATE_STEP = "Шаг %d из %d", APP_UPDATE_EXTRACTING = "Распаковка обновления...", APP_UPDATE_PREPARING = "Подготовка установщика...", APP_UPDATE_DONT_OFF = "Не выключайте систему", APP_UPDATE_CANCEL = "Отмена", APP_UPDATE_CANCELED = "Обновление отменено", RS_TITLE = "Настройки чтения", RS_THIS_MANGA = "Эта манга", RS_COLORS = "Цвета страниц", RS_READER = "Читалка", RS_PAGE = "Эта страница", RS_BACKGROUND = "Фон", RS_BG_THEME = "Тема", RS_BG_BLACK = "Чёрный", RS_BG_GRAY = "Серый", RS_BG_WHITE = "Белый", RS_BRIGHTNESS = "Яркость", RS_FILTER = "Цветовой фильтр", RS_PRESET = "Шаблон", RS_PRESET_CUSTOM = "Свой", RS_PRESET_SEPIA = "Сепия", RS_PRESET_PAPER = "Бумага", RS_PRESET_WARM = "Тёплый", RS_PRESET_NIGHT = "Ночь", RS_BLEND = "Режим наложения", RS_BLEND_DEFAULT = "Обычный", RS_BLEND_MULTIPLY = "Умножение", RS_RED = "Красный", RS_GREEN = "Зелёный", RS_BLUE = "Синий", RS_OPACITY = "Непрозрачность", RS_PAGE_NUMBER = "Показывать номер страницы", RS_RESET = "Сбросить цвета", RS_ADJUST = "Изменить", RS_CLOSE = "Закрыть", DL_VIEW_QUEUE = "Очередь", DL_VIEW_DONE = "Загружено", DL_VIEW_HISTORY = "История", DL_VIEW = "Вид", DL_QUEUE_EMPTY = "Сейчас ничего не загружается", DL_HISTORY_EMPTY = "История загрузок пуста", DL_HISTORY_HINT = "Здесь отображаются завершённые, неудачные и отменённые загрузки.", DL_CLEAR_HISTORY = "Очистить историю", DL_CLEAR_HISTORY_Q = "Загруженные главы сохранятся.", DL_HISTORY_CLEARED = "История загрузок очищена", DL_STATUS_OK = "Загружено", DL_STATUS_FAILED = "Ошибка", DL_STATUS_CANCELED = "Отменено", DL_REMOVE_ENTRY = "Убрать", DL_CHAPTERS = "Главы", DL_TAP_DELETE = "Удалить эту загрузку", DL_DELETE_CHAPTER = "Удалить эту загруженную главу?", DATA_MIGRATION_FAILED = "Не удалось обновить данные для этой версии: они остались без изменений (подробности в log.txt)", APP_UPDATE_INSTALLED = "Otakio %s установлен. Перезапуск...", APP_UPDATE_NO_SPACE = "Недостаточно свободного места для обновления (нужно %d МБ)", APP_UPDATE_MANUAL = "Не удалось установить из приложения. Сохранено в %s: установите через VitaShell.", CHECKING = "Проверка...",
+		NO_EXTENSIONS_HINT = "□ — вкладка «Доступные».", ALL_UP_TO_DATE = "Всё обновлено",
+		NOTHING_HERE = "Здесь пусто", CHANGE_FILTERS_HINT = "Попробуйте другой язык (START) или поиск (△).",
 		SEARCH_EXTENSIONS = "Поиск расширений", ALL_LANGUAGES = "Все языки", TAB = "Вкладка", REPOSITORIES = "Репозитории",
 		REFRESH_REPOS = "Обновить репозитории", UPDATE_ALL = "Обновить все", ADD_REPO = "Добавить репозиторий", REPO_URL = "GitHub пользователь/репозиторий или URL index.json",
 		REPO_EXISTS = "Репозиторий уже добавлен", REMOVE_REPO_Q = "Удалить %s?", REPO_BUILTIN = "Встроенный · онлайн", REPO_OFFLINE = "Встроенный · офлайн-копия",
@@ -134,7 +134,7 @@ Language.Russian = {
 		PROTECTED_CHAPTER = "Эта глава защищена сайтом и пока не поддерживается",
 		-- import
 		IMPORT_EMPTY = "Пока нечего импортировать",
-		IMPORT_HELP = "Скопируйте в папку выше (FTP VitaShell или USB):\n• файл .cbz или .zip\n• папку с изображениями страниц\n• папку манги, где каждая глава — папка или .cbz\nЗатем X — читать, Квадрат — добавить в Библиотеку.",
+		IMPORT_HELP = "Скопируйте в папку выше (FTP VitaShell или USB):\n• файл .cbz или .zip\n• папку с изображениями страниц\n• папку манги, где каждая глава — папка или .cbz\nЗатем ✕ — читать, □ — добавить в Библиотеку.",
 		IMPORTED_N = "Импортировано: %d",
 		-- settings / data
 		PROXY_MODES = {Auto = "Только при необходимости", Off = "Выкл."}, PROXY_ADDRESS = "Адрес (IP:порт)",

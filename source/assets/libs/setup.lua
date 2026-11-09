@@ -4,6 +4,7 @@
 Setup = {}
 
 local DONE_FLAG = "ux0:data/otakio/.setup_done"
+local active = false
 
 local function LS()
 	return Language[Settings.Language]
@@ -34,7 +35,11 @@ local function finish()
 			{label = T("SETUP_FINISH"), value = "close"}
 		},
 		selected = 1,
+		onBack = function()
+			active = false
+		end,
 		onSelect = function(item)
+			active = false
 			if item.value == "rec" then
 				-- the user asked for it: add the Otakio extension repository (Mihon model: nothing is preinstalled),
 				-- then install its native sources for the active languages; adult ones only when allowed
@@ -42,7 +47,7 @@ local function finish()
 					Extensions.refresh(true)
 				end
 				Extensions.installRecommended(function(e)
-					return IsSourceLangEnabled(SourceLangGroupOfIso(e.lang)) and (Settings.NSFW or not e.nsfw)
+					return IsExtensionLangEnabled(e.lang, e.langs) and (Settings.NSFW or not e.nsfw)
 				end)
 				Screens.EXTENSIONS.tab = 1
 				Menu.setMode("EXTENSIONS")
@@ -277,6 +282,12 @@ function Setup.needed(firstRun)
 end
 
 function Setup.start()
+	active = true
 	current = 0
 	show(1)
+end
+
+---True from the first setup screen until its last one is answered (the app update prompt waits for it)
+function Setup.isActive()
+	return active
 end

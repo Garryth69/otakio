@@ -13,9 +13,9 @@ Interface in English, Portuguese (Brazil), Spanish, French, German, Italian, Rus
 | | |
 |---|---|
 | ![LiveArea](docs/screenshots/livearea.png) | ![Library](docs/screenshots/library.jpg) |
-| ![Title details and chapter list](docs/screenshots/details.jpg) | ![Installed sources in Browse](docs/screenshots/sources.png) |
+| ![Reader settings with page colors](docs/screenshots/reader.jpg) | ![Theme picker](docs/screenshots/themes.png) |
 
-<sub>Cover art is blurred on purpose: covers belong to their respective owners.</sub>
+<sub>Cover art and pages are blurred on purpose: they belong to their respective owners.</sub>
 
 ---
 
@@ -26,7 +26,7 @@ Interface in English, Portuguese (Brazil), Spanish, French, German, Italian, Rus
   to add**, the same way Mihon/Tachiyomi work.
 - This project has no affiliation with the websites, publishers or authors of the works.
 - You are responsible for what you access. Support the authors: buy official releases and use official services
-  (MANGA Plus, Webtoons, Comics Kingdom, local publishers, etc.).
+  (the publishers' own apps and websites, local publishers, etc.).
 
 ## Installation
 
@@ -87,15 +87,19 @@ Your library and settings are kept.
 
 - **More → About → Check for app updates at startup** turns the automatic check off.
 - **More → About → Check for app updates** checks by hand at any time.
-- If the install can't be done inside the app, the VPK is left in `ux0:/vpk/` to install with VitaShell.
+- If the install can't be done inside the app, the VPK is left in `ux0:data/otakio/vpk/` to install with VitaShell.
 
 ## Features
 
 - Library with categories, filters and new-chapter checks.
 - Search inside each source (**Triangle** in a catalog) and global search.
-- Offline downloads; the **Downloads** tab shows the queue and everything already downloaded.
+- Reader settings at any time (**Select** while reading): orientation, direction and scaling per manga, and page
+  colors like Mihon's: background, brightness and a color filter with presets.
+- Offline downloads; the **Downloads** tab shows the queue, everything already downloaded and the download history.
 - Import your own files: copy `.cbz`, `.zip` or image folders to `ux0:data/otakio/import/`.
-- Backup and restore (More → Data): library, progress, history, categories, repositories and extensions.
+- Backup and restore (More → Data): library, progress, history, categories, repositories and extensions. A backup is
+  also made automatically before every app update.
+- Themes with a live preview.
 - Import NOBORU data if `ux0:data/noboru/` exists.
 - Save the current page as PNG, JPEG or WebP.
 - Engine with native TLS 1.3 and WebP.
@@ -103,8 +107,9 @@ Your library and settings are kept.
 
 ## Troubleshooting
 
-`ux0:data/otakio/log.txt` records extension loading, installs and errors. Attach it when you open an
-[issue](../../issues).
+`ux0:data/otakio/log.txt` records extension loading, installs and errors on its own: internal errors, the last
+screens opened, system crash reports and memory use. URLs lose their query strings, and e-mail and IP addresses,
+tokens, cookies and passwords are removed. Attach it when you open an [issue](../../issues).
 
 ## Development
 
@@ -121,10 +126,11 @@ Commands (Python 3 + `pip install lupa pillow`):
 
 | Command | What it does |
 |---|---|
-| `python tools/build_vpk.py --name Otakio-1.0.vpk` | checks the Lua syntax and builds the release VPK (no extensions) |
+| `python tools/build_vpk.py --name Otakio-X.Y.Z.vpk` | checks the Lua syntax and builds the release VPK (no extensions) |
 | `python tools/build_vpk.py --with-catalog` | test VPK with the catalog from `source/repo/` bundled |
 | `python tools/tests/sim.py <scenario> [--online] [--shots 100,200]` | runs the whole app on a simulated Vita and takes screenshots |
-| `python tools/run_lua.py tools/tests/test_core.lua` | JSON, HTML and serialization tests |
+| `python tools/run_lua.py tools/tests/test_core.lua tools/tests/test_diag.lua tools/tests/test_browselang.lua` | JSON, HTML, serialization, log cleaning and language filter tests |
+| `python tools/tests/test_migrations.py` | data migration tests |
 | `python tools/gen_assets.py`, `python tools/gen_buttons.py` | generate the icons, logo, LiveArea and button glyphs |
 
 To work on extensions, clone the extension repository into `repo/`:

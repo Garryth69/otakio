@@ -71,6 +71,7 @@ function ChapterSaver.update()
 					if currentTask.Notify and not Settings.SilentDownloads then
 						Notifications.push(string.format(Language[Settings.Language].NOTIFICATIONS.CANCEL_DOWNLOAD, currentTask.MangaName, currentTask.ChapterName))
 					end
+					DownloadHistory.add(currentTask, "canceled")
 					Downloading[currentTask.Key] = nil
 					are_saved_chapters_updated = false
 					currentTask = nil
@@ -83,6 +84,7 @@ function ChapterSaver.update()
 				end
 			else
 				Console.error("Unknown error with saved chapters: " .. msg)
+				DownloadHistory.add(currentTask, "failed")
 				Downloading[currentTask.Key] = nil
 				are_saved_chapters_updated = false
 				currentTask = nil
@@ -95,6 +97,7 @@ function ChapterSaver.update()
 					Notifications.push(Language[Settings.Language].NOTIFICATIONS.IMPORT_COMPLETED)
 				end
 			end
+			DownloadHistory.add(currentTask, currentTask.Fail and "failed" or "ok")
 			Downloading[currentTask.Key] = nil
 			are_saved_chapters_updated = false
 			currentTask = nil
@@ -111,6 +114,7 @@ function ChapterSaver.downloadChapter(chapter, silent)
 		Key = k,
 		MangaName = chapter.Manga.Name,
 		ChapterName = chapter.Name,
+		Manga = chapter.Manga, -- for the download history (Downloads > History)
 		Drive = Settings.getSaveDrivePath(),
 		F = function()
 			local FolderPath = Downloading[k].Drive .. ":data/otakio/chapters/"

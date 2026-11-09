@@ -16,6 +16,10 @@ end
 
 ---Variable to count used memory by textures
 local textureMemoryUsed = 0
+Textures = {
+	BUDGET = 80 * 1024 * 1024, -- textures created through Image:new
+	RESERVE = 12 * 1024 * 1024 -- always left free for fonts, UI and the engine
+}
 local liveImages = 0
 
 ---@param image integer
@@ -42,15 +46,43 @@ function Image:new(image, filter)
 	return p
 end
 
----Free image
+-- Textures are never freed while a frame is being drawn: the GPU may still read a texture drawn earlier in the same
+-- frame (freeing it then is a GPU crash). Image:free() and the garbage collector only queue the texture; the queue is
+-- emptied outside the draw phase (main.lua sets DRAW_PHASE between initBlend and termBlend, and termBlend waits for
+-- the GPU), at the start of every frame or when the texture budget needs room.
+local pending, pendingMemory = {}, 0
+
+---Queues an engine texture handle to be freed when the GPU is idle
+---@param handle integer
+---@param memory number|nil bytes it counts in the texture budget
+function Textures.release(handle, memory)
+	if handle then
+		pending[#pending + 1] = handle
+		pendingMemory = pendingMemory + (memory or 0)
+	end
+end
+
+---Frees the queued textures (no-op while drawing)
+function Textures.flush()
+	if DRAW_PHASE or #pending == 0 then
+		return
+	end
+	for i = 1, #pending do
+		pcall(Graphics.freeImage, pending[i])
+		pending[i] = nil
+	end
+	textureMemoryUsed = textureMemoryUsed - pendingMemory
+	pendingMemory = 0
+end
+
+---Free image (the texture itself goes when the GPU is idle, see Textures.release)
 function Image:free()
 	if not self.e then
 		return
 	end
-	Graphics.freeImage(self.e)
+	Textures.release(self.e, self.Memory)
 	self.e = nil
 	self.Type = "table"
-	textureMemoryUsed = textureMemoryUsed - self.Memory
 	liveImages = liveImages - 1
 end
 
@@ -65,11 +97,6 @@ end
 -- (covers, reader pages) asks the budget first. When the budget is short, registered owners free what is least
 -- useful (covers far from the viewport first, then reader pages away from the current one).
 -------------------------------------------------------------------------------
-Textures = {
-	BUDGET = 80 * 1024 * 1024, -- textures created through Image:new
-	RESERVE = 12 * 1024 * 1024 -- always left free for fonts, UI and the engine
-}
-
 local owners = {} -- {name = string, priority = number, reclaim = function(bytesNeeded)}
 
 ---Registers something that holds textures and can release them on demand.
@@ -111,6 +138,7 @@ function Textures.reclaim(bytes)
 		if not ok and Console then
 			Console.error("texture reclaim (" .. owner.name .. "): " .. tostring(err))
 		end
+		Textures.flush() -- what the owner gave back counts now (outside the draw phase)
 	end
 	return Textures.canAfford(bytes)
 end
@@ -123,5 +151,5 @@ end
 
 ---@return table {used, budget, free, images}
 function Textures.stats()
-	return {used = textureMemoryUsed, budget = Textures.BUDGET, free = freeMemory(), images = liveImages}
+	return {used = textureMemoryUsed, budget = Textures.BUDGET, free = freeMemory(), images = liveImages, pending = #pending}
 end

@@ -42,14 +42,17 @@ jobs:
         run: python tools/check_syntax.py
 
       - name: Core tests (JSON, HTML, serialization)
-        run: python tools/run_lua.py tools/tests/test_core.lua
+        run: python tools/run_lua.py tools/tests/test_core.lua tools/tests/test_diag.lua tools/tests/test_browselang.lua
+
+      - name: Data migrations
+        run: python tools/tests/test_migrations.py
 
       - name: Translations
         run: python tools/check_lang.py
 
       - name: Simulated Vita (offline scenarios)
         run: |
-          for s in tour extensions settings lang about extlang opensrc; do
+          for s in tour extensions settings lang about extlang opensrc idleclock dlviews downloads themepick alltabs                    importempty browselang readerselect; do
             echo "::group::$s"
             python tools/tests/sim.py "$s"
             echo "::endgroup::"
@@ -60,6 +63,19 @@ jobs:
           echo "::group::libscroll (400 covers)"
           python tools/tests/sim.py libscroll --seed-library 400
           echo "::endgroup::"
+
+      - name: Simulated Vita (import, reader, save image)
+        run: |
+          T="$RUNNER_TEMP/sim-import"
+          python tools/tests/make_import_fixtures.py "$T"
+          for s in import importread readercolors saveimage savepng; do
+            echo "::group::$s"
+            python tools/tests/sim.py "$s" --tmp "$T" --keep
+            echo "::endgroup::"
+          done
+          # the imported titles reached the library and "Save image" wrote a file
+          test -s "$T/ux0/data/otakio/save.dat"
+          ls "$T/ux0/data/otakio/pictures/" | grep -q .
 
       - name: Release VPK builds
         run: python tools/build_vpk.py --name Otakio-ci.vpk

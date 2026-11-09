@@ -31,6 +31,10 @@ local currentParser = nil
 local touchTimer = Timer.new()
 
 local status = "LIBRARY"
+---Top of list screens: Downloads has its view chips under the title
+local function listTop()
+	return status == "DOWNLOAD" and 98 or LIST_TOP
+end
 
 local downloadedImages = {}
 local page = 1
@@ -268,6 +272,7 @@ local function selectParser(index)
 	local newParser = parsersList[index]
 	if newParser then
 		currentParser = newParser
+		Diag.trail("source", tostring(newParser.ID))
 		Catalogs.setStatus("MANGA")
 		CatalogModes.load(newParser)
 	end
@@ -277,6 +282,7 @@ end
 function Catalogs.openParser(parser)
 	if parser then
 		currentParser = parser
+		Diag.trail("source", tostring(parser.ID))
 		Catalogs.setStatus("MANGA")
 		CatalogModes.load(parser)
 	end
@@ -372,19 +378,60 @@ local function downloadedManga()
 	return list
 end
 
+-- Downloads tab views: what is downloading now, what is on the memory card, and the history of finished downloads
+local DL_VIEWS = {"queue", "done", "history"}
+local downloadView = nil -- nil: Queue while something downloads, Downloaded otherwise
+
+local function currentDownloadView()
+	return downloadView or (#ChapterSaver.getDownloadingList() > 0 and "queue" or "done")
+end
+
+local historyRows, historyVersion = nil, -1
 local function downloadRows()
-	local rows = {}
-	for _, task in ipairs(ChapterSaver.getDownloadingList()) do
-		rows[#rows + 1] = {kind = "task", task = task}
-	end
-	local done = downloadedManga()
-	if #done > 0 then
-		rows[#rows + 1] = {kind = "section", label = string.format(L().DOWNLOADED_N, #done)}
-		for _, row in ipairs(done) do
-			rows[#rows + 1] = row
+	local view = currentDownloadView()
+	if view == "queue" then
+		local rows = {}
+		for _, task in ipairs(ChapterSaver.getDownloadingList()) do
+			rows[#rows + 1] = {kind = "task", task = task}
 		end
+		return rows
+	elseif view == "done" then
+		return downloadedManga()
 	end
-	return rows
+	if not historyRows or historyVersion ~= DownloadHistory.version() then
+		historyRows = {}
+		for i, e in ipairs(DownloadHistory.list()) do
+			historyRows[i] = {kind = "hist", entry = e, index = i}
+		end
+		historyVersion = DownloadHistory.version()
+	end
+	return historyRows
+end
+
+---Chips of the views, right-aligned in the header: {view, label, x0, x1}
+local function downloadChips()
+	local chips = {}
+	local labels = {queue = L().DL_VIEW_QUEUE, done = L().DL_VIEW_DONE, history = L().DL_VIEW_HISTORY}
+	local n = #ChapterSaver.getDownloadingList()
+	local x = X0
+	for i, v in ipairs(DL_VIEWS) do
+		local label = labels[v]
+		if v == "queue" and n > 0 then
+			label = label .. " (" .. n .. ")"
+		end
+		local w = Font.getTextWidth(FONT16, label) + 24
+		chips[i] = {view = v, label = label, x0 = x, x1 = x + w}
+		x = x + w + 8
+	end
+	return chips
+end
+
+local function setDownloadView(v)
+	if v ~= currentDownloadView() then
+		downloadView = v
+		downloadSelector:resetSelected()
+		slider.Y, slider.V = 0, 0
+	end
 end
 
 -- covers of the downloaded manga shown in the Downloads tab (freed when leaving it)
@@ -406,6 +453,68 @@ local function deleteDownloads(row)
 	end)
 end
 
+---Start on a downloaded manga: its downloaded chapters, each can be deleted (the rest of the manga is kept)
+local function downloadedChaptersMenu(manga, selected)
+	local items = {}
+	for _, chapter in ipairs(Cache.loadChapters(manga, true) or {}) do
+		if ChapterSaver.check(chapter) then
+			items[#items + 1] = {label = chapter.Name or "?", sub = L().DL_TAP_DELETE, chapter = chapter}
+		end
+	end
+	if #items == 0 then
+		return
+	end
+	Dialog.menu(manga.Name or L().DL_CHAPTERS, items, function(item, index)
+		Dialog.confirm(L().DL_DELETE_CHAPTER, item.label, function()
+			ChapterSaver.delete(item.chapter, true)
+			downloadedCache = nil
+			downloadedChaptersMenu(manga, math.max(1, index - 1))
+		end)
+	end, selected)
+end
+
+---Start on a Downloads row: what can be done with it
+local function downloadRowMenu(row)
+	local P = Language[Settings.Language].PANEL
+	if row.kind == "manga" then
+		Dialog.menu(row.manga.Name or "", {
+			{label = L().DL_CHAPTERS, value = "chapters"},
+			{label = P.DELETE, value = "delete", danger = true}
+		}, function(item)
+			if item.value == "chapters" then
+				downloadedChaptersMenu(row.manga)
+			else
+				deleteDownloads(row)
+			end
+		end)
+	elseif row.kind == "hist" then
+		local manga = DownloadHistory.findManga(row.entry)
+		local items = {}
+		if manga then
+			items[#items + 1] = {label = L().DETAILS, value = "details"}
+		end
+		items[#items + 1] = {label = L().DL_REMOVE_ENTRY, value = "remove", danger = true}
+		Dialog.menu(row.entry.manga or "", items, function(item)
+			if item.value == "details" then
+				Details.setManga(manga)
+			else
+				DownloadHistory.remove(row.index)
+			end
+		end)
+	end
+end
+
+local function clearHistory()
+	if DownloadHistory.count() == 0 then
+		return
+	end
+	Dialog.confirm(L().DL_CLEAR_HISTORY, L().DL_CLEAR_HISTORY_Q, function()
+		DownloadHistory.clear()
+		downloadSelector:resetSelected()
+		Notifications.push(L().DL_HISTORY_CLEARED)
+	end)
+end
+
 local function selectDownloadRow(row)
 	if not row then
 		return
@@ -414,6 +523,11 @@ local function selectDownloadRow(row)
 		ChapterSaver.stopByListItem(row.task)
 	elseif row.kind == "manga" then
 		Details.setManga(row.manga)
+	elseif row.kind == "hist" then
+		local manga = DownloadHistory.findManga(row.entry)
+		if manga then
+			Details.setManga(manga)
+		end
 	end
 end
 
@@ -593,13 +707,24 @@ function Catalogs.input(oldpad, pad, oldtouch, touch)
 			continueReading(currentMangaList[mangaSelector:getSelected()])
 		end
 	elseif status == "DOWNLOAD" then
-		if pressed(pad, oldpad, SCE_CTRL_TRIANGLE) then
-			ChapterSaver.clearDownloadingList()
-		elseif pressed(pad, oldpad, SCE_CTRL_SQUARE) then
-			local row = downloadRows()[downloadSelector:getSelected()]
-			if row and row.kind == "manga" then
-				deleteDownloads(row)
+		local view = currentDownloadView()
+		local row = downloadRows()[downloadSelector:getSelected()]
+		if pressed(pad, oldpad, SCE_CTRL_SQUARE) then
+			local i = 1
+			for j, v in ipairs(DL_VIEWS) do
+				if v == view then
+					i = j
+				end
 			end
+			setDownloadView(DL_VIEWS[i % #DL_VIEWS + 1])
+		elseif pressed(pad, oldpad, SCE_CTRL_TRIANGLE) then
+			if view == "queue" then
+				ChapterSaver.clearDownloadingList()
+			elseif view == "history" then
+				clearHistory()
+			end
+		elseif pressed(pad, oldpad, SCE_CTRL_START) and row then
+			downloadRowMenu(row)
 		end
 	end
 	if slider.V ~= 0 or touch.x then
@@ -617,9 +742,17 @@ function Catalogs.input(oldpad, pad, oldtouch, touch)
 		importSelector:input(#Import.listDir(), oldpad, pad, touch.x)
 	end
 	-- touch handling -----------------------------------------------------------
-	local top = isGrid() and gridTop() or LIST_TOP
+	local top = isGrid() and gridTop() or listTop()
 	if TOUCH_MODES.MODE == TOUCH_MODES.NONE and oldtouch.x and touch.x and touch.x > X0 then
-		if status == "LIBRARY" and Catalogs.hasCategoryBar() and touch.y < top and touch.y > 52 then
+		if status == "DOWNLOAD" and touch.y < listTop() - 4 and touch.y > 52 then
+			for _, chip in ipairs(downloadChips()) do
+				if touch.x >= chip.x0 and touch.x <= chip.x1 then
+					setDownloadView(chip.view)
+					break
+				end
+			end
+			TOUCH_MODES.MODE = TOUCH_MODES.SLIDE
+		elseif status == "LIBRARY" and Catalogs.hasCategoryBar() and touch.y < top and touch.y > 52 then
 			-- tap on category chips
 			local x = X0
 			for _, tab in ipairs(categoryTabs()) do
@@ -652,7 +785,7 @@ function Catalogs.input(oldpad, pad, oldtouch, touch)
 					end
 				end
 			elseif oldtouch.x > X0 and oldtouch.x < X1 then
-				local id = floor((oldtouch.y - LIST_TOP + slider.Y) / ROW_H) + 1
+				local id = floor((oldtouch.y - listTop() + slider.Y) / ROW_H) + 1
 				if status == "CATALOGS" then
 					selectParser(id)
 				elseif status == "DOWNLOAD" then
@@ -682,8 +815,8 @@ function Catalogs.input(oldpad, pad, oldtouch, touch)
 	if TOUCH_MODES.MODE == TOUCH_MODES.READ then
 		if abs(slider.V) > 0.1 or abs(slider.TouchY - touch.y) > 10 then
 			TOUCH_MODES.MODE = TOUCH_MODES.SLIDE
-		elseif not isGrid() and oldtouch.x > X0 and oldtouch.x < X1 and oldtouch.y > LIST_TOP then
-			local id = floor((oldtouch.y - LIST_TOP + slider.Y) / ROW_H) + 1
+		elseif not isGrid() and oldtouch.x > X0 and oldtouch.x < X1 and oldtouch.y > listTop() then
+			local id = floor((oldtouch.y - listTop() + slider.Y) / ROW_H) + 1
 			local count = (status == "CATALOGS" and #parsersList) or (status == "DOWNLOAD" and #downloadRows()) or (status == "SETTINGS" and #Settings.list()) or (status == "IMPORT" and #Import.listDir()) or 0
 			if id >= 1 and id <= count then
 				newItemID = id
@@ -707,16 +840,16 @@ end
 function GenPanels()
 	local P = Language[Settings.Language].PANEL
 	local O = Language[Settings.Language].OTAKIO
-	Panels["MANGA"] = {"L\\R", "Square", "Cross", "Start", "Triangle", "Circle",
+	Panels["MANGA"] = {"L\\R", "Cross", "Square", "Triangle", "Start", "Circle",
 		["L\\R"] = P.CHANGE_SECTION, Square = P.MODE, Triangle = Language[Settings.Language].APP.SEARCH, Circle = P.BACK, Cross = P.SELECT, Start = O.ADD_REMOVE}
 	Panels["IMPORT"] = {"L\\R", "Cross", "Square", "Circle",
 		["L\\R"] = P.CHANGE_SECTION, Cross = P.SELECT}
-	Panels["LIBRARY"] = {"L\\R", "Cross", "Select", "Square", "Triangle", "Start",
+	Panels["LIBRARY"] = {"L\\R", "Cross", "Square", "Triangle", "Start", "Select",
 		["L\\R"] = P.CHANGE_SECTION, Cross = P.SELECT, Select = O.CONTINUE_READING, Square = O.CATEGORY, Triangle = P.UPDATE, Start = O.OPTIONS}
 	Panels["CATALOGS"] = {"L\\R", "Cross", "Square", "Triangle", "Start",
 		["L\\R"] = P.CHANGE_SECTION, Cross = P.SELECT, Square = O.PIN, Triangle = O.GLOBAL_SEARCH, Start = O.LANGUAGE}
-	Panels["DOWNLOAD"] = {"L\\R", "Cross", "Square", "Triangle",
-		["L\\R"] = P.CHANGE_SECTION, Cross = P.CANCEL, Triangle = O.CANCEL_ALL}
+	Panels["DOWNLOAD"] = {"L\\R", "Cross", "Square", "Triangle", "Start",
+		["L\\R"] = P.CHANGE_SECTION, Cross = P.CANCEL, Square = O.DL_VIEW, Triangle = O.CANCEL_ALL}
 	Panels["SETTINGS"] = {"L\\R", "Cross", "Circle",
 		["L\\R"] = P.CHANGE_SECTION, Cross = P.SELECT}
 	if Screens and Screens.genPanels then
@@ -818,9 +951,13 @@ function Catalogs.update()
 			list = downloadRows()
 			item = downloadSelector:getSelected()
 			local row = list[item]
-			Panels["DOWNLOAD"].Cross = row and (row.kind == "task" and Language[Settings.Language].PANEL.CANCEL or row.kind == "manga" and Language[Settings.Language].PANEL.SELECT) or nil
-			Panels["DOWNLOAD"].Square = row and row.kind == "manga" and Language[Settings.Language].PANEL.DELETE or nil
-			Panels["DOWNLOAD"].Triangle = #ChapterSaver.getDownloadingList() > 0 and L().CANCEL_ALL or nil
+			local view = currentDownloadView()
+			local P = Language[Settings.Language].PANEL
+			Panels["DOWNLOAD"].Cross = row and (row.kind == "task" and P.CANCEL or (row.kind == "manga" or row.kind == "hist" and DownloadHistory.findManga(row.entry)) and P.SELECT) or nil
+			Panels["DOWNLOAD"].Square = L().DL_VIEW
+			Panels["DOWNLOAD"].Start = row and (row.kind == "manga" or row.kind == "hist") and L().OPTIONS or nil
+			Panels["DOWNLOAD"].Triangle = (view == "queue" and #ChapterSaver.getDownloadingList() > 0 and L().CANCEL_ALL)
+				or (view == "history" and DownloadHistory.count() > 0 and L().DL_CLEAR_HISTORY) or nil
 		elseif status == "SETTINGS" then
 			list = Settings.list()
 			Panels["SETTINGS"].Circle = Settings.inTab() and Language[Settings.Language].PANEL.BACK or nil
@@ -832,7 +969,7 @@ function Catalogs.update()
 			Panels["IMPORT"].Square = list[item] and Import.canImport(list[item]) and Language[Settings.Language].PANEL.IMPORT or nil
 			Panels["IMPORT"].Circle = Import.canBack() and Language[Settings.Language].PANEL.BACK or nil
 		end
-		local viewH = 524 - LIST_TOP
+		local viewH = 524 - listTop()
 		if item ~= 0 then
 			local target = (item - 0.5) * ROW_H - viewH / 2
 			slider.Y = slider.Y + (target - slider.Y) / 4
@@ -1118,16 +1255,36 @@ end
 local function drawDownloads(item)
 	local list = downloadRows()
 	if #list == 0 then
-		drawEmpty(Language[Settings.Language].MESSAGE.NO_DOWNLOADING_MANGA, L().DOWNLOADS_HINT)
+		local view = currentDownloadView()
+		if view == "queue" then
+			drawEmpty(L().DL_QUEUE_EMPTY, L().DOWNLOADS_HINT)
+		elseif view == "done" then
+			drawEmpty(Language[Settings.Language].MESSAGE.NO_DOWNLOADING_MANGA, L().DOWNLOADS_HINT)
+		else
+			drawEmpty(L().DL_HISTORY_EMPTY, L().DL_HISTORY_HINT)
+		end
 		return
 	end
 	local first = max(1, floor(slider.Y / ROW_H) + 1)
 	for i = first, min(#list, first + 8) do
 		local row = list[i]
-		local y = LIST_TOP + (i - 1) * ROW_H - slider.Y
+		local y = listTop() + (i - 1) * ROW_H - slider.Y
 		if row.kind == "section" then
 			UI.text(BONT16, X0 + 20, y + ROW_H - 30, row.label, COLOR_ACCENT)
 			Graphics.fillRect(X0 + 20, X1 - 20, y + ROW_H - 6, y + ROW_H - 5, COLOR_DIVIDER)
+		elseif row.kind == "hist" then
+			drawRowBase(i, y, item == i)
+			local e = row.entry
+			UI.text(FONT20, X0 + 20, y + 10, e.manga or "?", COLOR_FONT, X1 - X0 - 230)
+			UI.text(FONT16, X0 + 20, y + 40, e.chapter or "?", COLOR_SUBFONT, X1 - X0 - 230)
+			local label, color = L().DL_STATUS_OK, COLOR_SUCCESS
+			if e.status == "failed" then
+				label, color = L().DL_STATUS_FAILED, COLOR_DANGER
+			elseif e.status == "canceled" then
+				label, color = L().DL_STATUS_CANCELED, COLOR_SUBFONT
+			end
+			UI.textRight(FONT16, X1 - 20, y + 12, label, color)
+			UI.textRight(FONT13, X1 - 20, y + 42, Clock.relative(e.t) or "", COLOR_SUBFONT)
 		elseif row.kind == "manga" then
 			drawRowBase(i, y, item == i)
 			local m = row.manga
@@ -1250,8 +1407,11 @@ local function drawHeader()
 	elseif status == "CATALOGS" then
 		UI.header(L().BROWSE, LS.PARSERS[Settings.ParserLanguage] or Settings.ParserLanguage)
 	elseif status == "DOWNLOAD" then
-		local n = #ChapterSaver.getDownloadingList()
-		UI.header(L().DOWNLOADS, n > 0 and tostring(n) or nil)
+		UI.header(L().DOWNLOADS)
+		local view = currentDownloadView()
+		for _, chip in ipairs(downloadChips()) do
+			UI.chip(chip.x0, 58, chip.label, chip.view == view)
+		end
 	elseif status == "SETTINGS" then
 		local tab = Settings.getTab()
 		if Settings.inTab() then
@@ -1284,7 +1444,7 @@ function Catalogs.draw()
 		drawGrid()
 	end
 	-- header band (drawn last so content scrolls beneath it)
-	local headerH = isGrid() and gridTop() - 6 or LIST_TOP - 4
+	local headerH = isGrid() and gridTop() - 6 or listTop() - 4
 	Graphics.fillRect(Config.RAIL_WIDTH, 960, 0, headerH, COLOR_BACK)
 	drawHeader()
 end
