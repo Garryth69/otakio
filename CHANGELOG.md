@@ -2,6 +2,20 @@
 
 All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the GitHub release with that tag.
 
+## Unreleased
+
+### Fixed
+- First-run setup: its last screen no longer offers *Open Extensions*. Choosing it skipped *Install recommended
+  sources*, and the setup never came back to offer it. The options are now *Install recommended sources* and *Done*.
+
+### Added
+- *Install recommended sources* is also in Extensions → Repositories (Select) while the Otakio extension repository
+  isn't added, for whoever skipped it in the setup or removed the repository. Like in the setup, nothing is added
+  until it is chosen. It is also offered while no extension is installed, e.g. after a setup done without a
+  connection (the repository was added but nothing could be installed).
+- *Install recommended sources* tells the cases apart: no connection (try again in Repositories), all recommended
+  sources already installed, or none for the chosen languages. Before, all three said "check the connection".
+
 ## 1.1.2
 
 ### Added

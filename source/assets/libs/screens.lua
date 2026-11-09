@@ -711,6 +711,14 @@ local function extAction(e)
 	end)
 end
 
+---Adds the Otakio repository and installs the recommended sources, then shows the installed tab
+function Ext.installOfficial()
+	Extensions.installOfficial()
+	Ext.tab = 1
+	Ext.list:reset()
+	Ext.version = -1
+end
+
 function Ext.repoMenu()
 	local items = {
 		{label = L().REFRESH_REPOS, value = "refresh"},
@@ -718,6 +726,11 @@ function Ext.repoMenu()
 		{label = "+ " .. L().ADD_REPO, value = "add"},
 		{label = L().IMPORT_NOBORU_PARSERS, value = "noboru"}
 	}
+	-- setup skipped, done without a connection, or the repository removed: the same opt-in as the setup's last
+	-- screen. Nothing is added until the user picks it, and its subtitle names the repository (no built-in sources)
+	if not Extensions.hasOfficialRepo() or Extensions.countInstalled() == 0 then
+		table.insert(items, 1, {label = L().SETUP_INSTALL_RECOMMENDED, sub = L().SETUP_INSTALL_RECOMMENDED_SUB, value = "official"})
+	end
 	for _, r in ipairs(Extensions.getRepos()) do
 		local st = Extensions.getRepoStatus(r.url)
 		local sub
@@ -734,6 +747,8 @@ function Ext.repoMenu()
 	Dialog.menu(L().REPOSITORIES, items, function(item)
 		if item.value == "refresh" then
 			Extensions.refresh(true)
+		elseif item.value == "official" then
+			Ext.installOfficial()
 		elseif item.value == "updateall" then
 			Extensions.updateAll()
 		elseif item.value == "add" then

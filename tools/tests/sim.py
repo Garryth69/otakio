@@ -50,10 +50,16 @@ def _stress():
 SCENARIOS = {
     "stress": _stress(),
     # first run with --setup: language, active languages (tick a 2nd one), adult content, direction, orientation,
-    # confirm button, theme, then "Open Extensions"
+    # confirm button, theme, then "Install recommended sources"
     "setup": [("wait", 60), "DOWN", "UP", "CROSS", ("wait", 20), "DOWN", "CROSS", "CIRCLE", ("wait", 20), "DOWN", "CROSS", ("wait", 20),
               "CIRCLE", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20),
               "CROSS", ("wait", 40), "CROSS", ("wait", 80)],
+    # first run without a connection: "Install recommended sources" can't read the repository (no-connection
+    # message), then Extensions > Repositories (Select) still offers it while nothing is installed. With a bundled
+    # catalog (test builds) the sources come from it instead
+    "setupoffline": [("wait", 60), "DOWN", "UP", "CROSS", ("wait", 20), "DOWN", "CROSS", "CIRCLE", ("wait", 20), "DOWN", "CROSS", ("wait", 20),
+                     "CIRCLE", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20),
+                     "CROSS", ("wait", 40), "CROSS", ("wait", 80), "SELECT", ("wait", 60), "CROSS", ("wait", 200)],
     # first run (--setup --online, SIM_FAKE_RELEASE) with an app update out: the update prompt must wait for the setup
     # and its recommended sources, then the update keeps the repository and the sources
     "setupupdate": [("wait", 60), "DOWN", "UP", "CROSS", ("wait", 20), "DOWN", "CROSS", "CIRCLE", ("wait", 20), "DOWN", "CROSS", ("wait", 20),

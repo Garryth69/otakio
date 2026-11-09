@@ -79,9 +79,9 @@ Language.Japanese = {
 	WARNINGS = {NO_CHAPTERS = "話がありません"},
 	OTAKIO = {
 		REPO_UNOFFICIAL_Q = "サードパーティのリポジトリを追加しますか？", REPO_UNOFFICIAL_MSG = "拡張機能はアプリ内で動くプログラムです。\n信頼できるリポジトリだけを追加してください。",
-		SETUP_INSTALL_RECOMMENDED = "おすすめのソースをインストール", SETUP_INSTALL_RECOMMENDED_SUB = "リポジトリ Garryth69/otakio-extensions を追加します", RECOMMENDED_QUEUED = "おすすめのソースを%d件インストール中", RECOMMENDED_NONE = "おすすめのソースが見つかりません（接続を確認してください）",
+		SETUP_INSTALL_RECOMMENDED = "おすすめのソースをインストール", SETUP_INSTALL_RECOMMENDED_SUB = "リポジトリ Garryth69/otakio-extensions を追加します", RECOMMENDED_QUEUED = "おすすめのソースを%d件インストール中", RECOMMENDED_NONE = "拡張機能リポジトリを読み込めません（接続を確認してください）。拡張機能 > リポジトリ でもう一度お試しください", RECOMMENDED_ALL_INSTALLED = "おすすめのソースはすでにインストールされています", RECOMMENDED_NONE_LANG = "選択した言語のおすすめソースはありません",
 		REMOVED_FROM_REPO = "リポジトリから削除済み・まだ使えますがアンインストールできます",
-		SETUP_STEP = "初期設定 %d/%d", SETUP_LANG_HINT = "メニューとボタンの言語。", SETUP_EXTLANG_HINT = "拡張機能と閲覧にはこの言語だけが表示されます。\n何も選ばない＝すべての言語。", SETUP_NSFW_HINT = "成人向けソースは許可しない限り表示されません。", SETUP_DIRECTION_HINT = "漫画：右から左。コミック：左から右。\nWebtoon：上から下。", SETUP_ORIENTATION_HINT = "読むときのVitaの持ち方。", SETUP_KEYS_HINT = "決定ボタン（もう一方は戻る）。", SETUP_DONE_TITLE = "準備完了！", SETUP_DONE = "拡張機能からソースをインストールしてください。\n設定はあとで「その他」から変更できます。", SETUP_OPEN_EXTENSIONS = "拡張機能を開く", SETUP_FINISH = "完了",
+		SETUP_STEP = "初期設定 %d/%d", SETUP_LANG_HINT = "メニューとボタンの言語。", SETUP_EXTLANG_HINT = "拡張機能と閲覧にはこの言語だけが表示されます。\n何も選ばない＝すべての言語。", SETUP_NSFW_HINT = "成人向けソースは許可しない限り表示されません。", SETUP_DIRECTION_HINT = "漫画：右から左。コミック：左から右。\nWebtoon：上から下。", SETUP_ORIENTATION_HINT = "読むときのVitaの持ち方。", SETUP_KEYS_HINT = "決定ボタン（もう一方は戻る）。", SETUP_DONE_TITLE = "準備完了！", SETUP_DONE = "拡張機能からソースをインストールしてください。\n設定はあとで「その他」から変更できます。", SETUP_FINISH = "完了",
 		NAV = {LIBRARY = "ライブラリ", UPDATES = "更新", HISTORY = "履歴", BROWSE = "さがす", EXTENSIONS = "拡張機能", DOWNLOADS = "DL", IMPORT = "インポート", MORE = "その他"},
 		LIBRARY = "ライブラリ", UPDATES = "更新", HISTORY = "履歴", BROWSE = "さがす", EXTENSIONS = "拡張機能",
 		DOWNLOADS = "ダウンロード", IMPORT = "インポート", MORE = "その他", GLOBAL_SEARCH = "まとめて検索",

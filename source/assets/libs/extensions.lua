@@ -159,6 +159,27 @@ function Extensions.removeRepo(url)
 	return false
 end
 
+---True when the Otakio extension repository is there (bundled in the app or added by the user)
+function Extensions.hasOfficialRepo()
+	for _, r in ipairs(Extensions.getRepos()) do
+		if r.builtin or Extensions.isOfficialRepo(r.url) then
+			return true
+		end
+	end
+	return false
+end
+
+---Adds the Otakio extension repository (if missing) and installs its recommended sources for the active
+---languages; adult ones only when allowed. Used by the first-run setup and by Extensions when it is missing.
+function Extensions.installOfficial()
+	if not Extensions.addRepo(Config.EXTENSIONS_REPO) then
+		Extensions.refresh(true)
+	end
+	Extensions.installRecommended(function(e)
+		return IsExtensionLangEnabled(e.lang, e.langs) and (Settings.NSFW or not e.nsfw)
+	end)
+end
+
 ---@return boolean true when at least one extension repository is configured
 function Extensions.hasRepos()
 	return #Extensions.getRepos() > 0
@@ -785,20 +806,40 @@ end
 ---Queues the install of every recommended extension that `accept(entry)` allows (first-run setup).
 ---Runs as a job after any pending refresh, so the catalog is loaded by then.
 function Extensions.installRecommended(accept)
-	addJob("recommended", function()
-		local n = 0
+	local function run()
+		-- a repository added while a refresh was running gets a second refresh pass, queued after this job:
+		-- go behind it, or the catalog would not have the new repository yet
+		if refreshing or refreshAgain then
+			addJob("recommended", run)
+			return
+		end
+		local n, found, have = 0, false, 0
 		for _, e in ipairs(catalog) do
-			if e.recommended and not installed[e.id] and (not accept or accept(e)) then
-				Extensions.install(e)
-				n = n + 1
+			if e.recommended then
+				found = true
+				if not accept or accept(e) then
+					if installed[e.id] or installing[e.id] then
+						-- installed, or already queued (the option picked twice)
+						have = have + 1
+					else
+						Extensions.install(e)
+						n = n + 1
+					end
+				end
 			end
 		end
 		if n > 0 then
 			Notifications.push(string.format(L().RECOMMENDED_QUEUED, n))
-		else
+		elseif not found then
+			-- the repository could not be read (no connection): it stays added, Repositories offers this again
 			Notifications.push(L().RECOMMENDED_NONE)
+		elseif have > 0 then
+			Notifications.push(L().RECOMMENDED_ALL_INSTALLED)
+		else
+			Notifications.push(L().RECOMMENDED_NONE_LANG)
 		end
-	end)
+	end
+	addJob("recommended", run)
 	touch()
 end
 

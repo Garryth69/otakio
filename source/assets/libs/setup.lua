@@ -31,7 +31,6 @@ local function finish()
 		message = T("SETUP_DONE"),
 		items = {
 			{label = T("SETUP_INSTALL_RECOMMENDED"), sub = T("SETUP_INSTALL_RECOMMENDED_SUB"), value = "rec"},
-			{label = T("SETUP_OPEN_EXTENSIONS"), value = "ext"},
 			{label = T("SETUP_FINISH"), value = "close"}
 		},
 		selected = 1,
@@ -42,17 +41,9 @@ local function finish()
 			active = false
 			if item.value == "rec" then
 				-- the user asked for it: add the Otakio extension repository (Mihon model: nothing is preinstalled),
-				-- then install its native sources for the active languages; adult ones only when allowed
-				if not Extensions.addRepo(Config.EXTENSIONS_REPO) then
-					Extensions.refresh(true)
-				end
-				Extensions.installRecommended(function(e)
-					return IsExtensionLangEnabled(e.lang, e.langs) and (Settings.NSFW or not e.nsfw)
-				end)
+				-- then install its native sources for the active languages
+				Extensions.installOfficial()
 				Screens.EXTENSIONS.tab = 1
-				Menu.setMode("EXTENSIONS")
-			elseif item.value == "ext" then
-				Screens.EXTENSIONS.tab = 2
 				Menu.setMode("EXTENSIONS")
 			end
 		end

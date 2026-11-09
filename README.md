@@ -36,7 +36,8 @@ Interface in English, Portuguese (Brazil), Spanish, French, German, Italian, Rus
    content, reading direction, orientation, confirm button and theme.
 3. On its last screen, **Install recommended sources** adds the
    [Otakio extension repository](https://github.com/Garryth69/otakio-extensions) and installs its own sources for the
-   languages you picked. You can skip this and add any repository later.
+   languages you picked. You can skip this: the same option stays in **Extensions → Select (Repositories)** while
+   that repository isn't added, and any other repository can be added there too.
 
 Your data lives in `ux0:data/otakio/` and is **kept** when you install a new version on top.
 

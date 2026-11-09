@@ -79,9 +79,9 @@ Language.ChineseTraditional = {
 	WARNINGS = {NO_CHAPTERS = "沒有章節"},
 	OTAKIO = {
 		REPO_UNOFFICIAL_Q = "新增第三方儲存庫？", REPO_UNOFFICIAL_MSG = "擴充功能是在應用程式中執行的程式碼。\n請只新增你信任的儲存庫。",
-		SETUP_INSTALL_RECOMMENDED = "安裝推薦來源", SETUP_INSTALL_RECOMMENDED_SUB = "新增儲存庫 Garryth69/otakio-extensions", RECOMMENDED_QUEUED = "正在安裝 %d 個推薦來源", RECOMMENDED_NONE = "找不到推薦來源（請檢查網路連線）",
+		SETUP_INSTALL_RECOMMENDED = "安裝推薦來源", SETUP_INSTALL_RECOMMENDED_SUB = "新增儲存庫 Garryth69/otakio-extensions", RECOMMENDED_QUEUED = "正在安裝 %d 個推薦來源", RECOMMENDED_NONE = "無法讀取擴充功能儲存庫（請檢查網路連線）。請在 擴充功能 > 儲存庫 中重試", RECOMMENDED_ALL_INSTALLED = "推薦來源已全部安裝", RECOMMENDED_NONE_LANG = "所選語言沒有推薦來源",
 		REMOVED_FROM_REPO = "已從儲存庫移除 · 仍可使用，可以解除安裝",
-		SETUP_STEP = "初始設定 %d/%d", SETUP_LANG_HINT = "選單與按鈕的語言。", SETUP_EXTLANG_HINT = "擴充功能與瀏覽中只顯示這些語言。\n都不勾選 = 所有語言。", SETUP_NSFW_HINT = "除非你允許，否則成人來源會被隱藏。", SETUP_DIRECTION_HINT = "日漫：從右到左。美漫：從左到右。\n條漫：從上到下。", SETUP_ORIENTATION_HINT = "閱讀時 Vita 的握持方向。", SETUP_KEYS_HINT = "確認鍵（另一個鍵為返回）。", SETUP_DONE_TITLE = "設定完成！", SETUP_DONE = "現在到「擴充功能」安裝來源吧。\n之後可在「更多」中修改所有設定。", SETUP_OPEN_EXTENSIONS = "開啟擴充功能", SETUP_FINISH = "完成",
+		SETUP_STEP = "初始設定 %d/%d", SETUP_LANG_HINT = "選單與按鈕的語言。", SETUP_EXTLANG_HINT = "擴充功能與瀏覽中只顯示這些語言。\n都不勾選 = 所有語言。", SETUP_NSFW_HINT = "除非你允許，否則成人來源會被隱藏。", SETUP_DIRECTION_HINT = "日漫：從右到左。美漫：從左到右。\n條漫：從上到下。", SETUP_ORIENTATION_HINT = "閱讀時 Vita 的握持方向。", SETUP_KEYS_HINT = "確認鍵（另一個鍵為返回）。", SETUP_DONE_TITLE = "設定完成！", SETUP_DONE = "現在到「擴充功能」安裝來源吧。\n之後可在「更多」中修改所有設定。", SETUP_FINISH = "完成",
 		NAV = {LIBRARY = "書櫃", UPDATES = "更新", HISTORY = "紀錄", BROWSE = "瀏覽", EXTENSIONS = "擴充功能", DOWNLOADS = "下載", IMPORT = "匯入", MORE = "更多"},
 		LIBRARY = "書櫃", UPDATES = "更新", HISTORY = "紀錄", BROWSE = "瀏覽", EXTENSIONS = "擴充功能",
 		DOWNLOADS = "下載", IMPORT = "匯入", MORE = "更多", GLOBAL_SEARCH = "全域搜尋",

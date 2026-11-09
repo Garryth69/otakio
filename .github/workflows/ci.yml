@@ -59,6 +59,7 @@ jobs:
           done
           echo "::group::setup"
           python tools/tests/sim.py setup --setup
+          python tools/tests/sim.py setupoffline --setup
           echo "::endgroup::"
           echo "::group::libscroll (400 covers)"
           python tools/tests/sim.py libscroll --seed-library 400
