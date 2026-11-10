@@ -5,6 +5,8 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 ## 1.1.4
 
 ### Added
+- **Turning pages waits less:** the next page starts loading as soon as you turn (not when the turn animation ends),
+  ahead of covers and source work, and the page just left stays decoded while memory allows, so going back is instant.
 - **A page that fails to load says so** (instead of loading forever): *Press X to try again*, also from the menu's
   reload icon.
 - **The screen stays on while reading** (where the engine allows it): no dimming or sleep in the middle of a chapter.

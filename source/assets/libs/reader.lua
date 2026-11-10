@@ -350,6 +350,21 @@ local function loadPageImage(page, urgent)
 		end
 	end
 end
+local AHEAD_PRIORITY = Threads.URGENT + 1 -- right after the page on screen, before covers and source work
+local KEEP_PREV_BYTES = 16 * 1024 * 1024
+
+---The page after the one on screen (in the reading direction), decoded ahead so turning to it doesn't wait
+local function loadAhead(p)
+	local pg = allPages[p]
+	if not pg or pg.Image or pg.LoadFailed or pg.Link == "LoadPrev" or pg.Link == "LoadNext" or Threads.check(pg) then
+		return
+	end
+	local old = Threads.defaultPriority
+	Threads.defaultPriority = AHEAD_PRIORITY
+	loadPageImage(p, false)
+	Threads.defaultPriority = old
+end
+
 ---@param page integer
 local function changePage(page)
 	if page < 0 and currentChapterNumber > 1 or page > #allPages then
@@ -360,12 +375,10 @@ local function changePage(page)
 	if allPages[allPages.Page].Link == "LoadNext" or allPages[allPages.Page].Link == "LoadPrev" then
 		return true
 	end
-	local o = {0}
-	for k = 1, #o do
-		local p = page + o[k]
-		if allPages[p] then
-			loadPageImage(p)
-		end
+	loadPageImage(page)
+	-- the next one starts now, not when the turn animation ends
+	if allPages.PrevPage and allPages.PrevPage ~= page then
+		loadAhead(page + (page > allPages.PrevPage and 1 or -1))
 	end
 	prefetchPending = {page = page, direction = (readDirection == "LEFT" and not is_down) and -1 or 1}
 	Timer.reset(prefetchTimer)
@@ -1709,49 +1722,12 @@ function Reader.update()
 		end
 		gesture_touch_update()
 		if allPages.PrevPage and allPages.PrevPage ~= allPages.Page and (((is_down and currentPageOffset.y or currentPageOffset.x) >= 0 and allPages.PrevPage > allPages.Page or (is_down and currentPageOffset.y or currentPageOffset.x) <= 0 and allPages.PrevPage < allPages.Page) and orientation == "Horizontal" or ((is_down and -currentPageOffset.x or currentPageOffset.y) >= 0 and allPages.PrevPage > allPages.Page or (is_down and -currentPageOffset.x or currentPageOffset.y) <= 0 and allPages.PrevPage < allPages.Page) and orientation == "Vertical") then
-			if allPages.PrevPage > 0 and allPages.PrevPage <= #allPages then
+			-- the page just left stays decoded (going back is instant) while textures are plentiful; two pages away
+			-- it goes anyway (changePage)
+			if allPages.PrevPage > 0 and allPages.PrevPage <= #allPages and not Textures.canAfford(KEEP_PREV_BYTES) then
 				deletePageImage(allPages.PrevPage)
 			end
-			local p = allPages.Page + math.sign(allPages.Page - allPages.PrevPage)
-			if p > 0 and p <= #allPages then
-				if not allPages[p].Image and not (allPages[p].Link == "LoadPrev" or allPages[p].Link == "LoadNext") then
-					if allPages[p].Extract then
-						local new_page = allPages[p]
-						Threads.addTask(
-							new_page,
-							{
-								Type = "UnZipFile",
-								Path = new_page.Path,
-								Extract = new_page.Extract,
-								DestPath = "ux0:data/otakio/temp/cache.image",
-								OnComplete = function()
-									Threads.insertTask(
-										new_page,
-										{
-											Type = "Image",
-											Table = new_page,
-											Path = "temp/cache.image",
-											Index = "Image"
-										}
-									)
-								end
-							}
-						)
-					elseif allPages[p].Path then
-						Threads.addTask(
-							allPages[p],
-							{
-								Type = "Image",
-								Path = allPages[p].Path,
-								Table = allPages[p],
-								Index = "Image"
-							}
-						)
-					else
-						requestRemotePage(allPages[p], false)
-					end
-				end
-			end
+			loadAhead(allPages.Page + math.sign(allPages.Page - allPages.PrevPage))
 		end
 		local o = readDirection == "LEFT" and {1, -1, 0} or {-1, 1, 0}
 		for k = 1, #o do
