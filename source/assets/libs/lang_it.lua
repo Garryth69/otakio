@@ -37,7 +37,7 @@ Language.Italian = {
 	},
 	READER = {
 		Horizontal = "Orizzontale", Vertical = "Verticale", Smart = "Intelligente", Height = "Adatta all'altezza", Width = "Adatta alla larghezza", Default = "Predefinito",
-		LEFT = "Da destra a sinistra", RIGHT = "Da sinistra a destra", DOWN = "Dall'alto in basso", WEBTOON = "Webtoon (continuo)", WT_NEXT = "Capitolo successivo: continua a scorrere", WT_PREV = "Capitolo precedente: continua a scorrere", WT_LAST = "Questo è l'ultimo capitolo",
+		LEFT = "Da destra a sinistra", RIGHT = "Da sinistra a destra", DOWN = "Dall'alto in basso", WEBTOON = "Webtoon (continuo)", WT_NEXT = "Capitolo successivo: continua a scorrere", WT_PREV = "Capitolo precedente: continua a scorrere", WT_LAST = "Questo è l'ultimo capitolo", PAGE_FAILED = "Impossibile caricare la pagina. Premi X per riprovare",
 		LOADING_PAGE = "Caricamento pagina", LOADING_SEGMENT = "Caricamento sezione", PREPARING_PAGES = "Preparazione pagine"
 	},
 	SETTINGS = {

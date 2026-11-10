@@ -5,12 +5,18 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 ## 1.1.4
 
 ### Added
+- **A page that fails to load says so** (instead of loading forever): *Press X to try again*, also from the menu's
+  reload icon.
+- **The screen stays on while reading** (where the engine allows it): no dimming or sleep in the middle of a chapter.
+- **Diagnostics:** the log notes every 30 s how long pages took to show up (average, worst, how many were ready).
 - **Webtoon mode:** a new reading direction, *Webtoon (continuous)*, for the whole app (first-run setup, Settings) or
   for one title (reader settings sheet). The chapter's pages sit one under the other and the view scrolls over them,
   like on the sites: the sticks and the d-pad scroll, L/R (or a tap on the top/bottom edge) glide one screen,
   dragging scrolls with inertia, Triangle/Square, the right stick or a pinch zoom in (up to 3x) or out (down to 40%,
   to see more of the strip). It follows the Orientation setting: in *Vertical*, with the Vita held upright, the strip
-  fills the 544-pixel width and the controls turn with it. Scrolling on past
+  fills the 544-pixel width and the controls turn with it.
+  Leaving a chapter keeps the exact spot inside the page (not just the page) and the title keeps its zoom; a double
+  tap zooms in on that point (2x) or back to the screen width. Scrolling on past
   the end (or pressing R there) opens the next chapter; past the top, the previous one, at its end. Pages load ahead
   of the view and are freed behind it, and a page that loads above the view doesn't move what is being read.
 - **Tall pages are read by screens.** On a page taller than the screen (a webtoon strip, or a portrait page fitted to

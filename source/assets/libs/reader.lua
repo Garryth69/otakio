@@ -311,6 +311,7 @@ end)
 ---@param urgent boolean|nil false: queued behind the current work (a page ahead of the view in webtoon mode)
 local function loadPageImage(page, urgent)
 	local PageTable = allPages[page]
+	PageTable.LoadFailed = nil
 	local add = urgent == false and Threads.addTask or Threads.insertTask
 	if not PageTable.Image and not (PageTable.Link == "LoadPrev" or PageTable.Link == "LoadNext") then
 		if PageTable.Extract then
@@ -572,7 +573,7 @@ local wtVertical = false
 local WT_PLACEHOLDER = 544 -- height of a page while its image is unknown
 local WT_END_ZONE = 160 -- scrolling this far past an end changes the chapter
 local wt = {page = 1, offset = 0, zoom = 1, x = 0, vel = 0, glide = 0, push = 0, overTop = 0, overEnd = 0, atTop = true, atEnd = false, stickEnd = false}
-local wtTouch = {active = false}
+local wtTouch = {active = false, lastTap = -1000, tapX = 0, tapY = 0}
 local wtClock = Timer.new()
 
 ---@return number|nil width, number|nil height of the decoded image of `page`
@@ -702,6 +703,19 @@ local function wtZoomBy(f)
 	wt.x = wt.x * f
 end
 
+---Zooms to `zoom` keeping the point (px, py) of the screen (reading coordinates) where it is
+local function wtZoomAt(zoom, px, py)
+	local new = math.max(WT_MIN_ZOOM, math.min(WT_MAX_ZOOM, zoom))
+	local f = new / wt.zoom
+	if f == 1 then
+		return
+	end
+	wt.zoom = new
+	wt.offset = (wt.offset + py) * f - py
+	local cx = WT_W / 2 + wt.x
+	wt.x = px - (px - cx) * f - WT_W / 2
+end
+
 local function wtNextChapter()
 	if currentChapterNumber < #Chapters then
 		if Cache.isCached(Chapters[currentChapterNumber].Manga) then
@@ -766,7 +780,7 @@ local function wtManageImages()
 	local y = -wt.offset
 	for p = first, last do
 		local pg = allPages[p]
-		if pg and not pg.Image and pg.Link ~= "LoadPrev" and pg.Link ~= "LoadNext" and (not pg.WtAsked or now - pg.WtAsked > 4000) then
+		if pg and not pg.Image and not pg.LoadFailed and pg.Link ~= "LoadPrev" and pg.Link ~= "LoadNext" and (not pg.WtAsked or now - pg.WtAsked > 4000) then
 			pg.WtAsked = now
 			loadPageImage(p, p >= wt.page and y < WT_H)
 		end
@@ -784,13 +798,32 @@ local function wtManageImages()
 end
 
 ---Start of a chapter in webtoon mode (after the pages are known): at the bookmark, or at the end when coming back
-local function wtStart()
+local function wtStart(restore)
 	wtVertical = orientation == "Vertical"
 	WT_W, WT_H = wtVertical and 544 or 960, wtVertical and 960 or 544
 	wt.page = math.max(1, math.min(allPages.Page or 1, allPages.Count or 1))
 	wt.offset, wt.vel, wt.glide, wt.x, wt.push = 0, 0, 0, 0, 0
 	wt.stickEnd = (allPages.PrevPage or 0) > (allPages.Page or 0)
 	wtTouch.active = false
+	wt.zoomTo, wt.spot = nil, nil
+	-- back in the chapter where reading stopped: the exact spot inside the page, once that page's size is known
+	local chapter = Chapters and Chapters[currentChapterNumber]
+	if restore and chapter and not wt.stickEnd and Cache.getBookmark(chapter) ~= true then
+		local page, frac = Cache.getWebtoonSpot(chapter)
+		if page and frac and page >= 1 and page <= (allPages.Count or 0) then
+			wt.page, wt.spot = page, frac
+		end
+	end
+end
+
+---Remembers where the view stands (Circle / back), for wtStart next time
+local function wtSaveSpot()
+	local chapter = Chapters and Chapters[currentChapterNumber]
+	local page = allPages[wt.page]
+	if chapter and page and Cache.isCached(chapter.Manga) then
+		local h = wtHeight(page)
+		Cache.setWebtoonSpot(chapter, wt.page, h > 0 and math.max(0, wt.offset) / h or 0, wt.zoom)
+	end
 end
 
 ---Webtoon mode input: sticks and d-pad scroll (sideways when zoomed), L/R step a screen, Triangle/Square and the
@@ -825,6 +858,18 @@ local function webtoonInput(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 		wt.x = wt.x - SCE_LEFT_STICK_SENSITIVITY * 25 * (sx - SCE_LEFT_STICK_DEADZONE * math.sign(sx)) / (128 - SCE_LEFT_STICK_DEADZONE)
 	end
 	if not ContextMenu then
+		if Controls.check(pad, SCE_CTRL_CROSS) and not Controls.check(oldPad, SCE_CTRL_CROSS) then
+			-- Cross: try again the pages on screen that failed to load
+			local p, y = wt.page, -wt.offset
+			while allPages[p] and y < WT_H do
+				if allPages[p].LoadFailed then
+					allPages[p].WtAsked = nil
+					loadPageImage(p)
+				end
+				y = y + wtHeight(allPages[p])
+				p = p + 1
+			end
+		end
 		if Controls.check(pad, down) then
 			wt.offset, wt.push, wt.vel = wt.offset + 20, wt.push + 20, 0
 		elseif Controls.check(pad, up) then
@@ -895,7 +940,17 @@ local function webtoonInput(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 	elseif wtTouch.active then
 		wtTouch.active = false
 		touchMode = TOUCH_IDLE
+		local now = Timer.getTime(wtClock)
+		local double = Settings.DoubleTapReader and oldTouch.x and now - wtTouch.lastTap < 300 and math.abs(oldTouch.x - wtTouch.tapX) < 80 and math.abs(oldTouch.y - wtTouch.tapY) < 80
 		if not wtTouch.moved and oldTouch.x then
+			wtTouch.lastTap, wtTouch.tapX, wtTouch.tapY = now, oldTouch.x, oldTouch.y
+		end
+		if not wtTouch.moved and double then
+			-- double tap: zoom in on that point, or back to the width of the screen
+			toggleContextMenu = false
+			wtTouch.lastTap = -1000
+			wt.zoomTo = {zoom = wt.zoom < 1.5 and 2 or 1, x = oldTouch.x, y = oldTouch.y}
+		elseif not wtTouch.moved and oldTouch.x then
 			if Settings.PressEdgesToChangePage and oldTouch.y > WT_H / 2 + 120 then
 				wtStep(1)
 			elseif Settings.PressEdgesToChangePage and oldTouch.y < WT_H / 2 - 120 then
@@ -910,6 +965,26 @@ end
 
 ---Webtoon mode, every frame: inertia, limits, chapter change at the ends, the current page, the images around
 local function webtoonUpdate()
+	if wt.push ~= 0 or (wtTouch.active and wtTouch.moved) then
+		wt.spot = nil
+	end
+	if wt.spot then
+		local page = allPages[wt.page]
+		if page and wtImageSize(page) then
+			wt.offset, wt.spot = wt.spot * wtHeight(page), nil
+		elseif not page then
+			wt.spot = nil
+		end
+	end
+	if wt.zoomTo then
+		local z = wt.zoomTo
+		if math.abs(z.zoom - wt.zoom) < 0.01 then
+			wtZoomAt(z.zoom, z.x, z.y)
+			wt.zoomTo = nil
+		else
+			wtZoomAt(wt.zoom + (z.zoom - wt.zoom) / 4, z.x, z.y)
+		end
+	end
 	if not wtTouch.active and wt.vel ~= 0 then
 		wt.offset = wt.offset + wt.vel
 		wt.vel = wt.vel * 0.93
@@ -949,7 +1024,20 @@ local function webtoonUpdate()
 	wtManageImages()
 end
 
+-- while reading, the Vita doesn't dim or sleep by itself (System.disableTimer of the engine, if present)
+local keepAwake = false
+local function setKeepAwake(on)
+	if on == keepAwake then
+		return
+	end
+	local f = on and System.disableTimer or System.enableTimer
+	if f and pcall(f) then
+		keepAwake = on
+	end
+end
+
 local function exit()
+	setKeepAwake(false)
 	for i = 1, #allPages do
 		deletePageImage(i)
 	end
@@ -987,6 +1075,9 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 	end
 	if Controls.check(pad, SCE_CTRL_CIRCLE) or ContextMenu and touch.x and touch.x < 88 and touch.y < 80 * MenuFade and not oldTouch.x then
 		if allPages.Page > 0 then
+			if is_webtoon then
+				wtSaveSpot()
+			end
 			local bookmark
 			if readDirection == "LEFT" then
 				bookmark = allPages.Count - allPages.Page + 1
@@ -1023,6 +1114,10 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 		if is_webtoon then
 			webtoonInput(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 		else
+			-- Cross on a page that failed to load: try again
+			if not ContextMenu and allPages[allPages.Page].LoadFailed and Controls.check(pad, SCE_CTRL_CROSS) and not Controls.check(oldPad, SCE_CTRL_CROSS) then
+				loadPageImage(allPages.Page)
+			end
 			local page = allPages[allPages.Page]
 			gesture_touch_input(touch, oldTouch, allPages[allPages.Page])
 			if page.Zoom then
@@ -1346,6 +1441,9 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 					elseif not Controls.check(oldPad, SCE_CTRL_CROSS) then
 						if CursorIndex == 0 then
 							if allPages.Page > 0 then
+								if is_webtoon then
+									wtSaveSpot()
+								end
 								local bookmark
 								if readDirection == "LEFT" then
 									bookmark = allPages.Count - allPages.Page + 1
@@ -1432,6 +1530,27 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 end
 
 local counterShift = 0
+
+-- page ready (diag.lua): from reaching a page to its image on screen
+local readyWatch = {page = nil, t = 0, done = true}
+local function watchPageReady(page)
+	if page.Link == "LoadNext" or page.Link == "LoadPrev" then
+		return
+	end
+	local now = Timer.getTime(wtClock)
+	if readyWatch.page ~= page then
+		readyWatch.page, readyWatch.t, readyWatch.done = page, now, page.Image ~= nil
+		if readyWatch.done then
+			Diag.pageReady(0)
+		end
+	elseif not readyWatch.done and (page.Image or page.LoadFailed) then
+		readyWatch.done = true
+		if page.Image then
+			Diag.pageReady(now - readyWatch.t)
+		end
+	end
+end
+
 
 ---The page counter slides away a while after the last input, or while the bars are shown
 local function shiftCounter()
@@ -1563,7 +1682,7 @@ function Reader.update()
 				startPage = nil
 			end
 			if is_webtoon then
-				wtStart()
+				wtStart(true)
 			end
 			Timer.reset(hideCounterTimer)
 		end
@@ -1571,6 +1690,7 @@ function Reader.update()
 		if not allPages[allPages.Page] then
 			return
 		end
+		watchPageReady(allPages[allPages.Page])
 		if prefetchPending then
 			local shown = allPages[prefetchPending.page]
 			if prefetchPending.page ~= allPages.Page then
@@ -2074,7 +2194,11 @@ local function webtoonDraw()
 				end
 			else
 				local ty = (math.max(y, 0) + math.min(y + h, WT_H)) / 2
-				wtText(FONT16, cx, ty, R.LOADING_PAGE .. dots, COLOR_FONT)
+				if page.LoadFailed then
+					wtText(FONT16, cx, ty, R.PAGE_FAILED, COLOR_FONT)
+				else
+					wtText(FONT16, cx, ty, R.LOADING_PAGE .. dots, COLOR_FONT)
+				end
 				if wtVertical then
 					wtBar(cx + 26, ty, Threads.getProgress(page))
 				else
@@ -2206,6 +2330,9 @@ function Reader.draw()
 			elseif page then
 				local precentage = Threads.getProgress(page)
 				local loading = Language[Settings.Language].READER.LOADING_PAGE .. string.sub("...", 1, math.ceil(Timer.getTime(GlobalTimer) / 250) % 4)
+				if page.LoadFailed then
+					loading, precentage = Language[Settings.Language].READER.PAGE_FAILED, 0
+				end
 				local Width = Font.getTextWidth(FONT16, loading)
 				if orientation == "Horizontal" then
 					Font.print(FONT16, currentPageOffset.x + 960 * (is_down and 0 or i) + 480 - Width / 2, 272 + currentPageOffset.y + 544 * (is_down and i or 0) - 10, loading, COLOR_FONT)
@@ -2417,6 +2544,8 @@ function Reader.load(chapters, num)
 		autozoom = settings.ZoomReader == "Default" and Settings.ZoomReader or settings.ZoomReader
 	end
 	Chapters = chapters
+	setKeepAwake(true)
+	wt.zoom = math.max(WT_MIN_ZOOM, math.min(WT_MAX_ZOOM, Cache.getWebtoonZoom(chapters[1].Manga) or 1))
 	startPage = Cache.getBookmark(chapters[num])
 	if startPage == true or startPage == nil then
 		startPage = 1

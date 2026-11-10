@@ -37,7 +37,7 @@ Language.English = {
 	},
 	READER = {
 		Horizontal = "Horizontal", Vertical = "Vertical", Smart = "Smart", Height = "Fit height", Width = "Fit width", Default = "Default",
-		LEFT = "Right to left", RIGHT = "Left to right", DOWN = "Top to bottom", WEBTOON = "Webtoon (continuous)", WT_NEXT = "Next chapter: keep scrolling", WT_PREV = "Previous chapter: keep scrolling", WT_LAST = "This is the last chapter",
+		LEFT = "Right to left", RIGHT = "Left to right", DOWN = "Top to bottom", WEBTOON = "Webtoon (continuous)", WT_NEXT = "Next chapter: keep scrolling", WT_PREV = "Previous chapter: keep scrolling", WT_LAST = "This is the last chapter", PAGE_FAILED = "Couldn't load this page. Press X to try again",
 		LOADING_PAGE = "Loading page", LOADING_SEGMENT = "Loading segment", PREPARING_PAGES = "Preparing pages"
 	},
 	SETTINGS = {

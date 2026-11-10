@@ -37,7 +37,7 @@ Language.Spanish = {
 	},
 	READER = {
 		Horizontal = "Horizontal", Vertical = "Vertical", Smart = "Inteligente", Height = "Ajustar al alto", Width = "Ajustar al ancho", Default = "Predeterminado",
-		LEFT = "De derecha a izquierda", RIGHT = "De izquierda a derecha", DOWN = "De arriba abajo", WEBTOON = "Webtoon (continuo)", WT_NEXT = "Siguiente capítulo: sigue desplazando", WT_PREV = "Capítulo anterior: sigue desplazando", WT_LAST = "Este es el último capítulo",
+		LEFT = "De derecha a izquierda", RIGHT = "De izquierda a derecha", DOWN = "De arriba abajo", WEBTOON = "Webtoon (continuo)", WT_NEXT = "Siguiente capítulo: sigue desplazando", WT_PREV = "Capítulo anterior: sigue desplazando", WT_LAST = "Este es el último capítulo", PAGE_FAILED = "No se pudo cargar la página. Pulsa X para reintentar",
 		LOADING_PAGE = "Cargando página", LOADING_SEGMENT = "Cargando parte", PREPARING_PAGES = "Preparando páginas"
 	},
 	SETTINGS = {

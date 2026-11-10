@@ -240,6 +240,8 @@ Timer = {
 local lfs = SIM.fs -- provided by python
 local handles = {}
 System = {
+	disableTimer = function() SIM.awake = (SIM.awake or 0) + 1 end,
+	enableTimer = function() SIM.awake = (SIM.awake or 0) - 1 end,
 	doesFileExist = function(p) return SIM.fs.isfile(mapPath(p)) end,
 	doesDirExist = function(p) return SIM.fs.isdir(mapPath(p)) end,
 	createDirectory = function(p) SIM.fs.mkdir(mapPath(p)) end,

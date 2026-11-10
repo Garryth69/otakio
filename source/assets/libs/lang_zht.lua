@@ -37,7 +37,7 @@ Language.ChineseTraditional = {
 	},
 	READER = {
 		Horizontal = "橫向", Vertical = "直向", Smart = "智慧", Height = "符合高度", Width = "符合寬度", Default = "預設",
-		LEFT = "由右至左", RIGHT = "由左至右", DOWN = "由上至下", WEBTOON = "條漫（連續）", WT_NEXT = "下一章：繼續捲動", WT_PREV = "上一章：繼續捲動", WT_LAST = "這是最後一章",
+		LEFT = "由右至左", RIGHT = "由左至右", DOWN = "由上至下", WEBTOON = "條漫（連續）", WT_NEXT = "下一章：繼續捲動", WT_PREV = "上一章：繼續捲動", WT_LAST = "這是最後一章", PAGE_FAILED = "無法載入此頁。按 X 重試",
 		LOADING_PAGE = "正在載入頁面", LOADING_SEGMENT = "正在載入片段", PREPARING_PAGES = "正在準備頁面"
 	},
 	SETTINGS = {

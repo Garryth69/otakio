@@ -323,6 +323,9 @@ local function fail(task, reason)
 		task.Stage = nil
 		enqueue(task, false)
 	else
+		if not task.Cancelled and type(task.Table) == "table" and task.Index == "Image" then
+			task.Table.LoadFailed = tostring(reason) -- the reader shows it with a way to try again
+		end
 		release(task)
 	end
 end

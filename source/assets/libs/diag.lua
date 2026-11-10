@@ -208,6 +208,27 @@ local function hitchReport()
 	end
 end
 
+local ready = {n = 0, sum = 0, max = 0, instant = 0}
+---Reader: `ms` from reaching a page to its image on screen (under 50 ms counts as instant: it was ready)
+function Diag.pageReady(ms)
+	ready.n = ready.n + 1
+	ready.sum = ready.sum + ms
+	if ms > ready.max then
+		ready.max = ms
+	end
+	if ms < 50 then
+		ready.instant = ready.instant + 1
+	end
+end
+
+local function readyReport()
+	if ready.n == 0 then
+		return
+	end
+	log(string.format("page ready: %d pages, avg %d ms, worst %d ms, %d instant", ready.n, ready.sum / ready.n, ready.max, ready.instant))
+	ready = {n = 0, sum = 0, max = 0, instant = 0}
+end
+
 local lastRam, lastGpu, lastCheck = nil, nil, 0
 ---Called every frame: every 30 s logs the slow frames, and memory when it moved by 8 MB or more
 function Diag.update()
@@ -217,6 +238,7 @@ function Diag.update()
 	end
 	lastCheck = now
 	hitchReport()
+	readyReport()
 	local ram, gpu, lua = memoryLine()
 	if not ram or not gpu then
 		return

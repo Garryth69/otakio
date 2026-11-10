@@ -37,7 +37,7 @@ Language.Japanese = {
 	},
 	READER = {
 		Horizontal = "横", Vertical = "縦", Smart = "スマート", Height = "高さに合わせる", Width = "幅に合わせる", Default = "標準",
-		LEFT = "右から左", RIGHT = "左から右", DOWN = "上から下", WEBTOON = "ウェブトゥーン（連続）", WT_NEXT = "次の話：そのままスクロール", WT_PREV = "前の話：そのままスクロール", WT_LAST = "これが最後の話です",
+		LEFT = "右から左", RIGHT = "左から右", DOWN = "上から下", WEBTOON = "ウェブトゥーン（連続）", WT_NEXT = "次の話：そのままスクロール", WT_PREV = "前の話：そのままスクロール", WT_LAST = "これが最後の話です", PAGE_FAILED = "ページを読み込めませんでした。X で再試行",
 		LOADING_PAGE = "ページを読み込み中", LOADING_SEGMENT = "部分を読み込み中", PREPARING_PAGES = "ページを準備中"
 	},
 	SETTINGS = {

@@ -181,6 +181,34 @@ function Cache.getBookmark(chapter)
 	return bookmarks[mangaKey] and bookmarks[mangaKey][chapterKey]
 end
 
+---Webtoon mode: where the view stood in `chapter` (`page`, `frac` = offset into that page / its height) and the
+---title's zoom. Kept in memory with the bookmarks and written with the next Cache.setBookmark
+function Cache.setWebtoonSpot(chapter, page, frac, zoom)
+	if Settings.Incognito then
+		return
+	end
+	local mangaKey = getKey(chapter.Manga)
+	bookmarks[mangaKey] = bookmarks[mangaKey] or {}
+	bookmarks[mangaKey].WtSpot = {Key = (chapter.Link:gsub("%p", "")), Page = page, Frac = frac}
+	bookmarks[mangaKey].WtZoom = zoom
+end
+
+---@return integer|nil page, number|nil frac where the view stood in `chapter` (if it is the last one read in webtoon mode)
+function Cache.getWebtoonSpot(chapter)
+	local b = bookmarks[getKey(chapter.Manga)]
+	local spot = b and b.WtSpot
+	if type(spot) == "table" and spot.Key == (chapter.Link:gsub("%p", "")) then
+		return tonumber(spot.Page), tonumber(spot.Frac)
+	end
+	return nil
+end
+
+---@return number|nil the webtoon zoom last used for `manga`
+function Cache.getWebtoonZoom(manga)
+	local b = bookmarks[getKey(manga)]
+	return b and tonumber(b.WtZoom)
+end
+
 ---@param manga table
 ---@return string
 ---Gives key for latest closed chapter
