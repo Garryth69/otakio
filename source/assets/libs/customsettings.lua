@@ -96,7 +96,7 @@ end
 ---Changes readDirection settings for `manga`
 function CuSettings.changeDirection(manga)
 	local key = getKey(manga)
-	customSettings[key].ReaderDirection = table.next(customSettings[key].ReaderDirection, {"RIGHT", "LEFT", "DOWN", "Default"})
+	customSettings[key].ReaderDirection = table.next(customSettings[key].ReaderDirection, {"RIGHT", "LEFT", "DOWN", "WEBTOON", "Default"})
 	if resetToDefault(manga, key) then
 		save(manga, key)
 	end

@@ -139,10 +139,13 @@ Graphics = {
 	-- a slice of a tall image; slices taller than the 4096 px texture limit come back at half size
 	loadPartImageAsync = function(path, x, y, w, h)
 		w, h = w or 160, h or 240
-		if h > 4096 then
+		local half = h > 4096
+		-- the slice as its own picture when the file is there (sim.py FS.cropImage), so screenshots show it
+		local part = SIM.fs and SIM.fs.cropImage and SIM.fs.cropImage(mapPath(path), x or 0, y or 0, w, h, half)
+		if half then
 			w, h = math.ceil(w / 2), math.ceil(h / 2)
 		end
-		asyncResult = newImage(w, h)
+		asyncResult = newImage(w, h, part or nil)
 	end,
 	loadGifAsync = function(path) asyncResult = nil end,
 	returnGif = function() return nil end,

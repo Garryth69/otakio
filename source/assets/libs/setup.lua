@@ -215,7 +215,7 @@ steps = {
 		end,
 		hint = "SETUP_DIRECTION_HINT",
 		items = function()
-			return choices({"LEFT", "RIGHT", "DOWN"}, Settings.ReaderDirection, function(v)
+			return choices({"LEFT", "RIGHT", "DOWN", "WEBTOON"}, Settings.ReaderDirection, function(v)
 				return LS().READER[v]
 			end)
 		end,

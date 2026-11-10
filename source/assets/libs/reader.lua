@@ -34,6 +34,7 @@ local startPage
 
 local orientation
 local is_down
+local is_webtoon -- reading direction "WEBTOON": continuous vertical scrolling (see the Webtoon mode section)
 local autozoom
 
 local hideCounterTimer = Timer.new()
@@ -306,11 +307,14 @@ Textures.register("reader-pages", 2, function()
 	end
 end)
 
-local function loadPageImage(page)
+---@param page integer
+---@param urgent boolean|nil false: queued behind the current work (a page ahead of the view in webtoon mode)
+local function loadPageImage(page, urgent)
 	local PageTable = allPages[page]
+	local add = urgent == false and Threads.addTask or Threads.insertTask
 	if not PageTable.Image and not (PageTable.Link == "LoadPrev" or PageTable.Link == "LoadNext") then
 		if PageTable.Extract then
-			Threads.insertTask(
+			add(
 				PageTable,
 				{
 					Type = "UnZipFile",
@@ -331,7 +335,7 @@ local function loadPageImage(page)
 				}
 			)
 		elseif PageTable.Path then
-			Threads.insertTask(
+			add(
 				PageTable,
 				{
 					Type = "Image",
@@ -341,7 +345,7 @@ local function loadPageImage(page)
 				}
 			)
 		else
-			requestRemotePage(PageTable, true)
+			requestRemotePage(PageTable, urgent ~= false)
 		end
 	end
 end
@@ -556,6 +560,369 @@ local function turnPage(direction)
 	end
 end
 
+-------------------------------------------------------------------------------
+-- Webtoon mode (reading direction "WEBTOON"): the pages of the chapter sit one under the other and the view scrolls
+-- over them like on the sites; at the ends, scrolling on changes the chapter. The view is kept as (page, offset into
+-- that page): a page that loads above the view (its height was unknown) doesn't move what is being read.
+-------------------------------------------------------------------------------
+local WT_W, WT_H = 960, 544
+local WT_PLACEHOLDER = 544 -- height of a page while its image is unknown
+local WT_END_ZONE = 160 -- scrolling this far past an end changes the chapter
+local wt = {page = 1, offset = 0, zoom = 1, x = 0, vel = 0, glide = 0, push = 0, overTop = 0, overEnd = 0, atTop = true, atEnd = false, stickEnd = false}
+local wtTouch = {active = false}
+local wtClock = Timer.new()
+
+---@return number|nil width, number|nil height of the decoded image of `page`
+local function wtImageSize(page)
+	local img = page.Image
+	if not img then
+		return nil
+	end
+	if img.Width and img.Height then
+		return img.Width, img.Height
+	end
+	if img[1] and img[1].Image then -- animated image: a list of frames
+		return img[1].Image.Width, img[1].Image.Height
+	end
+	return nil
+end
+
+---Scale of `page` on screen: the page fills the screen width, times the user's zoom
+local function wtScale(page)
+	local w = wtImageSize(page)
+	if not w or w <= 0 then
+		return wt.zoom
+	end
+	return WT_W * wt.zoom / w
+end
+
+---Height of `page` on screen (a placeholder while its image is unknown)
+local function wtHeight(page)
+	local w, h = wtImageSize(page)
+	if not w or not h or w <= 0 then
+		return WT_PLACEHOLDER
+	end
+	return h * WT_W * wt.zoom / w
+end
+
+---Moves to the neighbouring pages when the offset leaves the current one
+local function wtSettle()
+	local count = allPages.Count or 0
+	while wt.page < count and wt.offset >= wtHeight(allPages[wt.page]) do
+		wt.offset = wt.offset - wtHeight(allPages[wt.page])
+		wt.page = wt.page + 1
+	end
+	while wt.page > 1 and wt.offset < 0 do
+		wt.page = wt.page - 1
+		wt.offset = wt.offset + wtHeight(allPages[wt.page])
+	end
+end
+
+---Keeps the view inside the chapter. Past an end only while the user pushes that way (`push`: this frame's own
+---scrolling, positive = down), up to WT_END_ZONE: that is how the next/previous chapter is reached.
+local function wtNormalize(push)
+	local count = allPages.Count or 0
+	if count == 0 or not allPages[1] then
+		return
+	end
+	wtSettle()
+	local above = 0
+	for p = 1, wt.page - 1 do
+		above = above + wtHeight(allPages[p])
+	end
+	local contentH = above
+	for p = wt.page, count do
+		contentH = contentH + wtHeight(allPages[p])
+	end
+	local scroll = above + wt.offset
+	-- past the last page lies a transition screen (the chapter note), like the sites' and Mihon's: the end of the
+	-- chapter is reached once it fills the screen
+	local maxContent = math.max(0, contentH - WT_H)
+	local maxScroll = contentH
+	if wt.stickEnd then
+		-- came back from the next chapter: the last page's end on screen, until that page is measured
+		scroll = maxContent
+		if allPages[count].Image then
+			wt.stickEnd = false
+		end
+	end
+	local zoneTop = (currentChapterNumber > 1 and push < 0) and WT_END_ZONE or 0
+	local zoneEnd = (currentChapterNumber < #Chapters and push > 0) and WT_END_ZONE or 0
+	if scroll < -zoneTop then
+		scroll = -zoneTop
+		wt.vel = 0
+	elseif scroll > maxScroll + zoneEnd then
+		scroll = math.max(-zoneTop, maxScroll + zoneEnd)
+		wt.vel = 0
+	end
+	wt.overTop = scroll < 0 and -scroll or 0
+	wt.overEnd = scroll > maxScroll and scroll - maxScroll or 0
+	wt.atTop = scroll <= 0
+	wt.atEnd = scroll >= maxScroll
+	wt.page, wt.offset = 1, scroll
+	wtSettle()
+	local maxX = WT_W / 2 * (wt.zoom - 1)
+	wt.x = math.max(-maxX, math.min(maxX, wt.x))
+end
+
+---The page at the middle of the screen: counter, bookmark, prefetch
+local function wtCurrentPage()
+	local y = -wt.offset
+	for p = wt.page, allPages.Count or 0 do
+		y = y + wtHeight(allPages[p])
+		if y > WT_H / 2 then
+			return p
+		end
+	end
+	return math.max(1, math.min(wt.page, allPages.Count or 1))
+end
+
+---Jumps to the top of page `p` (the bars' slider and arrows)
+local function wtGoTo(p)
+	local count = allPages.Count or 0
+	if count == 0 then
+		return
+	end
+	wt.page = math.max(1, math.min(count, p))
+	wt.offset, wt.vel, wt.glide, wt.stickEnd = 0, 0, 0, false
+end
+
+---Zooms by `f` around the middle of the screen (1 = the page fills the width, up to 3)
+local function wtZoomBy(f)
+	local new = math.max(1, math.min(3, wt.zoom * f))
+	f = new / wt.zoom
+	if f == 1 then
+		return
+	end
+	wt.zoom = new
+	wt.offset = (wt.offset + WT_H / 2) * f - WT_H / 2
+	wt.x = wt.x * f
+end
+
+local function wtNextChapter()
+	if currentChapterNumber < #Chapters then
+		if Cache.isCached(Chapters[currentChapterNumber].Manga) then
+			Cache.setBookmark(Chapters[currentChapterNumber], true)
+		end
+		Reader.loadChapter(currentChapterNumber + 1)
+	end
+end
+
+local function wtPrevChapter()
+	if currentChapterNumber > 1 then
+		if Cache.isCached(Chapters[currentChapterNumber].Manga) then
+			Cache.setBookmark(Chapters[currentChapterNumber], nil)
+		end
+		startPage = false
+		Reader.loadChapter(currentChapterNumber - 1)
+	end
+end
+
+---One screen down or up (a bit of the previous view kept); at an end, on to the next/previous chapter
+local function wtStep(direction)
+	local step = WT_H * (1 - STEP_KEEP)
+	if direction > 0 then
+		if wt.atEnd and wt.glide == 0 then
+			wt.push = WT_END_ZONE
+			wt.offset = wt.offset + WT_END_ZONE
+		else
+			wt.glide = wt.glide + step -- eased in over the next frames (webtoonUpdate)
+		end
+	elseif wt.atTop and wt.glide == 0 then
+		wt.push = -WT_END_ZONE
+		wt.offset = wt.offset - WT_END_ZONE
+	else
+		wt.glide = wt.glide - step
+	end
+	wt.vel = 0
+end
+
+---The bars' slider arrows: in webtoon mode a jump to the next/previous page, else the usual page turn
+local function wtTurn(direction)
+	if is_webtoon then
+		wtGoTo((allPages.Page or 1) + (direction == "LEFT" and 1 or -1))
+	else
+		swipe(direction)
+	end
+end
+
+---Requests the images of the pages around the view (the ones on screen first) and frees the ones far from it
+local function wtManageImages()
+	local count = allPages.Count or 0
+	local first, above = wt.page, 0
+	while first > 1 and above < WT_H do
+		first = first - 1
+		above = above + wtHeight(allPages[first])
+	end
+	local last, below = wt.page, -wt.offset
+	while last < count and below < WT_H * 2 do
+		below = below + wtHeight(allPages[last])
+		last = last + 1
+	end
+	local now = Timer.getTime(wtClock)
+	local y = -wt.offset
+	for p = first, last do
+		local pg = allPages[p]
+		if pg and not pg.Image and pg.Link ~= "LoadPrev" and pg.Link ~= "LoadNext" and (not pg.WtAsked or now - pg.WtAsked > 4000) then
+			pg.WtAsked = now
+			loadPageImage(p, p >= wt.page and y < WT_H)
+		end
+		if p >= wt.page then
+			y = y + wtHeight(pg)
+		end
+	end
+	for p = 1, count do
+		local pg = allPages[p]
+		if (p < first - 1 or p > last + 1) and pg and (pg.Image or pg.WtAsked) then
+			deletePageImage(p)
+			pg.WtAsked = nil
+		end
+	end
+end
+
+---Start of a chapter in webtoon mode (after the pages are known): at the bookmark, or at the end when coming back
+local function wtStart()
+	wt.page = math.max(1, math.min(allPages.Page or 1, allPages.Count or 1))
+	wt.offset, wt.vel, wt.glide, wt.x, wt.push = 0, 0, 0, 0, 0
+	wt.stickEnd = (allPages.PrevPage or 0) > (allPages.Page or 0)
+	wtTouch.active = false
+end
+
+---Webtoon mode input: sticks and d-pad scroll (sideways when zoomed), L/R step a screen, Triangle/Square and the
+---right stick zoom; on the page, a drag scrolls with inertia, a pinch zooms, a tap shows the bars (or steps a screen on
+---the top/bottom edges). The bars themselves are handled by the shared code.
+local function webtoonInput(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
+	wt.push = 0
+	local sx, sy = Controls.readLeftAnalog()
+	sx, sy = sx - 127, sy - 127
+	if math.abs(sy) > SCE_LEFT_STICK_DEADZONE then
+		local d = SCE_LEFT_STICK_SENSITIVITY * 25 * (sy - SCE_LEFT_STICK_DEADZONE * math.sign(sy)) / (128 - SCE_LEFT_STICK_DEADZONE)
+		wt.offset, wt.push, wt.vel = wt.offset + d, wt.push + d, 0
+	end
+	if wt.zoom > 1 and math.abs(sx) > SCE_LEFT_STICK_DEADZONE then
+		wt.x = wt.x - SCE_LEFT_STICK_SENSITIVITY * 25 * (sx - SCE_LEFT_STICK_DEADZONE * math.sign(sx)) / (128 - SCE_LEFT_STICK_DEADZONE)
+	end
+	if not ContextMenu then
+		if Controls.check(pad, SCE_CTRL_DOWN) then
+			wt.offset, wt.push, wt.vel = wt.offset + 20, wt.push + 20, 0
+		elseif Controls.check(pad, SCE_CTRL_UP) then
+			wt.offset, wt.push, wt.vel = wt.offset - 20, wt.push - 20, 0
+		end
+		if wt.zoom > 1 then
+			if Controls.check(pad, SCE_CTRL_LEFT) then
+				wt.x = wt.x + 20
+			elseif Controls.check(pad, SCE_CTRL_RIGHT) then
+				wt.x = wt.x - 20
+			end
+		end
+		if Controls.check(pad, SCE_CTRL_RIGHTPAGE) and not Controls.check(oldPad, SCE_CTRL_RIGHTPAGE) then
+			wtStep(1)
+		elseif Controls.check(pad, SCE_CTRL_LEFTPAGE) and not Controls.check(oldPad, SCE_CTRL_LEFTPAGE) then
+			wtStep(-1)
+		end
+		local dz = 1
+		if Controls.check(pad, SCE_CTRL_TRIANGLE) then
+			dz = 1.03
+		elseif Controls.check(pad, SCE_CTRL_SQUARE) then
+			dz = 1 / 1.03
+		end
+		local _, ry = Controls.readRightAnalog()
+		ry = ry - 127
+		if math.abs(ry) > SCE_RIGHT_STICK_DEADZONE then
+			ry = (ry - SCE_RIGHT_STICK_DEADZONE * math.sign(ry)) / (128 - SCE_RIGHT_STICK_DEADZONE)
+			dz = dz * (1 - SCE_LEFT_STICK_SENSITIVITY * ry * 0.03)
+		end
+		if dz ~= 1 then
+			wtZoomBy(dz)
+		end
+	end
+	local onPage = touch.x and (not ContextMenu or (touch.y > 80 and touch.y < WT_H - 80))
+	if onPage then
+		if not wtTouch.active then
+			wtTouch.active, wtTouch.moved = true, false
+			wtTouch.startX, wtTouch.startY, wtTouch.lastX, wtTouch.lastY = touch.x, touch.y, touch.x, touch.y
+			wt.vel = 0
+			touchMode = TOUCH_READ
+		else
+			if touch2.x and oldTouch2.x and oldTouch.x then
+				local d = math.sqrt((touch.x - touch2.x) ^ 2 + (touch.y - touch2.y) ^ 2)
+				local d0 = math.sqrt((oldTouch.x - oldTouch2.x) ^ 2 + (oldTouch.y - oldTouch2.y) ^ 2)
+				if d0 > 0 then
+					wtZoomBy(d / d0)
+				end
+				wtTouch.moved = true
+			else
+				local dy, dx = touch.y - wtTouch.lastY, touch.x - wtTouch.lastX
+				if not wtTouch.moved and (math.abs(touch.y - wtTouch.startY) > 10 or math.abs(touch.x - wtTouch.startX) > 10) then
+					wtTouch.moved = true
+					touchMode = TOUCH_MOVE
+				end
+				if wtTouch.moved then
+					wt.offset, wt.push, wt.vel = wt.offset - dy, wt.push - dy, -dy
+					if wt.zoom > 1 then
+						wt.x = wt.x + dx
+					end
+				end
+			end
+			wtTouch.lastX, wtTouch.lastY = touch.x, touch.y
+		end
+	elseif wtTouch.active then
+		wtTouch.active = false
+		touchMode = TOUCH_IDLE
+		if not wtTouch.moved and oldTouch.x then
+			if Settings.PressEdgesToChangePage and oldTouch.y > WT_H / 2 + 120 then
+				wtStep(1)
+			elseif Settings.PressEdgesToChangePage and oldTouch.y < WT_H / 2 - 120 then
+				wtStep(-1)
+			else
+				toggleContextMenu = true
+				Timer.reset(ToggleContextMenuTimer)
+			end
+		end
+	end
+end
+
+---Webtoon mode, every frame: inertia, limits, chapter change at the ends, the current page, the images around
+local function webtoonUpdate()
+	if not wtTouch.active and wt.vel ~= 0 then
+		wt.offset = wt.offset + wt.vel
+		wt.vel = wt.vel * 0.93
+		if math.abs(wt.vel) < 0.3 then
+			wt.vel = 0
+		end
+	end
+	if wt.glide ~= 0 then
+		-- a screen step glides in (a quarter of what is left per frame); it stops at the ends, never past them
+		local d = wt.glide / 4
+		if math.abs(d) < 2 then
+			d = wt.glide
+		end
+		wt.offset = wt.offset + d
+		wt.glide = wt.glide - d
+	end
+	wtNormalize(wt.push)
+	if (wt.atEnd and wt.glide > 0) or (wt.atTop and wt.glide < 0) then
+		wt.glide = 0
+	end
+	local push = wt.push
+	wt.push = 0
+	if wt.overEnd >= WT_END_ZONE - 1 and push > 0 then
+		wtNextChapter()
+		return
+	elseif wt.overTop >= WT_END_ZONE - 1 and push < 0 then
+		wtPrevChapter()
+		return
+	end
+	local current = wtCurrentPage()
+	if current ~= allPages.Page then
+		allPages.PrevPage = allPages.Page
+		allPages.Page = current
+		prefetchPending = {page = current, direction = 1}
+		Timer.reset(prefetchTimer)
+	end
+	wtManageImages()
+end
+
 local function exit()
 	for i = 1, #allPages do
 		deletePageImage(i)
@@ -627,197 +994,201 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 		if touch.x ~= nil or pad ~= 0 then
 			Timer.reset(hideCounterTimer)
 		end
-		local page = allPages[allPages.Page]
-		gesture_touch_input(touch, oldTouch, allPages[allPages.Page])
-		if page.Zoom then
-			local x, y = Controls.readLeftAnalog()
-			x = x - 127
-			y = y - 127
-			if math.abs(x) > SCE_LEFT_STICK_DEADZONE then
-				page.x = page.x - SCE_LEFT_STICK_SENSITIVITY * 25 * (x - SCE_LEFT_STICK_DEADZONE * math.sign(x)) / (128 - SCE_LEFT_STICK_DEADZONE)
-			end
-			if math.abs(y) > SCE_LEFT_STICK_DEADZONE then
-				page.y = page.y - SCE_LEFT_STICK_SENSITIVITY * 25 * (y - SCE_LEFT_STICK_DEADZONE * math.sign(y)) / (128 - SCE_LEFT_STICK_DEADZONE)
-			end
-			if not ContextMenu then
-				if Settings.ChangingPageButtons == "LR" then
-					if Controls.check(pad, SCE_CTRL_UP) then
-						page.y = page.y + 20
-					elseif Controls.check(pad, SCE_CTRL_DOWN) then
-						page.y = page.y - 20
-					end
-					if Controls.check(pad, SCE_CTRL_LEFT) then
-						page.x = page.x + 20
-					elseif Controls.check(pad, SCE_CTRL_RIGHT) then
-						page.x = page.x - 20
-					end
-				end
-			end
-		end
-		if math.abs(currentPageOffset.x) < 80 and math.abs(currentPageOffset.y) < 80 then
-			if not ContextMenu then
-				if not (Controls.check(pad, SCE_CTRL_RIGHTPAGE) or Controls.check(pad, SCE_CTRL_LEFTPAGE) or (Settings.ChangingPageButtons == "DPAD" and (Controls.check(pad, SCE_CTRL_DOWN) or Controls.check(pad, SCE_CTRL_UP)))) then
-					buttonTimeSpace = 800
-				end
-				local right_page_button = Settings.ChangingPageButtons == "DPAD" and (orientation == "Horizontal" and (is_down and SCE_CTRL_DOWN or SCE_CTRL_RIGHT) or (orientation == "Vertical" and (is_down and SCE_CTRL_LEFT or SCE_CTRL_DOWN))) or SCE_CTRL_RIGHTPAGE
-				local left_page_button = Settings.ChangingPageButtons == "DPAD" and (orientation == "Horizontal" and (is_down and SCE_CTRL_UP or SCE_CTRL_LEFT) or (orientation == "Vertical" and (is_down and SCE_CTRL_RIGHT or SCE_CTRL_UP))) or SCE_CTRL_LEFTPAGE
-				if Controls.check(pad, right_page_button) and (buttonTimeSpace < Timer.getTime(buttonTimer) or not Controls.check(oldPad, right_page_button)) then
-					turnPage("LEFT")
-					buttonTimeSpace = math.max(buttonTimeSpace / 2, 10)
-					Timer.reset(buttonTimer)
-				elseif Controls.check(pad, left_page_button) and (buttonTimeSpace < Timer.getTime(buttonTimer) or not Controls.check(oldPad, left_page_button)) then
-					turnPage("RIGHT")
-					buttonTimeSpace = math.max(buttonTimeSpace / 2, 10)
-					Timer.reset(buttonTimer)
-				elseif Controls.check(pad, SCE_CTRL_SQUARE) then
-					scale(0.95, page)
-				elseif Controls.check(pad, SCE_CTRL_TRIANGLE) then
-					scale(1.05, page)
-				end
-			end
-			local x, y = Controls.readRightAnalog()
-			if orientation == "Horizontal" then
-				y = y - 127
-				if math.abs(y) > SCE_RIGHT_STICK_DEADZONE then
-					y = (y - SCE_RIGHT_STICK_DEADZONE * math.sign(y)) / (128 - SCE_RIGHT_STICK_DEADZONE)
-					scale(1 - SCE_LEFT_STICK_SENSITIVITY * y * 0.05, page)
-				end
-			elseif orientation == "Vertical" then
-				x = x - 127
-				if math.abs(x) > SCE_RIGHT_STICK_DEADZONE then
-					x = (x - SCE_RIGHT_STICK_DEADZONE * math.sign(x)) / (128 - SCE_RIGHT_STICK_DEADZONE)
-					scale(1 + SCE_LEFT_STICK_SENSITIVITY * x * 0.05, page)
-				end
-			end
-		end
-		if touch.y and oldTouch.y and (not ContextMenu or touch.y < 544 - 80 and touch.y > 80 and oldTouch.y < 544 - 80 and oldTouch.y > 80) then
-			if touchMode ~= TOUCH_MULTI then
-				if touchMode == TOUCH_IDLE then
-					touchTemp.x = touch.x
-					touchTemp.y = touch.y
-					touchMode = TOUCH_READ
-				end
-				velX = touch.x - oldTouch.x
-				velY = touch.y - oldTouch.y
-			end
-			if touch2.x and oldTouch2.x and page.Zoom then
-				touchMode = TOUCH_MULTI
-				local old_Zoom = page.Zoom
-				local center = {
-					x = (touch.x + touch2.x) / 2,
-					y = (touch.y + touch2.y) / 2
-				}
-				local n = (math.sqrt((touch.x - touch2.x) * (touch.x - touch2.x) + (touch.y - touch2.y) * (touch.y - touch2.y)) / math.sqrt((oldTouch.x - oldTouch2.x) * (oldTouch.x - oldTouch2.x) + (oldTouch.y - oldTouch2.y) * (oldTouch.y - oldTouch2.y)))
-				scale(n, page)
-				n = page.Zoom / old_Zoom
-				page.y = page.y - (center.y - 272) * (n - 1)
-				page.x = page.x - (center.x - 480) * (n - 1)
-			end
-		elseif ContextMenu and ((touch.y and (touch.y >= 544 - 80 or touch.y <= 80)) or (oldTouch.y and (oldTouch.y >= 544 - 80 or oldTouch.y <= 80))) then
-			do
-			end
+		if is_webtoon then
+			webtoonInput(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 		else
-			if touchMode == TOUCH_SWIPE then
-				if currentPageOffset.x > 90 or currentPageOffset.y > 90 then
-					if orientation == "Vertical" and is_down then
-						swipe("LEFT")
-					else
-						swipe("RIGHT")
-					end
-				elseif currentPageOffset.x < -90 or currentPageOffset.y < -90 then
-					if orientation == "Vertical" and is_down then
-						swipe("RIGHT")
-					else
-						swipe("LEFT")
+			local page = allPages[allPages.Page]
+			gesture_touch_input(touch, oldTouch, allPages[allPages.Page])
+			if page.Zoom then
+				local x, y = Controls.readLeftAnalog()
+				x = x - 127
+				y = y - 127
+				if math.abs(x) > SCE_LEFT_STICK_DEADZONE then
+					page.x = page.x - SCE_LEFT_STICK_SENSITIVITY * 25 * (x - SCE_LEFT_STICK_DEADZONE * math.sign(x)) / (128 - SCE_LEFT_STICK_DEADZONE)
+				end
+				if math.abs(y) > SCE_LEFT_STICK_DEADZONE then
+					page.y = page.y - SCE_LEFT_STICK_SENSITIVITY * 25 * (y - SCE_LEFT_STICK_DEADZONE * math.sign(y)) / (128 - SCE_LEFT_STICK_DEADZONE)
+				end
+				if not ContextMenu then
+					if Settings.ChangingPageButtons == "LR" then
+						if Controls.check(pad, SCE_CTRL_UP) then
+							page.y = page.y + 20
+						elseif Controls.check(pad, SCE_CTRL_DOWN) then
+							page.y = page.y - 20
+						end
+						if Controls.check(pad, SCE_CTRL_LEFT) then
+							page.x = page.x + 20
+						elseif Controls.check(pad, SCE_CTRL_RIGHT) then
+							page.x = page.x - 20
+						end
 					end
 				end
-				velX = 0
-				velY = 0
-				pageMode = PAGE_NONE
 			end
-			if touchMode ~= TOUCH_LOCK then
-				if touchMode == TOUCH_READ then
-					if Settings.PressEdgesToChangePage then
-						if touchMode == TOUCH_READ and not touch.x and oldTouch.x then
-							if orientation == "Vertical" then
-								if is_down then
-									if oldTouch.x > 480 + 180 then
-										turnPage("RIGHT")
-									elseif oldTouch.x < 480 - 180 then
-										turnPage("LEFT")
+			if math.abs(currentPageOffset.x) < 80 and math.abs(currentPageOffset.y) < 80 then
+				if not ContextMenu then
+					if not (Controls.check(pad, SCE_CTRL_RIGHTPAGE) or Controls.check(pad, SCE_CTRL_LEFTPAGE) or (Settings.ChangingPageButtons == "DPAD" and (Controls.check(pad, SCE_CTRL_DOWN) or Controls.check(pad, SCE_CTRL_UP)))) then
+						buttonTimeSpace = 800
+					end
+					local right_page_button = Settings.ChangingPageButtons == "DPAD" and (orientation == "Horizontal" and (is_down and SCE_CTRL_DOWN or SCE_CTRL_RIGHT) or (orientation == "Vertical" and (is_down and SCE_CTRL_LEFT or SCE_CTRL_DOWN))) or SCE_CTRL_RIGHTPAGE
+					local left_page_button = Settings.ChangingPageButtons == "DPAD" and (orientation == "Horizontal" and (is_down and SCE_CTRL_UP or SCE_CTRL_LEFT) or (orientation == "Vertical" and (is_down and SCE_CTRL_RIGHT or SCE_CTRL_UP))) or SCE_CTRL_LEFTPAGE
+					if Controls.check(pad, right_page_button) and (buttonTimeSpace < Timer.getTime(buttonTimer) or not Controls.check(oldPad, right_page_button)) then
+						turnPage("LEFT")
+						buttonTimeSpace = math.max(buttonTimeSpace / 2, 10)
+						Timer.reset(buttonTimer)
+					elseif Controls.check(pad, left_page_button) and (buttonTimeSpace < Timer.getTime(buttonTimer) or not Controls.check(oldPad, left_page_button)) then
+						turnPage("RIGHT")
+						buttonTimeSpace = math.max(buttonTimeSpace / 2, 10)
+						Timer.reset(buttonTimer)
+					elseif Controls.check(pad, SCE_CTRL_SQUARE) then
+						scale(0.95, page)
+					elseif Controls.check(pad, SCE_CTRL_TRIANGLE) then
+						scale(1.05, page)
+					end
+				end
+				local x, y = Controls.readRightAnalog()
+				if orientation == "Horizontal" then
+					y = y - 127
+					if math.abs(y) > SCE_RIGHT_STICK_DEADZONE then
+						y = (y - SCE_RIGHT_STICK_DEADZONE * math.sign(y)) / (128 - SCE_RIGHT_STICK_DEADZONE)
+						scale(1 - SCE_LEFT_STICK_SENSITIVITY * y * 0.05, page)
+					end
+				elseif orientation == "Vertical" then
+					x = x - 127
+					if math.abs(x) > SCE_RIGHT_STICK_DEADZONE then
+						x = (x - SCE_RIGHT_STICK_DEADZONE * math.sign(x)) / (128 - SCE_RIGHT_STICK_DEADZONE)
+						scale(1 + SCE_LEFT_STICK_SENSITIVITY * x * 0.05, page)
+					end
+				end
+			end
+			if touch.y and oldTouch.y and (not ContextMenu or touch.y < 544 - 80 and touch.y > 80 and oldTouch.y < 544 - 80 and oldTouch.y > 80) then
+				if touchMode ~= TOUCH_MULTI then
+					if touchMode == TOUCH_IDLE then
+						touchTemp.x = touch.x
+						touchTemp.y = touch.y
+						touchMode = TOUCH_READ
+					end
+					velX = touch.x - oldTouch.x
+					velY = touch.y - oldTouch.y
+				end
+				if touch2.x and oldTouch2.x and page.Zoom then
+					touchMode = TOUCH_MULTI
+					local old_Zoom = page.Zoom
+					local center = {
+						x = (touch.x + touch2.x) / 2,
+						y = (touch.y + touch2.y) / 2
+					}
+					local n = (math.sqrt((touch.x - touch2.x) * (touch.x - touch2.x) + (touch.y - touch2.y) * (touch.y - touch2.y)) / math.sqrt((oldTouch.x - oldTouch2.x) * (oldTouch.x - oldTouch2.x) + (oldTouch.y - oldTouch2.y) * (oldTouch.y - oldTouch2.y)))
+					scale(n, page)
+					n = page.Zoom / old_Zoom
+					page.y = page.y - (center.y - 272) * (n - 1)
+					page.x = page.x - (center.x - 480) * (n - 1)
+				end
+			elseif ContextMenu and ((touch.y and (touch.y >= 544 - 80 or touch.y <= 80)) or (oldTouch.y and (oldTouch.y >= 544 - 80 or oldTouch.y <= 80))) then
+				do
+				end
+			else
+				if touchMode == TOUCH_SWIPE then
+					if currentPageOffset.x > 90 or currentPageOffset.y > 90 then
+						if orientation == "Vertical" and is_down then
+							swipe("LEFT")
+						else
+							swipe("RIGHT")
+						end
+					elseif currentPageOffset.x < -90 or currentPageOffset.y < -90 then
+						if orientation == "Vertical" and is_down then
+							swipe("RIGHT")
+						else
+							swipe("LEFT")
+						end
+					end
+					velX = 0
+					velY = 0
+					pageMode = PAGE_NONE
+				end
+				if touchMode ~= TOUCH_LOCK then
+					if touchMode == TOUCH_READ then
+						if Settings.PressEdgesToChangePage then
+							if touchMode == TOUCH_READ and not touch.x and oldTouch.x then
+								if orientation == "Vertical" then
+									if is_down then
+										if oldTouch.x > 480 + 180 then
+											turnPage("RIGHT")
+										elseif oldTouch.x < 480 - 180 then
+											turnPage("LEFT")
+										else
+											toggleContextMenu = true
+											Timer.reset(ToggleContextMenuTimer)
+										end
 									else
-										toggleContextMenu = true
-										Timer.reset(ToggleContextMenuTimer)
+										if oldTouch.y > 272 + 120 then
+											turnPage("LEFT")
+										elseif oldTouch.y < 272 - 120 then
+											turnPage("RIGHT")
+										else
+											toggleContextMenu = true
+											Timer.reset(ToggleContextMenuTimer)
+										end
 									end
-								else
-									if oldTouch.y > 272 + 120 then
-										turnPage("LEFT")
-									elseif oldTouch.y < 272 - 120 then
-										turnPage("RIGHT")
+								elseif orientation == "Horizontal" then
+									if is_down then
+										if oldTouch.y > 272 + 120 then
+											turnPage("LEFT")
+										elseif oldTouch.y < 272 - 120 then
+											turnPage("RIGHT")
+										else
+											toggleContextMenu = true
+											Timer.reset(ToggleContextMenuTimer)
+										end
 									else
-										toggleContextMenu = true
-										Timer.reset(ToggleContextMenuTimer)
-									end
-								end
-							elseif orientation == "Horizontal" then
-								if is_down then
-									if oldTouch.y > 272 + 120 then
-										turnPage("LEFT")
-									elseif oldTouch.y < 272 - 120 then
-										turnPage("RIGHT")
-									else
-										toggleContextMenu = true
-										Timer.reset(ToggleContextMenuTimer)
-									end
-								else
-									if oldTouch.x > 480 + 180 then
-										turnPage("LEFT")
-									elseif oldTouch.x < 480 - 180 then
-										turnPage("RIGHT")
-									else
-										toggleContextMenu = true
-										Timer.reset(ToggleContextMenuTimer)
+										if oldTouch.x > 480 + 180 then
+											turnPage("LEFT")
+										elseif oldTouch.x < 480 - 180 then
+											turnPage("RIGHT")
+										else
+											toggleContextMenu = true
+											Timer.reset(ToggleContextMenuTimer)
+										end
 									end
 								end
 							end
+						else
+							toggleContextMenu = true
+							Timer.reset(ToggleContextMenuTimer)
 						end
-					else
-						toggleContextMenu = true
-						Timer.reset(ToggleContextMenuTimer)
 					end
+					touchMode = TOUCH_IDLE
 				end
-				touchMode = TOUCH_IDLE
 			end
-		end
-		if touchMode == TOUCH_READ and touchTemp.x and touch.x then
-			local len = math.sqrt((touchTemp.x - touch.x) * (touchTemp.x - touch.x) + (touchTemp.y - touch.y) * (touchTemp.y - touch.y))
-			if len > 10 then
-				if orientation == "Horizontal" then
-					if is_down then
-						if not page.Zoom or (page.Width * page.Zoom < 961 or math.abs(touch.y - touchTemp.y) > math.abs(touch.x - touchTemp.x) * 1.5) and ((bit32.band(pageMode, PAGE_RIGHT) ~= 0 and touchTemp.y > touch.y) or (bit32.band(pageMode, PAGE_LEFT) ~= 0 and touchTemp.y < touch.y)) then
-							touchMode = TOUCH_SWIPE
+			if touchMode == TOUCH_READ and touchTemp.x and touch.x then
+				local len = math.sqrt((touchTemp.x - touch.x) * (touchTemp.x - touch.x) + (touchTemp.y - touch.y) * (touchTemp.y - touch.y))
+				if len > 10 then
+					if orientation == "Horizontal" then
+						if is_down then
+							if not page.Zoom or (page.Width * page.Zoom < 961 or math.abs(touch.y - touchTemp.y) > math.abs(touch.x - touchTemp.x) * 1.5) and ((bit32.band(pageMode, PAGE_RIGHT) ~= 0 and touchTemp.y > touch.y) or (bit32.band(pageMode, PAGE_LEFT) ~= 0 and touchTemp.y < touch.y)) then
+								touchMode = TOUCH_SWIPE
+							else
+								touchMode = TOUCH_MOVE
+							end
 						else
-							touchMode = TOUCH_MOVE
+							if not page.Zoom or (page.Height * page.Zoom < 545 or math.abs(touch.x - touchTemp.x) > math.abs(touch.y - touchTemp.y) * 1.5) and ((bit32.band(pageMode, PAGE_RIGHT) ~= 0 and touchTemp.x > touch.x) or (bit32.band(pageMode, PAGE_LEFT) ~= 0 and touchTemp.x < touch.x)) then
+								touchMode = TOUCH_SWIPE
+							else
+								touchMode = TOUCH_MOVE
+							end
 						end
-					else
-						if not page.Zoom or (page.Height * page.Zoom < 545 or math.abs(touch.x - touchTemp.x) > math.abs(touch.y - touchTemp.y) * 1.5) and ((bit32.band(pageMode, PAGE_RIGHT) ~= 0 and touchTemp.x > touch.x) or (bit32.band(pageMode, PAGE_LEFT) ~= 0 and touchTemp.x < touch.x)) then
-							touchMode = TOUCH_SWIPE
+					elseif orientation == "Vertical" then
+						if is_down then
+							if not page.Zoom or (page.Width * page.Zoom < 545 or math.abs(touch.x - touchTemp.x) > math.abs(touch.y - touchTemp.y) * 1.5) and ((bit32.band(pageMode, PAGE_RIGHT) ~= 0 and touchTemp.x > touch.x) or (bit32.band(pageMode, PAGE_LEFT) ~= 0 and touchTemp.x < touch.x)) then
+								touchMode = TOUCH_SWIPE
+							else
+								touchMode = TOUCH_MOVE
+							end
 						else
-							touchMode = TOUCH_MOVE
-						end
-					end
-				elseif orientation == "Vertical" then
-					if is_down then
-						if not page.Zoom or (page.Width * page.Zoom < 545 or math.abs(touch.x - touchTemp.x) > math.abs(touch.y - touchTemp.y) * 1.5) and ((bit32.band(pageMode, PAGE_RIGHT) ~= 0 and touchTemp.x > touch.x) or (bit32.band(pageMode, PAGE_LEFT) ~= 0 and touchTemp.x < touch.x)) then
-							touchMode = TOUCH_SWIPE
-						else
-							touchMode = TOUCH_MOVE
-						end
-					else
-						if not page.Zoom or (page.Height * page.Zoom < 961 or math.abs(touch.y - touchTemp.y) > math.abs(touch.x - touchTemp.x) * 1.5) and ((bit32.band(pageMode, PAGE_RIGHT) ~= 0 and touchTemp.y > touch.y) or (bit32.band(pageMode, PAGE_LEFT) ~= 0 and touchTemp.y < touch.y)) then
-							touchMode = TOUCH_SWIPE
-						else
-							touchMode = TOUCH_MOVE
+							if not page.Zoom or (page.Height * page.Zoom < 961 or math.abs(touch.y - touchTemp.y) > math.abs(touch.x - touchTemp.x) * 1.5) and ((bit32.band(pageMode, PAGE_RIGHT) ~= 0 and touchTemp.y > touch.y) or (bit32.band(pageMode, PAGE_LEFT) ~= 0 and touchTemp.y < touch.y)) then
+								touchMode = TOUCH_SWIPE
+							else
+								touchMode = TOUCH_MOVE
+							end
 						end
 					end
 				end
@@ -836,7 +1207,9 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 				if is_down and orientation == "Vertical" then
 					newPage = allPages.Count - newPage + 1
 				end
-				if newPage < allPages.Page then
+				if is_webtoon then
+					wtGoTo(newPage)
+				elseif newPage < allPages.Page then
 					repeat
 						swipe("RIGHT")
 					until newPage == allPages.Page
@@ -936,11 +1309,11 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 						local left = is_down and orientation == "Vertical" and SCE_CTRL_RIGHT or SCE_CTRL_LEFT
 						local right = is_down and orientation == "Vertical" and SCE_CTRL_LEFT or SCE_CTRL_RIGHT
 						if allPages.Page < allPages.Count and Controls.check(pad, right) and (buttonTimeSpace < Timer.getTime(buttonTimer) or not Controls.check(oldPad, right)) then
-							swipe("LEFT")
+							wtTurn("LEFT")
 							buttonTimeSpace = math.max(buttonTimeSpace / 2, 10)
 							Timer.reset(buttonTimer)
 						elseif allPages.Page > 1 and Controls.check(pad, left) and (buttonTimeSpace < Timer.getTime(buttonTimer) or not Controls.check(oldPad, left)) then
-							swipe("RIGHT")
+							wtTurn("RIGHT")
 							buttonTimeSpace = math.max(buttonTimeSpace / 2, 10)
 							Timer.reset(buttonTimer)
 						end
@@ -1058,7 +1431,7 @@ function Reader.update()
 			currentState = STATE_READING
 			local chapter = Chapters[currentChapterNumber]
 			allPages.Count = #chapter.Pages
-			if readDirection == "RIGHT" or is_down then
+			if readDirection ~= "LEFT" then
 				for i = 1, #chapter.Pages do
 					allPages[#allPages + 1] = {
 						chapter.Pages[i],
@@ -1079,7 +1452,7 @@ function Reader.update()
 					}
 				end
 			end
-			if readDirection == "RIGHT" or is_down then
+			if readDirection ~= "LEFT" then
 				startPage = startPage and startPage > 0 and startPage <= allPages.Count and startPage or startPage == false and -1 or nil
 				if startPage == -1 then
 					startPage = false
@@ -1140,6 +1513,9 @@ function Reader.update()
 				end
 				startPage = nil
 			end
+			if is_webtoon then
+				wtStart()
+			end
 			Timer.reset(hideCounterTimer)
 		end
 	elseif currentState == STATE_READING then
@@ -1154,6 +1530,10 @@ function Reader.update()
 				prefetchFrom(prefetchPending.page, prefetchPending.direction)
 				prefetchPending = nil
 			end
+		end
+		if is_webtoon then
+			webtoonUpdate()
+			return
 		end
 		gesture_touch_update()
 		if allPages.PrevPage and allPages.PrevPage ~= allPages.Page and (((is_down and currentPageOffset.y or currentPageOffset.x) >= 0 and allPages.PrevPage > allPages.Page or (is_down and currentPageOffset.y or currentPageOffset.x) <= 0 and allPages.PrevPage < allPages.Page) and orientation == "Horizontal" or ((is_down and -currentPageOffset.x or currentPageOffset.y) >= 0 and allPages.PrevPage > allPages.Page or (is_down and -currentPageOffset.x or currentPageOffset.y) <= 0 and allPages.PrevPage < allPages.Page) and orientation == "Vertical") then
@@ -1589,6 +1969,76 @@ local function drawPage(x, y, tex, sx, sy, w, h, rot, zx, zy)
 	end
 end
 
+---Webtoon mode: the pages one under the other from the view's page down, the loading texts, the notes at the ends
+local function webtoonDraw()
+	local count = allPages.Count or 0
+	if count == 0 then
+		return
+	end
+	local R = Language[Settings.Language].READER
+	local dots = string.sub("...", 1, math.ceil(Timer.getTime(GlobalTimer) / 250) % 4)
+	local cx = WT_W / 2 + wt.x
+	local y = -wt.offset
+	local p = wt.page
+	while p <= count and y < WT_H do
+		local page = allPages[p]
+		local h = wtHeight(page)
+		if y + h > 0 then
+			local img = page.Image
+			if img and img.Lazy then
+				local z = wtScale(page)
+				local sh = img.SliceHeight * z
+				for k = 1, img.Parts do
+					local top = y + (k - 1) * sh
+					lazySliceTick(img, k, top + sh / 2, sh / 2, WT_H)
+					local slice = img[k]
+					if slice and slice.e then
+						local hh = Graphics.getImageHeight(slice.e)
+						drawPage(cx, top + hh * z / 2, slice.e, 0, 0, img.Width, hh, 0, z, z)
+					elseif top < WT_H and top + sh > 0 then
+						local text = R.LOADING_SEGMENT .. dots
+						Font.print(FONT16, cx - Font.getTextWidth(FONT16, text) / 2, math.max(top, 0) + 10, text, COLOR_FONT)
+					end
+				end
+			elseif img then
+				local w, ih = wtImageSize(page)
+				local tex = img.e or (img[1] and img[1].Image and img[1].Image.e)
+				if tex and w then
+					local z = wtScale(page)
+					drawPage(cx, y + h / 2, tex, 0, 0, w, ih, 0, z, z)
+				end
+			else
+				local progress = Threads.getProgress(page)
+				local text = R.LOADING_PAGE .. dots
+				local ty = (math.max(y, 0) + math.min(y + h, WT_H)) / 2
+				Font.print(FONT16, cx - Font.getTextWidth(FONT16, text) / 2, ty - 10, text, COLOR_FONT)
+				Graphics.fillEmptyRect(cx - 52, cx + 53, ty + 20, ty + 32, COLOR_FONT)
+				Graphics.fillRect(cx - 50, cx - 50 + 100 * progress, ty + 22, ty + 29, COLOR_FONT)
+			end
+		end
+		y = y + h
+		p = p + 1
+	end
+	-- the transition screen after the last page: the next chapter (scroll on or press R) or the end of the title
+	if p > count and y < WT_H then
+		local text, name
+		if currentChapterNumber < #Chapters then
+			text, name = R.WT_NEXT, tostring(Chapters[currentChapterNumber + 1].Name or "")
+		else
+			text = R.WT_LAST
+		end
+		local ty = y + WT_H / 2 - 10
+		Font.print(BONT16, WT_W / 2 - Font.getTextWidth(BONT16, text) / 2, ty, text, COLOR_FONT)
+		if name then
+			Font.print(FONT16, WT_W / 2 - Font.getTextWidth(FONT16, name) / 2, ty + 30, name, COLOR_SUBFONT)
+		end
+	end
+	if wt.overTop > 0 and currentChapterNumber > 1 then
+		local text = R.WT_PREV
+		Font.print(BONT16, WT_W / 2 - Font.getTextWidth(BONT16, text) / 2, wt.overTop / 2 - 10, text, COLOR_FONT)
+	end
+end
+
 function Reader.draw()
 	pageTint = ReaderLook.tint()
 	Screen.clear(currentState == STATE_READING and ReaderLook.background() or COLOR_BACK)
@@ -1604,8 +2054,11 @@ function Reader.draw()
 		Font.print(FONT16, 480 - Font.getTextWidth(FONT16, chapter_name) / 2, 264, chapter_name, COLOR_FONT)
 		Font.print(FONT16, 480 - Font.getTextWidth(FONT16, prepare_message) / 2, 284, prepare_message, COLOR_FONT)
 	elseif currentState == STATE_READING then
+		if is_webtoon then
+			webtoonDraw()
+		end
 		local o = readDirection == "LEFT" and {1, -1, 0} or {-1, 1, 0}
-		for j = 1, #o do
+		for j = 1, is_webtoon and 0 or #o do
 			local i = o[j]
 			local page = allPages[allPages.Page + i]
 			if page and page.Image then
@@ -1840,10 +2293,11 @@ function Reader.updateSettings()
 	if settings then
 		readDirection = settings.ReaderDirection == "Default" and Settings.ReaderDirection or settings.ReaderDirection
 		is_down = readDirection == "DOWN"
+		is_webtoon = readDirection == "WEBTOON"
 		orientation = settings.Orientation == "Default" and Settings.Orientation or settings.Orientation
 		autozoom = settings.ZoomReader == "Default" and Settings.ZoomReader or settings.ZoomReader
 	end
-	if old_read_dir == "LEFT" and readDirection ~= old_read_dir or (old_read_dir == "RIGHT" or old_read_dir == "DOWN") and readDirection == "LEFT" then
+	if old_read_dir == "LEFT" and readDirection ~= old_read_dir or (old_read_dir == "RIGHT" or old_read_dir == "DOWN" or old_read_dir == "WEBTOON") and readDirection == "LEFT" then
 		if allPages and allPages.Count and allPages.Page and allPages.PrevPage then
 			local i, j = 1, allPages.Count
 			while i < j do
@@ -1867,6 +2321,10 @@ function Reader.updateSettings()
 		end
 	end
 	updateMeasurements()
+	if is_webtoon and currentState == STATE_READING then
+		wtStart()
+		wt.stickEnd = false
+	end
 end
 
 function Reader.load(chapters, num)
@@ -1883,6 +2341,7 @@ function Reader.load(chapters, num)
 	if settings then
 		readDirection = settings.ReaderDirection == "Default" and Settings.ReaderDirection or settings.ReaderDirection
 		is_down = readDirection == "DOWN"
+		is_webtoon = readDirection == "WEBTOON"
 		orientation = settings.Orientation == "Default" and Settings.Orientation or settings.Orientation
 		autozoom = settings.ZoomReader == "Default" and Settings.ZoomReader or settings.ZoomReader
 	end
@@ -1896,6 +2355,9 @@ end
 
 ---For the simulator: the current page and where it stands (position and size on screen)
 function Reader.debugView()
+	if is_webtoon then
+		return allPages.Page, wt.page, wt.offset, wt.zoom, wt.overEnd
+	end
 	local page = allPages[allPages.Page]
 	if not page or not page.Zoom then
 		return allPages.Page

@@ -37,7 +37,7 @@ Language.ChineseSimplified = {
 	},
 	READER = {
 		Horizontal = "横向", Vertical = "纵向", Smart = "智能", Height = "适应高度", Width = "适应宽度", Default = "默认",
-		LEFT = "从右到左", RIGHT = "从左到右", DOWN = "从上到下",
+		LEFT = "从右到左", RIGHT = "从左到右", DOWN = "从上到下", WEBTOON = "条漫（连续）", WT_NEXT = "下一章：继续滚动", WT_PREV = "上一章：继续滚动", WT_LAST = "这是最后一章",
 		LOADING_PAGE = "正在加载页面", LOADING_SEGMENT = "正在加载片段", PREPARING_PAGES = "正在准备页面"
 	},
 	SETTINGS = {

@@ -209,6 +209,22 @@ class FS:
         except Exception:
             return False
 
+    def cropImage(self, src, x, y, w, h, half):
+        # stands in for the engine's slice decoder (Graphics.loadPartImageAsync): the slice of a tall image as its own
+        # picture, so the renderer can show it (halved when the engine would, i.e. over the texture limit)
+        try:
+            from PIL import Image
+            im = Image.open(src)
+            part = im.crop((int(x), int(y), int(x + w), int(y + h)))
+            if half:
+                part = part.resize((max(1, part.width // 2), max(1, part.height // 2)))
+            out = "%s.part%d.png" % (src, int(y))
+            part.save(out, "PNG")
+            return out
+        except Exception as e:
+            print("   cropImage failed:", src, e)
+            return None
+
     def extractall(self, zpath, dst):
         # stands in for System.extractZipAsync, with lpp-vita's behavior: entries in zip order, folders created only
         # from their own "dir/" entries, and a file whose folder is missing crashes the app (NULL FILE* write)
@@ -332,7 +348,7 @@ def main():
     L.globals().PYFS = L.table_from({
         "isfile": fs.isfile, "isdir": fs.isdir, "mkdir": fs.mkdir, "remove": fs.remove,
         "rmdir": fs.rmdir, "rename": fs.rename, "listdir": listdir, "listzip": fs.listzip, "convert": fs.convert, "extract": fs.extract,
-        "extractall": fs.extractall, "promote": fs.promote,
+        "extractall": fs.extractall, "promote": fs.promote, "cropImage": fs.cropImage,
     })
     mock(ROOT + "/tools/tests/vita_mock.lua", ROOT, tmp)
     sim = L.globals().SIM

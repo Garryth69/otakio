@@ -261,7 +261,7 @@ function settings.load()
 				setSetting(new, "SkipFontLoad", { true, false })
 				setSetting(new, "Orientation", { "Horizontal", "Vertical" })
 				setSetting(new, "ZoomReader", { "Width", "Height", "Smart" })
-				setSetting(new, "ReaderDirection", { "LEFT", "RIGHT", "DOWN" })
+				setSetting(new, "ReaderDirection", { "LEFT", "RIGHT", "DOWN", "WEBTOON" })
 				setSetting(new, "KeyType", { "JP", "EU" })
 				setSetting(new, "HideInOffline", { true, false })
 				setSetting(new, "DoubleTapReader", { true, false })
@@ -524,7 +524,7 @@ SettingsFunctions = {
 		settings.ZoomReader = table.next(settings.ZoomReader, { "Width", "Height", "Smart" })
 	end,
 	ReaderDirection = function()
-		settings.ReaderDirection = table.next(settings.ReaderDirection, { "LEFT", "RIGHT", "DOWN" })
+		settings.ReaderDirection = table.next(settings.ReaderDirection, { "LEFT", "RIGHT", "DOWN", "WEBTOON" })
 	end,
 	DoubleTapReader = function()
 		settings.DoubleTapReader = not settings.DoubleTapReader

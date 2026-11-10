@@ -37,7 +37,7 @@ Language.German = {
 	},
 	READER = {
 		Horizontal = "Horizontal", Vertical = "Vertikal", Smart = "Automatisch", Height = "An Höhe anpassen", Width = "An Breite anpassen", Default = "Standard",
-		LEFT = "Von rechts nach links", RIGHT = "Von links nach rechts", DOWN = "Von oben nach unten",
+		LEFT = "Von rechts nach links", RIGHT = "Von links nach rechts", DOWN = "Von oben nach unten", WEBTOON = "Webtoon (fortlaufend)", WT_NEXT = "Nächstes Kapitel: weiter scrollen", WT_PREV = "Vorheriges Kapitel: weiter scrollen", WT_LAST = "Das ist das letzte Kapitel",
 		LOADING_PAGE = "Seite wird geladen", LOADING_SEGMENT = "Abschnitt wird geladen", PREPARING_PAGES = "Seiten werden vorbereitet"
 	},
 	SETTINGS = {
