@@ -209,7 +209,11 @@ function Extensions.update()
 			return
 		end
 	end
+	local t0 = Diag and Diag.now and Diag.now()
 	local ok, err = co_resume(currentJob.co)
+	if t0 then
+		Diag.slow("extension job " .. tostring(currentJob.name), Diag.now() - t0)
+	end
 	if not ok then
 		ExtLog("job " .. tostring(currentJob.name) .. " crashed: " .. tostring(err))
 		if currentJob.name == "install" then

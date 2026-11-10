@@ -65,7 +65,11 @@ function ChapterSaver.update()
 		currentTask.F = coroutine.create(currentTask.F)
 	else
 		if coroutine.status(currentTask.F) ~= "dead" then
+			local t0 = Diag and Diag.now and Diag.now()
 			local _, msg, var1, var2 = coroutine.resume(currentTask.F)
+			if t0 then
+				Diag.slow("download task " .. tostring(currentTask.Type), Diag.now() - t0)
+			end
 			if _ then
 				if currentTask.Destroy and msg and msg ~= "update_count+false" then
 					if currentTask.Notify and not Settings.SilentDownloads then

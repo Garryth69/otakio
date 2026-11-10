@@ -27,8 +27,11 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
   old PNG default move to *Original* (data version 2); a JPEG or WebP choice is kept.
 - `log.txt` lines are appended instead of rewriting the whole file each time: every screen change, chapter opening or
   error rewrote a 30 KB file.
-- The network stack stays up 60 s after the last request (2 s before): turning pages or going back to a list after a
-  short pause reuses the connections and TLS sessions instead of paying DNS, TCP and TLS again.
+- The network stack stays up for the whole session. It was closed 2 s after the last request and brought up again
+  (a synchronous engine call) on the next one, which paused the app after every short pause and dropped the open
+  connections and TLS sessions; the time the engine takes to bring it up is now in `log.txt`.
+- Extensions give the frame back more often while reading a page's HTML (every 16 KB instead of 64 KB), and the time
+  of every long step of an extension, extension job or download task goes to the `log.txt` report.
 - Leaving Browse or the reader, and changing a cover, no longer run a full garbage collection (a visible pause); the
   incremental collector takes care of it.
 

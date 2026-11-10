@@ -124,6 +124,28 @@ function Diag.startup()
 end
 
 local hitches, hitchWorst, hitchWorstWhere, hitchWhere = 0, 0, "", {}
+local slowCalls = {} -- label -> {n = count, max = ms}
+
+---Milliseconds since the app started (to time a call from outside)
+function Diag.now()
+	return Timer.getTime(clock)
+end
+
+---A step that ran for `ms` on the main thread (one coroutine resume, one call): kept when it was over 50 ms
+function Diag.slow(label, ms)
+	if ms < 50 then
+		return
+	end
+	local e = slowCalls[label]
+	if not e then
+		e = {n = 0, max = 0}
+		slowCalls[label] = e
+	end
+	e.n = e.n + 1
+	if ms > e.max then
+		e.max = ms
+	end
+end
 
 ---A frame that took longer than 50 ms (main.lua): counted with the screen and what was running at the time
 function Diag.hitch(ms, fontWarmup)
@@ -168,6 +190,22 @@ local function hitchReport()
 	log(string.format("hitches: %d frames over 50 ms (worst %d ms in %s): %s", hitches, hitchWorst, hitchWorstWhere,
 		table.concat(parts, ", ")))
 	hitches, hitchWorst, hitchWorstWhere, hitchWhere = 0, 0, "", {}
+	local labels = {}
+	for k in pairs(slowCalls) do
+		labels[#labels + 1] = k
+	end
+	if #labels > 0 then
+		table.sort(labels, function(a, b)
+			return slowCalls[a].max > slowCalls[b].max
+		end)
+		local items = {}
+		for i = 1, math.min(5, #labels) do
+			local e = slowCalls[labels[i]]
+			items[#items + 1] = string.format("%s %d ms x%d", labels[i], e.max, e.n)
+		end
+		log("slow steps: " .. table.concat(items, "; "))
+		slowCalls = {}
+	end
 end
 
 local lastRam, lastGpu, lastCheck = nil, nil, 0

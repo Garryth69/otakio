@@ -202,19 +202,22 @@ local function preloadData()
 			loadFontString = loadFontString .. (LanguageNames and LanguageNames[langName] and LanguageNames[langName][langName] or "")
 		end
 		stage("fonts")
-		-- start-up renders only the basic Latin set, so the Library shows up at once; the full set for the three sizes
-		-- most of the interface uses is rendered in the background afterwards (FontWarmup above)
+		-- start-up renders only the basic Latin set of the two fonts the Library draws most, so it shows up at once
+		-- (about 10 ms per glyph on the Vita); the other sizes get their basic set right after, in the background, then
+		-- the full character set for the three sizes most of the interface uses (FontWarmup above)
 		local basic = '1234567890AaBbCcDdEeFf\nGgHhIiJjKkLlMmNnOoPpQqRr\nSsTtUuVvWwXxYyZz!?.,:;()-/'
+		local first = {FONT16, BONT16}
 		local fontClock = Timer.new()
 		local timings = {}
-		for k, v in ipairs(fonts) do
-			coroutine.yield("Loading fonts " .. k .. "/" .. #fonts)
+		for k, v in ipairs(first) do
+			coroutine.yield("Loading fonts " .. k .. "/" .. #first)
 			Timer.reset(fontClock)
 			Font.print(v, 0, 0, basic, COLOR_BLACK)
 			timings[#timings + 1] = math.floor(Timer.getTime(fontClock)) .. " ms"
 		end
 		Timer.destroy(fontClock)
 		pcall(ExtLog, "fonts (basic set): " .. table.concat(timings, ", "))
+		FontWarmup.queue({FONT20, FONT26, BONT30, FONT13}, basic)
 		FontWarmup.queue({FONT16, BONT16, FONT20}, loadFontString)
 	end
 	stage("cache")

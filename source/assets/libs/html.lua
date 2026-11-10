@@ -289,8 +289,8 @@ function Html.parse(html, baseUrl)
 					top = el
 				end
 				tagCount = tagCount + 1
-				-- give the frame back regularly: every 600 tags or 64 KB of markup
-				if canYield and (tagCount % 600 == 0 or pos - lastYield > 65536) then
+				-- give the frame back regularly: every 200 tags or 16 KB of markup (a 64 KB chunk took hundreds of ms on the Vita)
+				if canYield and (tagCount % 200 == 0 or pos - lastYield > 16384) then
 					lastYield = pos
 					co_yield(false)
 				end
@@ -1016,7 +1016,7 @@ matchGroup = function(node, group)
 	return false
 end
 
-local WALK_YIELD = 3000 -- nodes visited between yields when a selector runs inside a coroutine
+local WALK_YIELD = 1000 -- nodes visited between yields when a selector runs inside a coroutine
 
 local function walk(root, fn)
 	local canYield = co_running() ~= nil

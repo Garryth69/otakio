@@ -65,7 +65,11 @@ function ParserManager.update()
 		else
 			-- requests made by background jobs wait behind everything the user is looking at
 			Threads.defaultPriority = currentTask.Background and Threads.BACKGROUND or nil
+			local t0 = Diag and Diag.now and Diag.now()
 			local _, isSafeToleave = coroutine.resume(currentTask.Update)
+			if t0 then
+				Diag.slow("parser " .. tostring(currentTask.Type) .. (currentTask.Parser and (" " .. tostring(currentTask.Parser.ID)) or ""), Diag.now() - t0)
+			end
 			Threads.defaultPriority = nil
 			if currentTask.Stop then
 				cancelJobRequest(currentTask)

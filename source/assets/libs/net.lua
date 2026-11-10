@@ -175,7 +175,6 @@ local current = nil -- task holding the async slot
 local uniques = {} -- uniqueKey -> task (pending or running)
 local bytes = 0
 local is_net_inited = false
-local idleFrames = 0
 local clock = Timer.new()
 
 local function now()
@@ -223,7 +222,11 @@ local jobs = {}
 local function resumeJobs()
 	for i = #jobs, 1, -1 do
 		local co = jobs[i]
+		local t0 = Diag and Diag.now and Diag.now()
 		local ok, err = coroutine.resume(co)
+		if t0 then
+			Diag.slow("task job", Diag.now() - t0)
+		end
 		if not ok then
 			Console.error("Threads job: " .. tostring(err))
 		end
@@ -611,30 +614,32 @@ local function complete(task)
 	return finish(task)
 end
 
+---Brings the network stack up, once per session, and logs how long the engine took. It is a synchronous call
+---(sceNet, NetCtl, sceHttp, curl); the stack used to be closed after 2 s without requests and brought up again on the
+---next one, which paused the app after every short pause and dropped the open connections and TLS sessions.
+local netInits = 0
+local function netInit()
+	if is_net_inited then
+		return
+	end
+	local t = now()
+	Network.init()
+	is_net_inited = true
+	netInits = netInits + 1
+	if ExtLog then
+		pcall(ExtLog, string.format("network init #%d: %d ms", netInits, now() - t))
+	end
+end
+
 ---Called every frame from the main loop
 function Threads.update()
 	if #jobs > 0 then
 		resumeJobs()
 	end
-	if is_net_inited and not current and #queue == 0 then
-		idleFrames = idleFrames + 1
-		-- keep the network stack alive 60 s after the last request: closing it drops the open connections and the TLS
-		-- sessions, and every request after a short pause (turning pages, going back to a list) paid DNS + TCP + TLS again
-		if idleFrames > 3600 then
-			Network.term()
-			is_net_inited = false
-			idleFrames = 0
-		end
-		return
-	end
-	idleFrames = 0
 	if not current and #queue == 0 then
 		return
 	end
-	if not is_net_inited then
-		Network.init()
-		is_net_inited = true
-	end
+	netInit()
 	if current then
 		if getAsyncState() == 0 then
 			-- still running: enforce the deadline
@@ -727,14 +732,8 @@ end
 
 ---You can use Network function in here if you sure that your function is safe
 function Threads.netActionUnSafe(foo)
-	if not is_net_inited then
-		Network.init()
-		local result = foo()
-		Network.term()
-		return result
-	else
-		return foo()
-	end
+	netInit() -- and the stack stays up (see netInit)
+	return foo()
 end
 
 ---Waits for the async slot, then runs `foo` with the network stack up (only for one-off, short calls)
