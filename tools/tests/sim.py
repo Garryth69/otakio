@@ -389,7 +389,12 @@ def main():
         def on_capture(frame, ops):
             plain = [list(op.values()) for op in ops.values()]
             out = os.path.join(args.outdir, f"{args.scenario}_{frame:05d}.png")
-            render.render(plain, out)
+            try:
+                render.render(plain, out)
+            except Exception:
+                import traceback
+                traceback.print_exc()
+                raise
             print("   screenshot:", out)
         sim.onCapture = on_capture
     if args.online:

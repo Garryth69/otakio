@@ -96,7 +96,7 @@ def render(ops, path):
             x0, x1 = sorted((x0, x1))
             y0, y1 = sorted((y0, y1))
             col = rgba(c)
-            if x1 - x0 < 0.5 or y1 - y0 < 0.5:
+            if x1 - x0 < 1 or y1 - y0 < 1:
                 continue
             if col[3] == 255:
                 ImageDraw.Draw(canvas).rectangle([x0, y0, x1 - 1, y1 - 1], fill=col)
@@ -105,10 +105,15 @@ def render(ops, path):
         elif kind == "orect":
             x0, x1, y0, y1, c = op[1:6]
             col = rgba(c)
+            if abs(x1 - x0) < 1 or abs(y1 - y0) < 1:
+                continue
             blend(lambda d, o: d.rectangle([min(x0, x1), min(y0, y1), max(x0, x1) - 1, max(y0, y1) - 1], outline=col))
         elif kind == "circle":
             x, y, r, c = op[1:5]
             col = rgba(c)
+            if r <= 0:
+                print("   render: circle with radius", r, "at", x, y)
+                continue
             blend(lambda d, o: d.ellipse([x - r, y - r, x + r, y + r], fill=col))
         elif kind in ("img", "simg", "ximg"):
             im = load_image(op[1])
@@ -129,6 +134,8 @@ def render(ops, path):
                 tw, th = max(1, int(w * scx)), max(1, int(h * scy))
                 part = tint(crop.resize((tw, th)), c)
                 pos = (int(x - tw / 2), int(y - th / 2))
+            if pos[0] >= 960 or pos[1] >= 544 or pos[0] + part.width <= 0 or pos[1] + part.height <= 0:
+                continue  # entirely off screen
             canvas.alpha_composite(part, dest=(max(0, pos[0]), max(0, pos[1])), source=(max(0, -pos[0]), max(0, -pos[1])))
         elif kind == "text":
             size, bold, x, y, text, c = op[1:7]

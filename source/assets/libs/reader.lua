@@ -1433,6 +1433,29 @@ end
 
 local counterShift = 0
 
+---The page counter slides away a while after the last input, or while the bars are shown
+local function shiftCounter()
+	if Timer.getTime(hideCounterTimer) > 1500 or MenuFade > 0 then
+		counterShift = math.max(counterShift - 1.5, -30)
+	else
+		counterShift = math.min(counterShift + 1.5, 0)
+	end
+end
+
+---The bars (Start or a tap) and their cursor fade in and out
+local function fadeBars()
+	if ContextMenu then
+		MenuFade = math.min(MenuFade + 0.1, 1)
+	else
+		MenuFade = math.max(MenuFade - 0.1, 0)
+	end
+	if CursorIndex >= 0 then
+		CursorFade = math.min(CursorFade + 0.1, 1)
+	else
+		CursorFade = math.max(CursorFade - 0.1, 0)
+	end
+end
+
 function Reader.update()
 	if toggleContextMenu and Timer.getTime(ToggleContextMenuTimer) > 300 then
 		Timer.reset(chapterNameTickerTimer)
@@ -1558,7 +1581,10 @@ function Reader.update()
 			end
 		end
 		if is_webtoon then
+			-- the bars and the counter animate here too (webtoonUpdate may also have just opened another chapter)
 			webtoonUpdate()
+			shiftCounter()
+			fadeBars()
 			return
 		end
 		gesture_touch_update()
@@ -1943,22 +1969,9 @@ function Reader.update()
 				end
 			end
 		end
-		if Timer.getTime(hideCounterTimer) > 1500 or MenuFade > 0 then
-			counterShift = math.max(counterShift - 1.5, -30)
-		else
-			counterShift = math.min(counterShift + 1.5, 0)
-		end
+		shiftCounter()
 	end
-	if ContextMenu then
-		MenuFade = math.min(MenuFade + 0.1, 1)
-	else
-		MenuFade = math.max(MenuFade - 0.1, 0)
-	end
-	if CursorIndex >= 0 then
-		CursorFade = math.min(CursorFade + 0.1, 1)
-	else
-		CursorFade = math.max(CursorFade - 0.1, 0)
-	end
+	fadeBars()
 end
 
 local PI = math.pi
