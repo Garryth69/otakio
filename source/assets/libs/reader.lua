@@ -565,7 +565,10 @@ end
 -- over them like on the sites; at the ends, scrolling on changes the chapter. The view is kept as (page, offset into
 -- that page): a page that loads above the view (its height was unknown) doesn't move what is being read.
 -------------------------------------------------------------------------------
+-- the view in reading coordinates: 960x544 holding the Vita sideways, 544x960 in the Vertical orientation (drawn turned)
 local WT_W, WT_H = 960, 544
+local WT_MIN_ZOOM, WT_MAX_ZOOM = 0.4, 3
+local wtVertical = false
 local WT_PLACEHOLDER = 544 -- height of a page while its image is unknown
 local WT_END_ZONE = 160 -- scrolling this far past an end changes the chapter
 local wt = {page = 1, offset = 0, zoom = 1, x = 0, vel = 0, glide = 0, push = 0, overTop = 0, overEnd = 0, atTop = true, atEnd = false, stickEnd = false}
@@ -661,7 +664,7 @@ local function wtNormalize(push)
 	wt.atEnd = scroll >= maxScroll
 	wt.page, wt.offset = 1, scroll
 	wtSettle()
-	local maxX = WT_W / 2 * (wt.zoom - 1)
+	local maxX = math.max(0, WT_W / 2 * (wt.zoom - 1))
 	wt.x = math.max(-maxX, math.min(maxX, wt.x))
 end
 
@@ -687,9 +690,9 @@ local function wtGoTo(p)
 	wt.offset, wt.vel, wt.glide, wt.stickEnd = 0, 0, 0, false
 end
 
----Zooms by `f` around the middle of the screen (1 = the page fills the width, up to 3)
+---Zooms by `f` around the middle of the screen (1 = the page fills the width; less shows more of the strip)
 local function wtZoomBy(f)
-	local new = math.max(1, math.min(3, wt.zoom * f))
+	local new = math.max(WT_MIN_ZOOM, math.min(WT_MAX_ZOOM, wt.zoom * f))
 	f = new / wt.zoom
 	if f == 1 then
 		return
@@ -782,6 +785,8 @@ end
 
 ---Start of a chapter in webtoon mode (after the pages are known): at the bookmark, or at the end when coming back
 local function wtStart()
+	wtVertical = orientation == "Vertical"
+	WT_W, WT_H = wtVertical and 544 or 960, wtVertical and 960 or 544
 	wt.page = math.max(1, math.min(allPages.Page or 1, allPages.Count or 1))
 	wt.offset, wt.vel, wt.glide, wt.x, wt.push = 0, 0, 0, 0, 0
 	wt.stickEnd = (allPages.PrevPage or 0) > (allPages.Page or 0)
@@ -795,6 +800,23 @@ local function webtoonInput(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 	wt.push = 0
 	local sx, sy = Controls.readLeftAnalog()
 	sx, sy = sx - 127, sy - 127
+	if wtVertical then
+		-- the Vita held upright: the stick's left is the reading down, its down the reading right
+		sx, sy = sy, -sx
+	end
+	-- touch points in reading coordinates
+	local function rt(t)
+		if wtVertical and t.x then
+			return {x = t.y, y = 960 - t.x}
+		end
+		return t
+	end
+	local pTouch = touch
+	touch, oldTouch, touch2, oldTouch2 = rt(touch), rt(oldTouch), rt(touch2), rt(oldTouch2)
+	local down, up, left, right = SCE_CTRL_DOWN, SCE_CTRL_UP, SCE_CTRL_LEFT, SCE_CTRL_RIGHT
+	if wtVertical then
+		down, up, left, right = SCE_CTRL_LEFT, SCE_CTRL_RIGHT, SCE_CTRL_UP, SCE_CTRL_DOWN
+	end
 	if math.abs(sy) > SCE_LEFT_STICK_DEADZONE then
 		local d = SCE_LEFT_STICK_SENSITIVITY * 25 * (sy - SCE_LEFT_STICK_DEADZONE * math.sign(sy)) / (128 - SCE_LEFT_STICK_DEADZONE)
 		wt.offset, wt.push, wt.vel = wt.offset + d, wt.push + d, 0
@@ -803,15 +825,15 @@ local function webtoonInput(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 		wt.x = wt.x - SCE_LEFT_STICK_SENSITIVITY * 25 * (sx - SCE_LEFT_STICK_DEADZONE * math.sign(sx)) / (128 - SCE_LEFT_STICK_DEADZONE)
 	end
 	if not ContextMenu then
-		if Controls.check(pad, SCE_CTRL_DOWN) then
+		if Controls.check(pad, down) then
 			wt.offset, wt.push, wt.vel = wt.offset + 20, wt.push + 20, 0
-		elseif Controls.check(pad, SCE_CTRL_UP) then
+		elseif Controls.check(pad, up) then
 			wt.offset, wt.push, wt.vel = wt.offset - 20, wt.push - 20, 0
 		end
 		if wt.zoom > 1 then
-			if Controls.check(pad, SCE_CTRL_LEFT) then
+			if Controls.check(pad, left) then
 				wt.x = wt.x + 20
-			elseif Controls.check(pad, SCE_CTRL_RIGHT) then
+			elseif Controls.check(pad, right) then
 				wt.x = wt.x - 20
 			end
 		end
@@ -826,8 +848,11 @@ local function webtoonInput(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 		elseif Controls.check(pad, SCE_CTRL_SQUARE) then
 			dz = 1 / 1.03
 		end
-		local _, ry = Controls.readRightAnalog()
+		local rx, ry = Controls.readRightAnalog()
 		ry = ry - 127
+		if wtVertical then
+			ry = 127 - rx
+		end
 		if math.abs(ry) > SCE_RIGHT_STICK_DEADZONE then
 			ry = (ry - SCE_RIGHT_STICK_DEADZONE * math.sign(ry)) / (128 - SCE_RIGHT_STICK_DEADZONE)
 			dz = dz * (1 - SCE_LEFT_STICK_SENSITIVITY * ry * 0.03)
@@ -836,7 +861,8 @@ local function webtoonInput(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 			wtZoomBy(dz)
 		end
 	end
-	local onPage = touch.x and (not ContextMenu or (touch.y > 80 and touch.y < WT_H - 80))
+	-- the bars are drawn sideways in both orientations: checked on the screen's own coordinates
+	local onPage = pTouch.x and (not ContextMenu or (pTouch.y > 80 and pTouch.y < 544 - 80))
 	if onPage then
 		if not wtTouch.active then
 			wtTouch.active, wtTouch.moved = true, false
@@ -1969,6 +1995,33 @@ local function drawPage(x, y, tex, sx, sy, w, h, rot, zx, zy)
 	end
 end
 
+---Webtoon drawing in reading coordinates: (x, y) is the center; in the Vertical orientation it is turned onto the screen
+local function wtImage(x, y, tex, w, h, z)
+	if wtVertical then
+		drawPage(960 - y, x, tex, 0, 0, w, h, PI / 2, z, z)
+	else
+		drawPage(x, y, tex, 0, 0, w, h, 0, z, z)
+	end
+end
+
+---A text centered at (x, y) of the reading view (the text itself stays level)
+local function wtText(font, x, y, text, color)
+	local w = Font.getTextWidth(font, text)
+	if wtVertical then
+		x, y = 960 - y, x
+	end
+	Font.print(font, x - w / 2, y - 10, text, color)
+end
+
+---A loading bar centered at (x, y) of the reading view
+local function wtBar(x, y, progress)
+	if wtVertical then
+		x, y = 960 - y, x
+	end
+	Graphics.fillEmptyRect(x - 52, x + 53, y - 6, y + 6, COLOR_FONT)
+	Graphics.fillRect(x - 50, x - 50 + 100 * progress, y - 4, y + 3, COLOR_FONT)
+end
+
 ---Webtoon mode: the pages one under the other from the view's page down, the loading texts, the notes at the ends
 local function webtoonDraw()
 	local count = allPages.Count or 0
@@ -1994,10 +2047,9 @@ local function webtoonDraw()
 					local slice = img[k]
 					if slice and slice.e then
 						local hh = Graphics.getImageHeight(slice.e)
-						drawPage(cx, top + hh * z / 2, slice.e, 0, 0, img.Width, hh, 0, z, z)
+						wtImage(cx, top + hh * z / 2, slice.e, img.Width, hh, z)
 					elseif top < WT_H and top + sh > 0 then
-						local text = R.LOADING_SEGMENT .. dots
-						Font.print(FONT16, cx - Font.getTextWidth(FONT16, text) / 2, math.max(top, 0) + 10, text, COLOR_FONT)
+						wtText(FONT16, cx, math.max(top, 0) + 20, R.LOADING_SEGMENT .. dots, COLOR_FONT)
 					end
 				end
 			elseif img then
@@ -2005,15 +2057,16 @@ local function webtoonDraw()
 				local tex = img.e or (img[1] and img[1].Image and img[1].Image.e)
 				if tex and w then
 					local z = wtScale(page)
-					drawPage(cx, y + h / 2, tex, 0, 0, w, ih, 0, z, z)
+					wtImage(cx, y + h / 2, tex, w, ih, z)
 				end
 			else
-				local progress = Threads.getProgress(page)
-				local text = R.LOADING_PAGE .. dots
 				local ty = (math.max(y, 0) + math.min(y + h, WT_H)) / 2
-				Font.print(FONT16, cx - Font.getTextWidth(FONT16, text) / 2, ty - 10, text, COLOR_FONT)
-				Graphics.fillEmptyRect(cx - 52, cx + 53, ty + 20, ty + 32, COLOR_FONT)
-				Graphics.fillRect(cx - 50, cx - 50 + 100 * progress, ty + 22, ty + 29, COLOR_FONT)
+				wtText(FONT16, cx, ty, R.LOADING_PAGE .. dots, COLOR_FONT)
+				if wtVertical then
+					wtBar(cx + 26, ty, Threads.getProgress(page))
+				else
+					wtBar(cx, ty + 26, Threads.getProgress(page))
+				end
 			end
 		end
 		y = y + h
@@ -2027,15 +2080,20 @@ local function webtoonDraw()
 		else
 			text = R.WT_LAST
 		end
-		local ty = y + WT_H / 2 - 10
-		Font.print(BONT16, WT_W / 2 - Font.getTextWidth(BONT16, text) / 2, ty, text, COLOR_FONT)
+		-- the texts stay level: in the Vertical orientation the next line goes along the reading view's width
+		local ty = y + WT_H / 2
+		local nx, ny = WT_W / 2, ty + 30
+		if wtVertical then
+			nx, ny = WT_W / 2 + 30, ty
+		end
+		wtText(BONT16, WT_W / 2, ty, text, COLOR_FONT)
 		if name then
-			Font.print(FONT16, WT_W / 2 - Font.getTextWidth(FONT16, name) / 2, ty + 30, name, COLOR_SUBFONT)
+			wtText(FONT16, nx, ny, name, COLOR_SUBFONT)
 		end
 	end
 	if wt.overTop > 0 and currentChapterNumber > 1 then
 		local text = R.WT_PREV
-		Font.print(BONT16, WT_W / 2 - Font.getTextWidth(BONT16, text) / 2, wt.overTop / 2 - 10, text, COLOR_FONT)
+		wtText(BONT16, WT_W / 2, wt.overTop / 2, text, COLOR_FONT)
 	end
 end
 
