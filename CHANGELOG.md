@@ -5,6 +5,11 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 ## 1.1.4
 
 ### Added
+- **Touch in the reader:** the bars (title, pages, menu) open with a press held still for about half a second, with
+  a ring filling under the finger; a quick tap, a drag or a pinch never opens them, so scrolling and zooming don't
+  bring them up by mistake. With the bars shown, a quick tap on the page closes them. A double tap zooms only with two
+  quick taps in the same spot, small finger shakes no longer start a drag, and in webtoon mode a fling follows the
+  finger's last movements and stops if the finger rested before lifting.
 - **Turning pages waits less:** the next page starts loading as soon as you turn (not when the turn animation ends),
   ahead of covers and source work, and the page just left stays decoded while memory allows, so going back is instant.
 - **A page that fails to load says so** (instead of loading forever): *Press X to try again*, also from the menu's

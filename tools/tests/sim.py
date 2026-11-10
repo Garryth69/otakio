@@ -13,7 +13,8 @@ B = {"SELECT": 0x1, "START": 0x8, "UP": 0x10, "RIGHT": 0x20, "DOWN": 0x40, "LEFT
 
 
 def build_script(steps, start=40, gap=12):
-    """steps: list of button names (or ('touch', x, y) or ('wait', n)). Each press lasts 2 frames."""
+    """steps: list of button names (or ('touch', x, y), ('hold', x, y, frames), ('drag', x0, y0, x1, y1, frames) or
+    ('wait', n)). Each press lasts 2 frames."""
     script = {}
     f = start
     for s in steps:
@@ -23,6 +24,15 @@ def build_script(steps, start=40, gap=12):
         if isinstance(s, tuple) and s[0] == "touch":
             script[f] = {"touch": (s[1], s[2])}
             script[f + 1] = {"touch": (s[1], s[2])}
+        elif isinstance(s, tuple) and s[0] == "hold":  # ('hold', x, y, frames): a finger kept still
+            for k in range(s[3]):
+                script[f + k] = {"touch": (s[1], s[2])}
+            f += s[3]
+        elif isinstance(s, tuple) and s[0] == "drag":  # ('drag', x0, y0, x1, y1, frames): a finger sliding
+            for k in range(s[5] + 1):
+                t = k / s[5]
+                script[f + k] = {"touch": (s[1] + (s[3] - s[1]) * t, s[2] + (s[4] - s[2]) * t)}
+            f += s[5] + 1
         else:
             script[f] = {"pad": B[s]}
             script[f + 1] = {"pad": B[s]}

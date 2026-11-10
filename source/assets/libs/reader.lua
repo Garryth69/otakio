@@ -47,6 +47,48 @@ local ContextMenu = false
 local MenuFade = 0
 local toggleContextMenu = false
 local ToggleContextMenuTimer = Timer.new()
+
+-- Touch on the page: the bars open with a press held still for HOLD_MS (a quick tap, a drag or a pinch never opens
+-- them; with the bars shown, a quick tap closes them). A double tap only counts with two quick taps (TAP_MS)
+local HOLD_MS, TAP_MS, HOLD_SLOP = 450, 250, 16
+local hold = {armed = false, fired = false, x = 0, y = 0, pinch = false}
+local holdTimer = Timer.new()
+
+---Every frame, on screen coordinates: arms on a press on the page, fires after HOLD_MS still
+local function holdTrack(touch, oldTouch, touch2)
+	if touch.x and not oldTouch.x then
+		local onBars = ContextMenu and (touch.y < 80 or touch.y > 544 - 80)
+		hold.armed, hold.fired, hold.pinch = not onBars, false, false
+		hold.x, hold.y = touch.x, touch.y
+		Timer.reset(holdTimer)
+	elseif touch.x then
+		if touch2.x then
+			hold.armed, hold.pinch = false, true
+		elseif hold.armed and (math.abs(touch.x - hold.x) > HOLD_SLOP or math.abs(touch.y - hold.y) > HOLD_SLOP) then
+			hold.armed = false
+		end
+		if hold.armed and not hold.fired and Timer.getTime(holdTimer) >= HOLD_MS then
+			hold.armed, hold.fired = false, true
+			toggleContextMenu = false
+			ContextMenu = not ContextMenu
+		end
+	else
+		hold.armed = false
+	end
+end
+
+---A release that may count as a tap: not after a hold, a pinch, or a long press
+local function quickTap()
+	return not hold.fired and not hold.pinch and Timer.getTime(holdTimer) < HOLD_MS
+end
+
+---Quick tap on the page: closes the bars when they are shown (opening them takes a hold)
+local function tapToggle()
+	if ContextMenu and not hold.fired then
+		Timer.reset(ToggleContextMenuTimer)
+		toggleContextMenu = true
+	end
+end
 local OnTouchMenu = false
 local CursorIndex = -1
 local CursorFade = 0
@@ -70,7 +112,7 @@ local function gesture_touch_input(touch, oldtouch, page)
 		if not page or not page.Zoom then
 			return
 		end
-		if touch.x == nil and oldtouch.x ~= nil and (not ContextMenu or (oldtouch.y >= 80 and oldtouch.y <= 544 - 80)) and not gestureZoom and touchMode == TOUCH_READ then
+		if touch.x == nil and oldtouch.x ~= nil and (not ContextMenu or (oldtouch.y >= 80 and oldtouch.y <= 544 - 80)) and not gestureZoom and touchMode == TOUCH_READ and quickTap() and Timer.getTime(holdTimer) < TAP_MS then
 			gestureZoom = false
 			local update_last = true
 			if Timer.getTime(doubleClickTimer) < 300 then
@@ -937,12 +979,16 @@ local function webtoonInput(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 				wtTouch.moved = true
 			else
 				local dy, dx = touch.y - wtTouch.lastY, touch.x - wtTouch.lastX
-				if not wtTouch.moved and (math.abs(touch.y - wtTouch.startY) > 10 or math.abs(touch.x - wtTouch.startX) > 10) then
+				if not wtTouch.moved and (math.abs(touch.y - wtTouch.startY) > 12 or math.abs(touch.x - wtTouch.startX) > 12) then
 					wtTouch.moved = true
 					touchMode = TOUCH_MOVE
 				end
 				if wtTouch.moved then
-					wt.offset, wt.push, wt.vel = wt.offset - dy, wt.push - dy, -dy
+					-- the fling speed is an average of the last frames; a finger held still before lifting stops it
+					wt.offset, wt.push, wt.vel = wt.offset - dy, wt.push - dy, wt.vel * 0.5 - dy * 0.5
+					if dy ~= 0 then
+						wtTouch.movedAt = Timer.getTime(wtClock)
+					end
 					if wt.zoom > 1 then
 						wt.x = wt.x + dx
 					end
@@ -953,9 +999,15 @@ local function webtoonInput(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 	elseif wtTouch.active then
 		wtTouch.active = false
 		touchMode = TOUCH_IDLE
+		if wtTouch.moved and Timer.getTime(wtClock) - (wtTouch.movedAt or 0) > 90 then
+			wt.vel = 0
+		end
 		local now = Timer.getTime(wtClock)
-		local double = Settings.DoubleTapReader and oldTouch.x and now - wtTouch.lastTap < 300 and math.abs(oldTouch.x - wtTouch.tapX) < 80 and math.abs(oldTouch.y - wtTouch.tapY) < 80
-		if not wtTouch.moved and oldTouch.x then
+		local quick = quickTap() and Timer.getTime(holdTimer) < TAP_MS
+		local double = quick and Settings.DoubleTapReader and oldTouch.x and now - wtTouch.lastTap < 300 and math.abs(oldTouch.x - wtTouch.tapX) < 60 and math.abs(oldTouch.y - wtTouch.tapY) < 60
+		if not wtTouch.moved and oldTouch.x and not quick then
+			wtTouch.lastTap = -1000
+		elseif not wtTouch.moved and oldTouch.x then
 			wtTouch.lastTap, wtTouch.tapX, wtTouch.tapY = now, oldTouch.x, oldTouch.y
 		end
 		if not wtTouch.moved and double then
@@ -963,14 +1015,13 @@ local function webtoonInput(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 			toggleContextMenu = false
 			wtTouch.lastTap = -1000
 			wt.zoomTo = {zoom = wt.zoom < 1.5 and 2 or 1, x = oldTouch.x, y = oldTouch.y}
-		elseif not wtTouch.moved and oldTouch.x then
+		elseif not wtTouch.moved and oldTouch.x and quickTap() then
 			if Settings.PressEdgesToChangePage and oldTouch.y > WT_H / 2 + 120 then
 				wtStep(1)
 			elseif Settings.PressEdgesToChangePage and oldTouch.y < WT_H / 2 - 120 then
 				wtStep(-1)
 			else
-				toggleContextMenu = true
-				Timer.reset(ToggleContextMenuTimer)
+				tapToggle()
 			end
 		end
 	end
@@ -1086,6 +1137,7 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 		openSettings()
 		return
 	end
+	holdTrack(touch, oldTouch, touch2)
 	if Controls.check(pad, SCE_CTRL_CIRCLE) or ContextMenu and touch.x and touch.x < 88 and touch.y < 80 * MenuFade and not oldTouch.x then
 		if allPages.Page > 0 then
 			if is_webtoon then
@@ -1240,7 +1292,7 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 					pageMode = PAGE_NONE
 				end
 				if touchMode ~= TOUCH_LOCK then
-					if touchMode == TOUCH_READ then
+					if touchMode == TOUCH_READ and quickTap() then
 						if Settings.PressEdgesToChangePage then
 							if touchMode == TOUCH_READ and not touch.x and oldTouch.x then
 								if orientation == "Vertical" then
@@ -1250,8 +1302,7 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 										elseif oldTouch.x < 480 - 180 then
 											turnPage("LEFT")
 										else
-											toggleContextMenu = true
-											Timer.reset(ToggleContextMenuTimer)
+											tapToggle()
 										end
 									else
 										if oldTouch.y > 272 + 120 then
@@ -1259,8 +1310,7 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 										elseif oldTouch.y < 272 - 120 then
 											turnPage("RIGHT")
 										else
-											toggleContextMenu = true
-											Timer.reset(ToggleContextMenuTimer)
+											tapToggle()
 										end
 									end
 								elseif orientation == "Horizontal" then
@@ -1270,8 +1320,7 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 										elseif oldTouch.y < 272 - 120 then
 											turnPage("RIGHT")
 										else
-											toggleContextMenu = true
-											Timer.reset(ToggleContextMenuTimer)
+											tapToggle()
 										end
 									else
 										if oldTouch.x > 480 + 180 then
@@ -1279,15 +1328,13 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 										elseif oldTouch.x < 480 - 180 then
 											turnPage("RIGHT")
 										else
-											toggleContextMenu = true
-											Timer.reset(ToggleContextMenuTimer)
+											tapToggle()
 										end
 									end
 								end
 							end
 						else
-							toggleContextMenu = true
-							Timer.reset(ToggleContextMenuTimer)
+							tapToggle()
 						end
 					end
 					touchMode = TOUCH_IDLE
@@ -1295,7 +1342,7 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 			end
 			if touchMode == TOUCH_READ and touchTemp.x and touch.x then
 				local len = math.sqrt((touchTemp.x - touch.x) * (touchTemp.x - touch.x) + (touchTemp.y - touch.y) * (touchTemp.y - touch.y))
-				if len > 10 then
+				if len > 12 then
 					if orientation == "Horizontal" then
 						if is_down then
 							if not page.Zoom or (page.Width * page.Zoom < 961 or math.abs(touch.y - touchTemp.y) > math.abs(touch.x - touchTemp.x) * 1.5) and ((bit32.band(pageMode, PAGE_RIGHT) ~= 0 and touchTemp.y > touch.y) or (bit32.band(pageMode, PAGE_LEFT) ~= 0 and touchTemp.y < touch.y)) then
@@ -1330,8 +1377,7 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 		end
 	elseif currentState == STATE_LOADING then
 		if touch.x == nil and oldTouch.x ~= nil and (not ContextMenu or (oldTouch.y <= 544 - 80 and oldTouch.y >= 80)) then
-			toggleContextMenu = true
-			Timer.reset(ToggleContextMenuTimer)
+			tapToggle()
 		end
 	end
 	if ContextMenu and ((touch.y and (touch.y >= 544 - 80 or touch.y <= 80)) or (oldTouch.y and (oldTouch.y >= 544 - 80 or oldTouch.y <= 80))) then
@@ -2333,6 +2379,13 @@ function Reader.draw()
 			local Width = Font.getTextWidth(FONT16, Counter) + 20
 			Graphics.fillRect(960 - Width, 960, counterShift, counterShift + Font.getTextHeight(FONT16, Counter) + 4, Color.new(0, 0, 0, 128))
 			Font.print(FONT16, 970 - Width, counterShift, Counter, COLOR_WHITE)
+		end
+	end
+	if hold.armed then
+		local t = (Timer.getTime(holdTimer) - 120) / (HOLD_MS - 120)
+		if t > 0 then
+			t = math.min(1, t)
+			Graphics.fillCircle(hold.x, hold.y, 14 + 26 * t, CloneColorWithNewAlpha(COLOR_ACCENT, 70 + 80 * t))
 		end
 	end
 	if MenuFade > 0 then
