@@ -120,11 +120,27 @@ def merge_health(health, results, today=None, ci=False):
     """Merges probe results into health.json keeping a history per source:
     lastOk   = last day it worked (ok or partial)
     deadSince = first day of the current unbroken run of "dead" results (cleared when it works again)
-    tools/prune_repo.py removes sources dead for more than 180 days."""
+    tools/prune_repo.py removes sources dead for more than 180 days.
+    A downgrade (ok -> partial, ok/partial -> dead) needs two checks in a row: the first one only keeps the last
+    result with "pending" = {status, since}, so a site that failed once (a timeout, a bad minute) doesn't flicker
+    in the app. An upgrade counts at once. A dead run started that way dates from the first failed check."""
     today = today or time.strftime("%Y-%m-%d")
+    rank = {"ok": 2, "partial": 1, "dead": 0}
     for ext_id, r in results.items():
         old = health.get(ext_id) or {}
         r = dict(r)
+        new_rank, old_rank = rank.get(r.get("status"), 0), rank.get(old.get("status"))
+        pending = old.get("pending") if isinstance(old.get("pending"), dict) else None
+        if old_rank is not None and new_rank < old_rank and not pending:
+            # first worse result: keep the last one, wait for the next check to confirm it
+            kept = dict(old)
+            kept["pending"] = {"status": r.get("status"), "since": today}
+            if r.get("error"):
+                kept["pending"]["error"] = r["error"]
+            health[ext_id] = kept
+            continue
+        first_fail = pending.get("since") if pending and r.get("status") == "dead" and pending.get("status") == "dead" else None
+        r.pop("pending", None)
         if ci and r.get("status") == "dead" and (r.get("cloudflare") or r.get("blocked")) and old.get("status") in ("ok", "partial"):
             # worked before, blocked now from a CI runner: keep the last real result, flag it, don't start the clock
             kept = dict(old)
@@ -133,7 +149,7 @@ def merge_health(health, results, today=None, ci=False):
             continue
         r.pop("unverified", None)
         if r.get("status") == "dead":
-            r["deadSince"] = old.get("deadSince") if old.get("status") == "dead" and old.get("deadSince") else today
+            r["deadSince"] = old.get("deadSince") if old.get("status") == "dead" and old.get("deadSince") else (first_fail or today)
         else:
             r.pop("deadSince", None)
         r["lastOk"] = today if r.get("status") in ("ok", "partial") else old.get("lastOk")

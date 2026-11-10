@@ -44,8 +44,10 @@ jobs:
       - name: Core tests (JSON, HTML, serialization)
         run: python tools/run_lua.py tools/tests/test_core.lua tools/tests/test_diag.lua tools/tests/test_browselang.lua
 
-      - name: Data migrations
-        run: python tools/tests/test_migrations.py
+      - name: Data migrations and source health history
+        run: |
+          python tools/tests/test_migrations.py
+          python tools/tests/test_health_merge.py
 
       - name: Translations
         run: python tools/check_lang.py
