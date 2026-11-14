@@ -215,7 +215,7 @@ Controls = {
 	end,
 	readTouch = function()
 		if currentTouch then
-			return currentTouch[1], currentTouch[2]
+			return currentTouch[1], currentTouch[2], currentTouch[3], currentTouch[4] -- a second finger when the script gives one
 		end
 		return nil
 	end,

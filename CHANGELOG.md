@@ -10,6 +10,14 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
   bring them up by mistake. With the bars shown, a quick tap on the page closes them. A double tap zooms only with two
   quick taps in the same spot, small finger shakes no longer start a drag, and in webtoon mode a fling follows the
   finger's last movements and stops if the finger rested before lifting.
+- **Two fingers no longer throw the page:** adding or lifting a finger (a pinch, or a second finger landing while
+  scrolling) used to count as a jump of the first one, which sent the page flying; now it starts a new movement and a
+  pinch never ends in a fling.
+- **An image that failed for good isn't asked again** in the same session (a cover refused by its site was downloaded
+  and refused on every screen it appeared on); a page's *try again* in the reader still asks.
+- **Source lists stutter less:** the HTML and JSON parsers give the frame back about twice as often.
+- **Diagnostics:** a long frame now names the step that took the time (network, parser, screen update, draw, GPU...),
+  and the engine's network calls are timed.
 - **Turning pages waits less:** the next page starts loading as soon as you turn (not when the turn animation ends),
   ahead of covers and source work, and the page just left stays decoded while memory allows, so going back is instant.
 - **A page that fails to load says so** (instead of loading forever): *Press X to try again*, also from the menu's

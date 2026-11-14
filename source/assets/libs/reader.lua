@@ -29,6 +29,7 @@ local maxZoom = 3
 
 local currentPageOffset = CreatePoint(0, 0)
 local touchTemp = CreatePoint(0, 0)
+local touchTwo = false -- paged mode: a second finger was on the screen last frame
 
 local startPage
 
@@ -282,7 +283,7 @@ local function prefetchFrom(page, direction)
 end
 
 ---Loads a page that still needs to be resolved/downloaded, using the prefetch cache when possible
-local function requestRemotePage(pageTable, insert)
+local function requestRemotePage(pageTable, insert, force)
 	local path = prefetchedPath(pageTable.Link or pageTable[1])
 	local add = insert and Threads.insertTask or Threads.addTask
 	if path then
@@ -297,7 +298,8 @@ local function requestRemotePage(pageTable, insert)
 			Type = "ImageDownload",
 			Link = pageTable.Link,
 			Table = pageTable,
-			Index = "Image"
+			Index = "Image",
+			Force = force -- a retry asked by the user goes even for a link that failed before
 		})
 	else
 		ParserManager.loadPageImage(Chapters[currentChapterNumber].Manga.ParserID, pageTable[1], pageTable, insert)
@@ -353,6 +355,7 @@ end)
 ---@param urgent boolean|nil false: queued behind the current work (a page ahead of the view in webtoon mode)
 local function loadPageImage(page, urgent)
 	local PageTable = allPages[page]
+	local force = PageTable.LoadFailed ~= nil -- asked again after a failure: the user's retry
 	PageTable.LoadFailed = nil
 	local add = urgent == false and Threads.addTask or Threads.insertTask
 	if not PageTable.Image and not (PageTable.Link == "LoadPrev" or PageTable.Link == "LoadNext") then
@@ -388,7 +391,7 @@ local function loadPageImage(page, urgent)
 				}
 			)
 		else
-			requestRemotePage(PageTable, urgent ~= false)
+			requestRemotePage(PageTable, urgent ~= false, force)
 		end
 	end
 end
@@ -965,17 +968,25 @@ local function webtoonInput(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 	local onPage = pTouch.x and (not ContextMenu or (pTouch.y > 80 and pTouch.y < 544 - 80))
 	if onPage then
 		if not wtTouch.active then
-			wtTouch.active, wtTouch.moved = true, false
+			wtTouch.active, wtTouch.moved, wtTouch.two, wtTouch.pinch = true, false, touch2.x ~= nil, touch2.x ~= nil
 			wtTouch.startX, wtTouch.startY, wtTouch.lastX, wtTouch.lastY = touch.x, touch.y, touch.x, touch.y
 			wt.vel = 0
 			touchMode = TOUCH_READ
 		else
-			if touch2.x and oldTouch2.x and oldTouch.x then
+			local two = touch2.x ~= nil
+			if two ~= wtTouch.two then
+				-- a finger added or lifted: the first touch may now be the other finger, so this frame is a new start
+				wtTouch.two, wtTouch.pinch = two, wtTouch.pinch or two
+				wt.vel = 0
+			elseif two and oldTouch2.x and oldTouch.x then
 				local d = math.sqrt((touch.x - touch2.x) ^ 2 + (touch.y - touch2.y) ^ 2)
 				local d0 = math.sqrt((oldTouch.x - oldTouch2.x) ^ 2 + (oldTouch.y - oldTouch2.y) ^ 2)
 				if d0 > 0 then
 					wtZoomBy(d / d0)
 				end
+				wtTouch.moved = true
+			elseif wtTouch.pinch then
+				-- one finger left after a pinch: the view stays (lifting the other finger must not scroll)
 				wtTouch.moved = true
 			else
 				local dy, dx = touch.y - wtTouch.lastY, touch.x - wtTouch.lastX
@@ -999,7 +1010,7 @@ local function webtoonInput(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 	elseif wtTouch.active then
 		wtTouch.active = false
 		touchMode = TOUCH_IDLE
-		if wtTouch.moved and Timer.getTime(wtClock) - (wtTouch.movedAt or 0) > 90 then
+		if wtTouch.pinch or (wtTouch.moved and Timer.getTime(wtClock) - (wtTouch.movedAt or 0) > 90) then
 			wt.vel = 0
 		end
 		local now = Timer.getTime(wtClock)
@@ -1247,7 +1258,13 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 				end
 			end
 			if touch.y and oldTouch.y and (not ContextMenu or touch.y < 544 - 80 and touch.y > 80 and oldTouch.y < 544 - 80 and oldTouch.y > 80) then
-				if touchMode ~= TOUCH_MULTI then
+				-- a finger added or lifted: the first touch may now be the other finger (a jump, not a movement)
+				local two = touch2.x ~= nil
+				if two ~= touchTwo then
+					touchTwo = two
+					touchTemp.x, touchTemp.y = touch.x, touch.y
+					velX, velY = 0, 0
+				elseif touchMode ~= TOUCH_MULTI then
 					if touchMode == TOUCH_IDLE then
 						touchTemp.x = touch.x
 						touchTemp.y = touch.y
@@ -1291,6 +1308,10 @@ function Reader.input(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 					velY = 0
 					pageMode = PAGE_NONE
 				end
+				if touchMode == TOUCH_MULTI then
+					velX, velY = 0, 0 -- after a pinch the page stays where the fingers left it
+				end
+				touchTwo = false
 				if touchMode ~= TOUCH_LOCK then
 					if touchMode == TOUCH_READ and quickTap() then
 						if Settings.PressEdgesToChangePage then

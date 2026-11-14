@@ -380,10 +380,16 @@ local function update()
 	Debug.update()
 	if fade == 0 then
 		Panel.update()
+		Diag.stepStart()
 		Threads.update()
+		Diag.stepEnd("net")
+		Diag.stepStart()
 		ParserManager.update()
+		Diag.stepEnd("parser")
 		ChapterSaver.update()
+		Diag.stepStart()
 		Extensions.update()
+		Diag.stepEnd("extensions")
 		SourceStatus.update()
 		AppUpdate.update()
 		Diag.update()
@@ -396,6 +402,7 @@ local function update()
 			fade = 0
 		end
 	end
+	Diag.stepStart()
 	if AppMode == MENU then
 		Menu.update()
 		if Details.getStatus() == "END" and CatalogModes.getStatus() == "END" then
@@ -407,6 +414,7 @@ local function update()
 		Reader.update()
 		Panel.hide()
 	end
+	Diag.stepEnd("screen update")
 	Dialog.update()
 	Notifications.update()
 	-- fast clocks while anything happens; the default ones a few seconds after everything went quiet (perf.lua)
@@ -424,12 +432,14 @@ local frameClock = Timer.new() -- CPU time of the frame (input + update + draw),
 local function draw()
 	Graphics.initBlend()
 	DRAW_PHASE = true -- textures freed from here to termBlend wait in a queue (image.lua)
+	Diag.stepStart()
 	if AppMode == MENU then
 		Menu.draw()
 	elseif AppMode == READER then
 		Reader.draw()
 		ReaderSheet.draw()
 	end
+	Diag.stepEnd("screen draw")
 	Loading.draw()
 	if fade > 0 then
 		Graphics.fillRect(0, 960, 0, 544, Color.new(16, 17, 26, 255 * fade))
@@ -447,8 +457,12 @@ local function draw()
 	Panel.draw()
 	AppUpdate.draw() -- over the button bar too: the menu doesn't take input meanwhile
 	Debug.draw()
+	Diag.stepStart()
 	FontWarmup.tick()
+	Diag.stepEnd("fonts")
+	Diag.stepStart()
 	Graphics.termBlend() -- waits for the GPU to finish the frame
+	Diag.stepEnd("gpu")
 	DRAW_PHASE = false
 	local frameMs = Timer.getTime(frameClock)
 	if frameMs > 50 then
@@ -505,8 +519,13 @@ end
 
 local function frame()
 	Timer.reset(frameClock)
+	Diag.stepsReset()
+	Diag.stepStart()
 	Textures.flush() -- the GPU finished the previous frame: queued textures can go now
+	Diag.stepEnd("textures")
+	Diag.stepStart()
 	input()
+	Diag.stepEnd("input")
 	update()
 	draw()
 end

@@ -41,6 +41,9 @@ function Json.decode(str, yieldEvery)
 	end
 	local counter = 0
 	local canYield = yieldEvery and co_running() ~= nil
+	if canYield and yieldEvery > 1000 then
+		yieldEvery = 1000 -- 4000 values between yields took 300 ms on the Vita
+	end
 
 	local function skip()
 		local _, e = find(str, "^[ \t\r\n]*", pos)

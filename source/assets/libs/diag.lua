@@ -147,10 +147,42 @@ function Diag.slow(label, ms)
 	end
 end
 
----A frame that took longer than 50 ms (main.lua): counted with the screen and what was running at the time
+local steps = {} -- this frame: step label -> ms (main.lua)
+local stepClock = Timer.new()
+
+---Starts timing one step of the frame (update of a module, the draw...), see Diag.stepEnd
+function Diag.stepStart()
+	Timer.reset(stepClock)
+end
+
+---Ends the step started by Diag.stepStart, under `label`
+function Diag.stepEnd(label)
+	steps[label] = (steps[label] or 0) + Timer.getTime(stepClock)
+end
+
+---Forgets the steps of the frame (main.lua, at the start of every frame)
+function Diag.stepsReset()
+	for k in pairs(steps) do
+		steps[k] = nil
+	end
+end
+
+---A frame that took longer than 50 ms (main.lua): counted with the screen, what was running at the time and the
+---step of the frame that took the most of it
 function Diag.hitch(ms, fontWarmup)
 	hitches = hitches + 1
 	local where = AppMode == READER and "reader" or tostring(Menu and Menu.getMode and Menu.getMode())
+	local heavy, heavyMs = nil, 0
+	for k, v in pairs(steps) do
+		if v > heavyMs then
+			heavy, heavyMs = k, v
+		end
+	end
+	if heavy and heavyMs >= ms * 0.5 then
+		where = where .. "@" .. heavy
+	elseif ms >= 1000 then
+		where = where .. "@elsewhere" -- no step holds it: input, vblank or the app paused by the system
+	end
 	local tags = {}
 	local stage = Threads and Threads.currentStage and Threads.currentStage()
 	if stage then

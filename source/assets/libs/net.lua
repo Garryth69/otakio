@@ -173,6 +173,9 @@ local DEADLINE = {
 local queue = {} -- pending tasks, ordered by Priority (stable)
 local current = nil -- task holding the async slot
 local uniques = {} -- uniqueKey -> task (pending or running)
+-- image links that failed for good this session: not asked again (the cover of a title that comes back on every
+-- screen would be downloaded, refused and retried over and over); a page's retry (reader, `Force`) still may
+local failedLinks = {}
 local bytes = 0
 local is_net_inited = false
 local clock = Timer.new()
@@ -326,6 +329,9 @@ local function fail(task, reason)
 		if not task.Cancelled and type(task.Table) == "table" and task.Index == "Image" then
 			task.Table.LoadFailed = tostring(reason) -- the reader shows it with a way to try again
 		end
+		if not task.Cancelled and (task.Kind == "ImageDownload" or task.ImageFile) and task.RawLink then
+			failedLinks[task.RawLink] = tostring(reason)
+		end
 		release(task)
 	end
 end
@@ -477,6 +483,12 @@ end
 local function start(task)
 	current = task
 	task.StartedAt = now()
+	local t0 = Diag and Diag.now and Diag.now()
+	local function done()
+		if t0 then
+			Diag.slow("net start " .. tostring(task.Stage or task.Kind), Diag.now() - t0)
+		end
+	end
 	-- a retried task gets a fresh deadline (and stall clock)
 	task.TimedOut, task.SlowLogged, task.LastBytes, task.LastProgressAt = nil, nil, nil, nil
 	-- like NOBORU: an image download is "final" only once its texture exists
@@ -485,6 +497,7 @@ local function start(task)
 	if t == "StringRequest" then
 		if not task.Link or task.Link == "" then
 			Console.error("No Link given")
+			done()
 			return finish(task)
 		end
 		task.Stage = "string"
@@ -492,6 +505,7 @@ local function start(task)
 	elseif t == "FileDownload" or t == "ImageDownload" then
 		if not task.Link or task.Link == "" then
 			Console.error("No Link given")
+			done()
 			return finish(task)
 		end
 		if doesFileExist(task.Path) then
@@ -500,10 +514,12 @@ local function start(task)
 		task.Stage = "download"
 		Network.downloadFileAsync(task.Link, task.Path, userAgentFor(task.Link), task.HttpMethod, task.PostData, task.ContentType, task.Cookie, task.Header1, task.Header2, task.Header3, task.Header4, task.Proxy, task.ProxyAuth)
 	elseif t == "Image" then
+		done()
 		return decodeImage(task)
 	elseif t == "ImageSlice" then
 		local plan, k = task.Plan, task.Slice
 		if not plan or plan[k] or not doesFileExist(plan.Path) then
+			done()
 			return finish(task)
 		end
 		local sliceHeight = math.floor(plan.RealHeight / plan.Parts)
@@ -511,6 +527,7 @@ local function start(task)
 		local shown = plan.RealWidth / plan.Width
 		if not Textures.ensure(img2bytes(plan.RealWidth, h, shown)) then
 			Console.error("Not enough texture memory for a page slice")
+			done()
 			return finish(task)
 		end
 		task.Stage = "slice"
@@ -518,6 +535,7 @@ local function start(task)
 	elseif t == "UnZip" then
 		if not task.DestPath or not task.Path then
 			Console.error("UnZip: missing paths")
+			done()
 			return finish(task)
 		end
 		removeDirectory(task.DestPath)
@@ -528,14 +546,17 @@ local function start(task)
 	elseif t == "UnZipFile" then
 		if not task.Extract or not task.DestPath or not task.Path then
 			Console.error("UnZipFile: missing paths")
+			done()
 			return finish(task)
 		end
 		task.Stage = "unzip"
 		System.extractFromZipAsync(task.Path, task.Extract, task.DestPath)
 	else
 		-- "function" and unknown types: their turn in the queue is the event (OnComplete runs now)
+		done()
 		return finish(task)
 	end
+	done()
 end
 
 local function freeAsyncImage()
@@ -750,8 +771,12 @@ end
 local wifiCache, wifiTime = nil, -10000
 function Threads.isOnline()
 	if wifiCache == nil or now() - wifiTime > 1000 then
+		local t0 = Diag and Diag.now and Diag.now()
 		wifiCache = Threads.netActionUnSafe(Network.isWifiEnabled) and true or false
 		wifiTime = now()
+		if t0 then
+			Diag.slow("wifi state", Diag.now() - t0)
+		end
 	end
 	return wifiCache
 end
@@ -818,6 +843,12 @@ local function newTask(uniqueKey, t, front)
 	end
 	task.Proxy = Settings.UseProxy and (Settings.ProxyIP .. ":" .. Settings.ProxyPort) or ""
 	task.ProxyAuth = Settings.UseProxyAuth and Settings.ProxyAuth or ""
+	if (task.Kind == "ImageDownload" or task.ImageFile) and task.RawLink and failedLinks[task.RawLink] and not t.Force then
+		if type(task.Table) == "table" and task.Index == "Image" then
+			task.Table.LoadFailed = failedLinks[task.RawLink]
+		end
+		return false
+	end
 	enqueue(task, front)
 	uniques[uniqueKey] = task
 	return true
