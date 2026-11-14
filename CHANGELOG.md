@@ -18,6 +18,14 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - **Source lists stutter less:** the HTML and JSON parsers give the frame back about twice as often.
 - **Diagnostics:** a long frame now names the step that took the time (network, parser, screen update, draw, GPU...),
   and the engine's network calls are timed.
+- **The next chapter is ready sooner:** near the end of a chapter its page list is asked to the source and its first
+  two pages downloaded, so opening it doesn't wait.
+- **Huge pages load faster:** a page far bigger than the screen (2500 px raws and up) is decoded at half or a quarter
+  of its size, never under 1000 px on its shorter side: a fraction of the memory and a faster decode.
+- **Good neighbour:** at most one request every 300 ms to the same site; requests for other sites go meanwhile.
+- **Interface text size** (Settings > Other): Normal, Large or Larger text in lists, menus and descriptions.
+- **Global search by touch:** drag up and down through the sources and sideways through one source's covers, with
+  inertia, like the other screens; the view stays where the finger left it until a button is pressed.
 - **Turning pages waits less:** the next page starts loading as soon as you turn (not when the turn animation ends),
   ahead of covers and source work, and the page just left stays decoded while memory allows, so going back is instant.
 - **A page that fails to load says so** (instead of loading forever): *Press X to try again*, also from the menu's

@@ -939,7 +939,7 @@ end
 -------------------------------------------------------------------------------
 
 GlobalSearch = {}
-local GS = {query = "", sections = {}, sel = 1, col = 1, y = 0, v = 0, active = false}
+local GS = {query = "", sections = {}, sel = 1, col = 1, y = 0, v = 0, active = false, free = false, drag = nil}
 Screens.GLOBALSEARCH = GS
 
 local SEC_H = 236
@@ -966,7 +966,7 @@ end
 function GlobalSearch.start(query)
 	GlobalSearch.stop()
 	GS.query = query
-	GS.sel, GS.col, GS.y, GS.v = 1, 1, 0, 0
+	GS.sel, GS.col, GS.y, GS.v, GS.free, GS.drag = 1, 1, 0, 0, false, nil
 	local pinned, others = {}, {}
 	for _, p in ipairs(GetParserList()) do
 		if p.searchManga then
@@ -979,7 +979,7 @@ function GlobalSearch.start(query)
 	end
 	for _, list in ipairs({pinned, others}) do
 		for _, p in ipairs(list) do
-			local s = {parser = p, results = {}, scroll = 0}
+			local s = {parser = p, results = {}, scroll = 0, hv = 0, free = false}
 			GS.sections[#GS.sections + 1] = s
 			ParserManager.getMangaListAsync("Search", p, 1, s.results, query)
 		end
@@ -1013,6 +1013,13 @@ end
 function GS.input(oldPad, pad, oldTouch, touch)
 	local list = visibleSections()
 	local s = list[GS.sel]
+	if pad ~= 0 and (pressed(pad, oldPad, SCE_CTRL_UP) or pressed(pad, oldPad, SCE_CTRL_DOWN) or pressed(pad, oldPad, SCE_CTRL_LEFT) or pressed(pad, oldPad, SCE_CTRL_RIGHT)) then
+		-- buttons: back to following the selection
+		GS.free, GS.v = false, 0
+		for _, sec in ipairs(list) do
+			sec.free, sec.hv = false, 0
+		end
+	end
 	if pressed(pad, oldPad, SCE_CTRL_UP) then
 		GS.sel = max(1, GS.sel - 1)
 		GS.col = 1
@@ -1040,21 +1047,42 @@ function GS.input(oldPad, pad, oldTouch, touch)
 		CatalogModes.setSearch(GS.query)
 		return
 	end
-	-- touch: tap a cover, drag to scroll
-	if oldTouch.x and touch.x then
-		GS.v = oldTouch.y - touch.y
-		GS.dragged = GS.dragged or abs(touch.y - (GS.touchStartY or touch.y)) > 10
-	elseif touch.x and not oldTouch.x then
-		GS.touchStartY = touch.y
-		GS.dragged = false
-	elseif oldTouch.x and not touch.x and not GS.dragged then
-		local si = floor((oldTouch.y - TOP + GS.y) / SEC_H) + 1
-		local sec = list[si]
-		if sec then
-			local ci = floor((oldTouch.x - X0 + sec.scroll) / (THUMB_W + THUMB_GAP)) + 1
-			if sec.results[ci] then
-				GS.sel, GS.col = si, ci
-				Details.setManga(sec.results[ci])
+	-- touch: a drag scrolls the sections (up/down) or the covers of one source (sideways), the way it starts decides
+	-- which; it goes on with inertia when the finger lifts. A tap opens the cover under the finger
+	if touch.x and not oldTouch.x then
+		if touch.y > TOP and touch.x > X0 then
+			local si = floor((touch.y - TOP + GS.y) / SEC_H) + 1
+			GS.drag = {mode = "read", x = touch.x, y = touch.y, si = si, sec = list[si]}
+			GS.v = 0
+			if list[si] then
+				list[si].hv = 0
+			end
+		end
+	elseif touch.x and oldTouch.x and GS.drag then
+		local d = GS.drag
+		if d.mode == "read" and (abs(touch.x - d.x) > 10 or abs(touch.y - d.y) > 10) then
+			d.mode = (abs(touch.x - d.x) > abs(touch.y - d.y) and d.sec) and "h" or "v"
+		end
+		if d.mode == "v" then
+			GS.free = true
+			GS.v = oldTouch.y - touch.y
+			GS.y = GS.y + GS.v
+		elseif d.mode == "h" then
+			d.sec.free = true
+			d.sec.hv = oldTouch.x - touch.x
+			d.sec.scroll = d.sec.scroll + d.sec.hv
+		end
+	elseif not touch.x and GS.drag then
+		local d = GS.drag
+		GS.drag = nil
+		if d.mode == "read" and oldTouch.x then
+			local sec = list[d.si]
+			if sec then
+				local ci = floor((oldTouch.x - X0 + sec.scroll) / (THUMB_W + THUMB_GAP)) + 1
+				if sec.results[ci] then
+					GS.sel, GS.col = d.si, ci
+					Details.setManga(sec.results[ci])
+				end
 			end
 		end
 	end
@@ -1065,18 +1093,32 @@ function GS.update()
 	if GS.sel > #list then
 		GS.sel = max(1, #list)
 	end
-	if abs(GS.v) > 1 then
+	local dragging = GS.drag and GS.drag.mode ~= "read"
+	if dragging and GS.drag.mode == "v" then
+		-- the finger moves the view (input)
+	elseif abs(GS.v) > 0.5 then
 		GS.y = GS.y + GS.v
-		GS.v = GS.v / 1.12
+		GS.v = GS.v * 0.92
 	else
 		GS.v = 0
-		local target = (GS.sel - 1) * SEC_H - (524 - TOP - SEC_H) / 2
-		GS.y = GS.y + (target - GS.y) / 4
+		if not GS.free then
+			local target = (GS.sel - 1) * SEC_H - (524 - TOP - SEC_H) / 2
+			GS.y = GS.y + (target - GS.y) / 4
+		end
 	end
 	GS.y = max(0, min(GS.y, max(0, #list * SEC_H - (524 - TOP))))
 	for i, s in ipairs(list) do
-		local target = i == GS.sel and max(0, (GS.col - 1) * (THUMB_W + THUMB_GAP) - (X1 - X0 - THUMB_W) / 2) or s.scroll
-		s.scroll = s.scroll + (target - s.scroll) / 5
+		local maxScroll = max(0, #s.results * (THUMB_W + THUMB_GAP) - THUMB_GAP - (X1 - X0))
+		if s.free then
+			if not (dragging and GS.drag.sec == s) and abs(s.hv) > 0.5 then
+				s.scroll = s.scroll + s.hv
+				s.hv = s.hv * 0.92
+			end
+		else
+			local target = i == GS.sel and max(0, (GS.col - 1) * (THUMB_W + THUMB_GAP) - (X1 - X0 - THUMB_W) / 2) or s.scroll
+			s.scroll = s.scroll + (target - s.scroll) / 5
+		end
+		s.scroll = max(0, min(s.scroll, maxScroll))
 		-- load covers of visible sections
 		local sy = TOP + (i - 1) * SEC_H - GS.y
 		if sy > -SEC_H and sy < 544 then

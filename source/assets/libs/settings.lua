@@ -45,6 +45,7 @@ Settings = {
 	Categories = {},
 	ExtLanguages = {},
 	ShowFPS = false,
+	UIFontSize = "Normal",
 	ReaderLook = {} -- page colors: readersheet.lua (ReaderLook.get completes it)
 }
 
@@ -170,6 +171,7 @@ local settingsListTree = {
 		"SilentDownloads",
 		"SkipCacheChapterChecking",
 		"LoadSummary",
+		"UIFontSize",
 		"ShowFPS"
 	},
 	About = {
@@ -297,6 +299,7 @@ function settings.load()
 				setSetting(new, "AutoDownloadNew", { true, false })
 				setSetting(new, "Incognito", { true, false })
 				setSetting(new, "ShowFPS", { true, false })
+				setSetting(new, "UIFontSize", UI_TEXT_SIZES)
 				if type(new.ExtLanguages) == "table" then
 					local set = {}
 					for _, id in ipairs(SOURCE_LANG_GROUPS) do
@@ -338,6 +341,7 @@ function settings.load()
 	end
 	setTheme(settings.Theme)
 	FrameStats.show = settings.ShowFPS
+	ApplyUIFontSize(settings.UIFontSize)
 end
 
 ---Saves settings in `ux0:data/otakio/settings.ini`
@@ -595,6 +599,10 @@ SettingsFunctions = {
 	end,
 	DataSaver = function()
 		settings.DataSaver = not settings.DataSaver
+	end,
+	UIFontSize = function()
+		settings.UIFontSize = table.next(settings.UIFontSize or "Normal", UI_TEXT_SIZES)
+		ApplyUIFontSize(settings.UIFontSize)
 	end,
 	ShowFPS = function()
 		settings.ShowFPS = not settings.ShowFPS

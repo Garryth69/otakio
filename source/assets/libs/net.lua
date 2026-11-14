@@ -340,6 +340,8 @@ end
 -- image loading (decides resolution with the texture budget)
 -------------------------------------------------------------------------------
 
+local PAGE_MIN_SIDE = 1000 -- reader pages: the shorter side never goes under this when decoded smaller
+
 local function pow2Scale(scale)
 	local s = 1
 	while s < scale and s < 64 do
@@ -438,6 +440,14 @@ local function decodeImage(task)
 			scale = height / task.MaxHeight
 		end
 		scale = pow2Scale(math.max(1, scale))
+		if not task.MaxWidth and not task.MaxHeight and task.Index == "Image" then
+			-- a reader page far bigger than the screen (raws of 2500 px and more): decoded at half (or a quarter) size
+			-- while its shorter side stays at 1000 px or more, still above the screen when zoomed in. A 2500x3500 page
+			-- is 35 MB of texture whole and 9 MB at half, and the JPEG decoder is faster at a reduced scale
+			while math.min(width, height) / (scale * 2) >= PAGE_MIN_SIDE and scale < 8 do
+				scale = scale * 2
+			end
+		end
 		-- the GPU can't hold a texture side above 4096 px
 		while math.max(width, height) / scale > MAX_TEXTURE_SIDE and scale < 64 do
 			scale = scale * 2
@@ -655,6 +665,23 @@ local function netInit()
 	end
 end
 
+local HOST_GAP = 300 -- ms between two requests to the same site
+local hostLast = {} -- host -> time of its last request
+
+---@return string|nil the site a task goes to over the network (nil: decode, unzip, function...)
+local function taskHost(task)
+	local k = task.Kind
+	if k ~= "StringRequest" and k ~= "FileDownload" and k ~= "ImageDownload" then
+		return nil
+	end
+	return type(task.Link) == "string" and task.Link:match("^%a+://([^/:]+)") or nil
+end
+
+local function hostReady(task, t)
+	local host = taskHost(task)
+	return not host or not hostLast[host] or t - hostLast[host] >= HOST_GAP
+end
+
 ---Called every frame from the main loop
 function Threads.update()
 	if #jobs > 0 then
@@ -716,7 +743,26 @@ function Threads.update()
 				break
 			end
 		end
+		-- good neighbour: the same site at most once every HOST_GAP ms; a task for a site asked just now waits while
+		-- one for another site (or work that needs no network) goes first
+		local t2 = now()
+		if not hostReady(queue[pick], t2) then
+			pick = nil
+			for i = 1, #queue do
+				if hostReady(queue[i], t2) then
+					pick = i
+					break
+				end
+			end
+			if not pick then
+				return
+			end
+		end
 		local task = table.remove(queue, pick)
+		local host = taskHost(task)
+		if host then
+			hostLast[host] = t2
+		end
 		local ok, err = pcall(start, task)
 		if not ok then
 			Console.error("NET: " .. tostring(err))

@@ -78,6 +78,25 @@ Font.setPixelSizes(FONT20, 24)
 Font.setPixelSizes(FONT26, 30)
 Font.setPixelSizes(BONT30, 34)
 
+-- Settings > Other > Interface text size: the body text (FONT16, BONT16) a bit larger; titles and the small labels
+-- (side bar, button hints: FONT13, laid out in fixed widths) keep their size
+local UI_TEXT_STEP = {Normal = 0, Large = 2, Larger = 4}
+UI_TEXT_SIZES = {"Normal", "Large", "Larger"}
+local uiTextSize = "Normal"
+function ApplyUIFontSize(size)
+	size = UI_TEXT_STEP[size] and size or "Normal"
+	if size == uiTextSize then
+		return
+	end
+	uiTextSize = size
+	local d = UI_TEXT_STEP[size]
+	Font.setPixelSizes(FONT16, 20 + d)
+	Font.setPixelSizes(BONT16, 20 + d)
+	if Font.clearWidthCache then
+		Font.clearWidthCache()
+	end
+end
+
 -- FreeType measures the string on every call and screens measure the same labels every frame
 do
 	local rawWidth = Font.getTextWidth
@@ -106,6 +125,13 @@ do
 			cachedCount = cachedCount + 1
 		end
 		return w
+	end
+	---The widths measured so far no longer hold (a font changed size)
+	Font.clearWidthCache = function()
+		for k in pairs(widthCache) do
+			widthCache[k] = nil
+		end
+		cachedCount = 0
 	end
 end
 

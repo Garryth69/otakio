@@ -1063,6 +1063,8 @@ local function settingInfo(task)
 	elseif task == "SaveImageFormat" then
 		local format = Settings.SaveImageFormat or "Original"
 		return format == "Original" and L().SAVE_FORMAT_ORIGINAL or format
+	elseif task == "UIFontSize" then
+		return L()["UI_TEXT_" .. string.upper(Settings.UIFontSize or "Normal")] or (Settings.UIFontSize or "Normal")
 	elseif task == "PreloadPages" then
 		return tostring(Settings.PreloadPages or 3)
 	elseif task == "ExtensionRepos" then

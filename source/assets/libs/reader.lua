@@ -238,6 +238,71 @@ local function prefetchClear()
 	end
 end
 
+-- Next chapter, near the end of this one: its page list is asked to the source and its first pages downloaded
+-- (into their own folder: prefetchClear empties the other one), so turning to it doesn't wait
+local NEXT_DIR = "ux0:data/otakio/temp/nextch/"
+local NEXT_FIRST_PAGES = 2
+local nextPrep = nil -- {chapter =, pages =, files = {url -> {path, done}}, asked = bool}
+
+local function nextClear()
+	if nextPrep then
+		ParserManager.remove(nextPrep.pages)
+		for _, f in pairs(nextPrep.files) do
+			Threads.remove(f)
+		end
+	end
+	nextPrep = nil
+	for _, f in ipairs(listDirectory_(NEXT_DIR) or {}) do
+		if not f.directory then
+			deleteFile_(NEXT_DIR .. f.name)
+		end
+	end
+end
+
+---Called every frame while reading: starts on the next chapter once the reader is near the end of this one
+local function nextTick(nearEnd)
+	if nextPrep then
+		local pages = nextPrep.pages
+		if pages.Done and not nextPrep.asked then
+			nextPrep.asked = true
+			if not System.doesDirExist(NEXT_DIR) then
+				System.createDirectory(NEXT_DIR)
+			end
+			for i = 1, math.min(NEXT_FIRST_PAGES, #pages) do
+				local url = entryUrl(pages[i])
+				if url and not nextPrep.files[url] then
+					local f = {path = NEXT_DIR .. i .. ".img", done = false}
+					nextPrep.files[url] = f
+					Threads.addTask(f, {
+						Type = "FileDownload",
+						ImageFile = true,
+						Link = pages[i],
+						Path = f.path,
+						Priority = Threads.NORMAL + 1,
+						OnComplete = function()
+							f.done = true
+						end
+					})
+				end
+			end
+		end
+		return
+	end
+	local n = currentChapterNumber
+	if not nearEnd or not Chapters or not Chapters[n + 1] or (Settings.PreloadPages or 3) <= 0 then
+		return
+	end
+	local chapter = Chapters[n + 1]
+	if ChapterSaver.check(chapter) then
+		return -- downloaded: it opens from the card anyway
+	end
+	nextPrep = {chapter = chapter, pages = {}, files = {}}
+	local old = Threads.defaultPriority
+	Threads.defaultPriority = Threads.NORMAL + 1
+	ParserManager.prepareChapter(chapter, nextPrep.pages)
+	Threads.defaultPriority = old
+end
+
 ---@return string|nil path of a fully prefetched, decodable page
 local function prefetchedPath(entry)
 	local url = entryUrl(entry)
@@ -1113,6 +1178,7 @@ end
 
 local function exit()
 	setKeepAwake(false)
+	nextClear()
 	for i = 1, #allPages do
 		deletePageImage(i)
 	end
@@ -1771,6 +1837,11 @@ function Reader.update()
 			return
 		end
 		watchPageReady(allPages[allPages.Page])
+		do
+			local count, page = allPages.Count or 0, allPages.Page or 0
+			local left = readDirection == "LEFT" and page - 1 or count - page
+			nextTick(count > 0 and left <= 2)
+		end
 		if prefetchPending then
 			local shown = allPages[prefetchPending.page]
 			if prefetchPending.page ~= allPages.Page then
@@ -2521,14 +2592,25 @@ function Reader.loadChapter(chapter)
 	end
 	currentChapterNumber = chapter
 	prefetchClear()
-	Chapters[chapter].Pages = {}
+	local prep = nextPrep
+	if prep and prep.chapter == Chapters[chapter] then
+		-- prepared ahead: its page list (ready or still coming) and its first pages (kept in their folder)
+		nextPrep = nil
+		for url, f in pairs(prep.files) do
+			Prefetch.files[url] = f
+		end
+	else
+		nextClear()
+		prep = nil
+	end
+	Chapters[chapter].Pages = prep and prep.pages or {}
 	allPages = {
 		Page = 0
 	}
 	collectgarbage("step", 1024)
 	if ChapterSaver.check(Chapters[chapter]) then
 		Chapters[chapter].Pages = ChapterSaver.getChapter(Chapters[chapter])
-	else
+	elseif not prep then
 		ParserManager.prepareChapter(Chapters[chapter], Chapters[chapter].Pages)
 	end
 	Timer.reset(chapterNameTickerTimer)
