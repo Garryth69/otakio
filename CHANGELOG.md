@@ -61,6 +61,16 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - Image downloads that fail are logged with the image's host and path (also behind the converting proxy) and what came
   instead of an image (an HTML page, an empty file...).
 
+### Fixed
+- **`string.sub` follows Lua's rules.** Otakio's UTF-8 `string.sub` (inherited from NOBORU) read the third argument
+  as a count of characters and ignored negative values, so an extension written in plain Lua got the whole string
+  from `s:sub(1, -2)`: 9Hentai covers were asked with a double slash and never shown. It now behaves like Lua's,
+  counting characters instead of bytes; nothing in the app or the catalog depended on the old reading.
+- Asura Scans chapters open again: the pages come from the site's public API (the chapter page was sometimes refused
+  and its script data changed), with the page itself as a fallback.
+- The time the system keyboard is open (searches, repository address, connection timeout) no longer counts as a
+  5-11 s "hitch" in the `log.txt` report; those were the only long hitches in the logs.
+
 ### Changed
 - **Start-up about 10 s faster.** The interface fonts carry the CJK ideograms (13 MB each) and every glyph rendered
   for the first time is read from the memory card, so pre-rendering the whole character set at start-up took about

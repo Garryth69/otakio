@@ -167,9 +167,20 @@ function Diag.stepsReset()
 	end
 end
 
+local excused = false
+
+---The current frame waited on purpose (the system keyboard was open): it is not a hitch
+function Diag.excuseFrame()
+	excused = true
+end
+
 ---A frame that took longer than 50 ms (main.lua): counted with the screen, what was running at the time and the
 ---step of the frame that took the most of it
 function Diag.hitch(ms, fontWarmup)
+	if excused then
+		excused = false
+		return
+	end
 	hitches = hitches + 1
 	local where = AppMode == READER and "reader" or tostring(Menu and Menu.getMode and Menu.getMode())
 	local heavy, heavyMs = nil, 0

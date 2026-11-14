@@ -695,20 +695,11 @@ SettingsFunctions = {
 		settings.SkipCacheChapterChecking = not settings.SkipCacheChapterChecking
 	end,
 	ConnectionTime = function()
-		Keyboard.show(Language[settings.Language].SETTINGS.InputValue, settings.ConnectionTime, 128, TYPE_NUMBER, MODE_TEXT, OPT_NO_AUTOCAP)
-		while Keyboard.getState() == RUNNING do
-			Graphics.initBlend()
-			Screen.clear()
-			Graphics.termBlend()
-			Screen.waitVblankStart()
-			Screen.flip()
-		end
-		if Keyboard.getState() == FINISHED then
-			local new_time = tonumber(Keyboard.getInput())
-			if new_time and new_time > 0 then
-				settings.ConnectionTime = Keyboard.getInput()
-				Network.setConnectionTime(settings.ConnectionTime or 10)
-			end
+		local typed = TextInput(Language[settings.Language].SETTINGS.InputValue, settings.ConnectionTime, 128, TYPE_NUMBER)
+		local new_time = tonumber(typed)
+		if new_time and new_time > 0 then
+			settings.ConnectionTime = typed
+			Network.setConnectionTime(settings.ConnectionTime or 10)
 		end
 		Keyboard.clear()
 	end,

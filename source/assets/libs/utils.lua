@@ -81,33 +81,35 @@ end
 
 local rawsub, rawfind = string.rawsub, string.find
 
----UTF-8 aware sub inherited from NOBORU (legacy parsers rely on its exact behavior: skips i-1 characters, then
----takes k characters, all of them when k < 0; nothing when i < 1). ASCII strings take a fast path in C with the
----same result; Otakio's own code uses string.rawsub for byte offsets.
-function string.sub(str, i, k)
-	k = k or -1
-	if i >= 1 and i % 1 == 0 and not rawfind(str, "[\128-\255]") then
-		if k == 0 then
-			return ""
-		elseif k < 0 then
-			return rawsub(str, i)
-		end
-		return rawsub(str, i, i + k - 1)
+---UTF-8 aware string.sub: the same rules as Lua's (characters i to j, negative positions counted from the end),
+---but counting characters instead of bytes, so a cut never splits a multi-byte character. ASCII strings go
+---straight to C. Otakio's own code uses string.rawsub for byte offsets.
+---(NOBORU's version read j as a count of characters after i and ignored negative values: an extension written in
+---plain Lua, like `s:sub(1, -2)`, got the whole string back.)
+function string.sub(str, i, j)
+	i, j = i or 1, j or -1
+	if not rawfind(str, "[\128-\255]") then
+		return rawsub(str, i, j)
 	end
-	local text = {}
+	local chars = {}
 	for c in it_utf8(str) do
-		if i == 1 then
-			if k ~= 0 then
-				text[#text + 1] = c
-				k = k - 1
-			else
-				break
-			end
-		else
-			i = i - 1
-		end
+		chars[#chars + 1] = c
 	end
-	return table.concat(text)
+	local n = #chars
+	if i < 0 then
+		i = math.max(n + i + 1, 1)
+	elseif i == 0 then
+		i = 1
+	end
+	if j < 0 then
+		j = n + j + 1
+	elseif j > n then
+		j = n
+	end
+	if i > j then
+		return ""
+	end
+	return table.concat(chars, "", i, j)
 end
 
 ---@param t table

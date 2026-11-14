@@ -355,6 +355,9 @@ function TextInput(title, default, maxLen, kbType)
 		Screen.waitVblankStart()
 		Screen.flip()
 	end
+	if Diag and Diag.excuseFrame then
+		Diag.excuseFrame() -- the typing time is not a hitch of the app
+	end
 	local result = nil
 	if Keyboard.getState() == FINISHED then
 		result = Keyboard.getInput()
