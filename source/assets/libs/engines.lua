@@ -196,16 +196,22 @@ local MADARA_STATUS = {
 	["On hold"] = "on-hold"
 }
 
-local madaraArchiveSelector = "div.page-item-detail, .manga__item, .c-tabs-item__content"
+local madaraArchiveSelector = "div.page-item-detail, .manga__item, .c-tabs-item__content, .manga-hover-card"
 local madaraSearchCardSelector = ".c-tabs-item__content, div.page-item-detail"
 
 local function madaraParseArchive(p, doc, dt, selector)
 	local cfg = p.Config
 	local count = 0
 	for _, el in ipairs(doc:select(selector or cfg.archiveSelector or madaraArchiveSelector)) do
-		local link = el:selectFirst(cfg.archiveUrlSelector or ".post-title a") or el:selectFirst("a")
+		local titled = el:selectFirst(cfg.archiveUrlSelector or ".post-title a")
+		local link = titled or el:selectFirst("a")
 		if link then
-			local title = cfg.archiveTitleSelector and el:selectFirst(cfg.archiveTitleSelector) and el:selectFirst(cfg.archiveTitleSelector):text() or link:text()
+			local title = cfg.archiveTitleSelector and el:selectFirst(cfg.archiveTitleSelector) and el:selectFirst(cfg.archiveTitleSelector):text()
+			if not title then
+				-- a card without a title line (newer Madara skins): the link's title, not its text (badges, labels)
+				local attr = trim(link:attr("title") or "")
+				title = (titled or attr == "") and link:text() or attr
+			end
 			if title == "" then
 				title = link:attr("title")
 			end
@@ -402,6 +408,12 @@ end
 local function madaraPrepareChapter(p, chapter, dt)
 	local cfg = p.Config
 	local url = absolute(cfg.baseUrl, chapter.Link)
+	local bare = lower((gsub(url, "[?#].*$", "")))
+	if match(bare, "%.jpe?g$") or match(bare, "%.png$") or match(bare, "%.webp$") then
+		-- a one-page "chapter" that links straight to its image (some galleries list each picture as a chapter)
+		dt[1] = Http.image(url, cfg.baseUrl .. "/")
+		return
+	end
 	local doc = Http.getDocument(url, headers(p))
 	if doc:selectFirst("#single-pager") then
 		doc = Http.getDocument(url .. (find(url, "?", 1, true) and "&" or "?") .. "style=list", headers(p))

@@ -8,8 +8,10 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like 
 
 
 def vita_url(url):
-    """Like net.lua escapeLink(): raw UTF-8 in links (Japanese/Chinese file names) is percent-encoded"""
-    return "".join(c if ord(c) < 128 else "".join("%%%02X" % x for x in c.encode("utf8")) for c in url)
+    """Like net.lua escapeLink(): trailing blanks dropped, raw UTF-8 in links (Japanese/Chinese file names) and spaces
+    (file names like "Story 3 page 1.png") percent-encoded"""
+    url = url.rstrip()
+    return "".join(c if ord(c) < 128 else "".join("%%%02X" % x for x in c.encode("utf8")) for c in url).replace(" ", "%20")
 
 
 def ua_for(url):

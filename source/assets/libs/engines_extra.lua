@@ -852,8 +852,9 @@ function Engines.FoolSlide(cfg)
 		return cfg.baseUrl .. cfg.urlModifier
 	end
 	local function groups(doc, dt, nextCss)
-		for _, el in ipairs(doc:select("div.group")) do
-			local a = el:selectFirst("a[title]")
+		-- "div.series_element": a FoOlSlide skin with the title in div.title
+		for _, el in ipairs(doc:select("div.group, div.series_element")) do
+			local a = el:selectFirst("div.title a[title]") or el:selectFirst("a[title]")
 			local cover = el:selectFirst("img")
 			if a then
 				addManga(dt, p, a:text(), a:attr("abs:href"), cover and gsub(cover:attr("abs:src"), "/thumb_", "/"))
@@ -879,7 +880,7 @@ function Engines.FoolSlide(cfg)
 		local thumb = doc:selectFirst("div.thumbnail img, table.thumb img")
 		setCover(self, manga, thumb and thumb:attr("abs:src"))
 		local out = {}
-		for _, el in ipairs(doc:select("div.group div.element, div.list div.element")) do
+		for _, el in ipairs(doc:select("div.group div.element, div.list div.element, div.group_comic div.element")) do
 			local a = el:selectFirst("a[title]")
 			if a then
 				out[#out + 1] = {Name = trim(a:text()), Link = pathOf(a:attr("abs:href")), Date = textOf(el, "div.meta_r")}

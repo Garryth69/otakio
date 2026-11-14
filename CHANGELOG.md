@@ -31,6 +31,9 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
   the last 3 hours is read from the card at start-up (the Extensions tab and a manual refresh still download).
 - **Extensions can ask for a newer app:** `-- @api N` in an extension's header (or `"api"` in the index) keeps it out of
   the catalog of an older Otakio, and an installed copy says it needs a newer Otakio instead of failing mid-search.
+- **More sources work:** the Madara engine reads the newer card skin (`.manga-hover-card`, title from the link) and
+  opens a "chapter" that is a link straight to its image as a one-page chapter; the FoOlSlide engine reads the
+  `series_element` skin and its `group_comic` chapter lists.
 - **Turning pages waits less:** the next page starts loading as soon as you turn (not when the turn animation ends),
   ahead of covers and source work, and the page just left stays decoded while memory allows, so going back is instant.
 - **A page that fails to load says so** (instead of loading forever): *Press X to try again*, also from the menu's
