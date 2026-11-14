@@ -58,6 +58,10 @@ A native extension is a single Lua file in the extension repository's `native/` 
 -- @baseUrl https://example.com
 ```
 
+When a source needs an engine feature added in a later Otakio, add `-- @api N` (the app's `Config.ENGINE_LEVEL`
+that brought it). Older apps then skip it in the catalog and refuse to load it with a "needs a newer Otakio" message,
+instead of failing in the middle of a search.
+
 Most sites run a known theme. Then the file is just a configuration of one of the engines in
 `source/assets/libs/engines*.lua` (`Madara`, `MangaThemesia`, `GalleryAdults`, `HeanCms`, `Keyoapp`, ...):
 

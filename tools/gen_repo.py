@@ -317,6 +317,9 @@ def build_native(out_dir):
             "compat": "full",
             "relay": meta.get("relay") == "true",
         })
+        if meta.get("api", "1") != "1":
+            # needs engine features newer than the first API level: older apps skip it
+            entries[-1]["api"] = int(meta["api"])
         # a multi-language extension with one source per language lists them ("-- @langs en,es,fr,de"): the app shows
         # it under those languages only
         langs = [x.strip() for x in meta.get("langs", "").split(",") if x.strip()]

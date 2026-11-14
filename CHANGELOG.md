@@ -26,6 +26,11 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - **Interface text size** (Settings > Other): Normal, Large or Larger text in lists, menus and descriptions.
 - **Global search by touch:** drag up and down through the sources and sideways through one source's covers, with
   inertia, like the other screens; the view stays where the finger left it until a button is pressed.
+- **Lighter start-up:** the extension catalog is merged without a search per entry (the online index on top of the
+  built-in one compared every entry with every other) and gives the frame back as it goes; an index downloaded in
+  the last 3 hours is read from the card at start-up (the Extensions tab and a manual refresh still download).
+- **Extensions can ask for a newer app:** `-- @api N` in an extension's header (or `"api"` in the index) keeps it out of
+  the catalog of an older Otakio, and an installed copy says it needs a newer Otakio instead of failing mid-search.
 - **Turning pages waits less:** the next page starts loading as soon as you turn (not when the turn animation ends),
   ahead of covers and source work, and the page just left stays decoded while memory allows, so going back is instant.
 - **A page that fails to load says so** (instead of loading forever): *Press X to try again*, also from the menu's

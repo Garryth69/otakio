@@ -13,6 +13,7 @@ local REPOS_PATH = Config.DATA .. "repos.dat"
 local installed = {} -- id -> metadata
 local catalog = {} -- merged list of available extension entries
 local catalogById = {}
+local catalogPos = {} -- id -> position in `catalog` (merging an index on top of another was a search per entry)
 local repos = {} -- user repositories {name, url}
 local repoStatus = {} -- url -> "ok" | "error" | "loading"
 local jobs = {}
@@ -297,6 +298,11 @@ function RunSandboxed(path)
 	if not data then
 		error("can't read " .. tostring(path))
 	end
+	-- "-- @api N" in the header: the extension uses engine features this app may not have yet
+	local api = tonumber(data:sub(1, 2048):match("%-%-%s*@api%s+(%d+)"))
+	if api and api > Config.ENGINE_LEVEL then
+		error(string.format("needs a newer Otakio (extension API %d, this app has %d)", api, Config.ENGINE_LEVEL))
+	end
 	local f, err = loadstring(data, "@" .. path)
 	if not f then
 		error(err)
@@ -429,9 +435,15 @@ local function mergeIndex(index, repo, base)
 	if (index.minEngine or 1) > Config.ENGINE_LEVEL then
 		Notifications.pushUnique(string.format(L().REPO_NEEDS_UPDATE, repo.name))
 	end
-	local n = 0
-	for _, e in ipairs(index.extensions) do
-		if type(e) == "table" and e.id and e.name and (e.file or e.url) then
+	local n, newer = 0, 0
+	local canYield = coroutine.running() ~= nil
+	for k, e in ipairs(index.extensions) do
+		if canYield and k % 50 == 0 then
+			co_yield(false) -- 361 entries in one go took ~100 ms on the Vita
+		end
+		if type(e) == "table" and (tonumber(e.api) or 1) > Config.ENGINE_LEVEL then
+			newer = newer + 1 -- made for a newer Otakio: not offered here
+		elseif type(e) == "table" and e.id and e.name and (e.file or e.url) then
 			local source = e.url or (base .. e.file)
 			local entry = {
 				id = e.id,
@@ -455,20 +467,21 @@ local function mergeIndex(index, repo, base)
 			}
 			local old = catalogById[e.id]
 			if not old or entry.version > old.version then
-				if old then
-					for i, c in ipairs(catalog) do
-						if c == old then
-							catalog[i] = entry
-							break
-						end
-					end
+				local pos = old and catalogPos[e.id]
+				if pos and catalog[pos] == old then
+					catalog[pos] = entry
 				else
 					catalog[#catalog + 1] = entry
+					catalogPos[e.id] = #catalog
 				end
 				catalogById[e.id] = entry
 			end
 			n = n + 1
 		end
+	end
+	if newer > 0 then
+		ExtLog(repo.name .. ": " .. newer .. " extensions need a newer Otakio")
+		Notifications.pushUnique(string.format(L().REPO_NEEDS_UPDATE, repo.name))
 	end
 	return n
 end
@@ -526,8 +539,36 @@ local function matchMihonIndex(index, repo)
 	return matched, total
 end
 
-local function fetchIndex(url)
-	local body = Http.get(url)
+-- the last index of each repository, kept on the card: at start-up a recent one is used instead of downloading it
+-- again (the official index changes once a day; the Extensions tab and a manual refresh always download)
+local INDEX_CACHE = "ux0:data/otakio/repocache/"
+
+local function indexCachePath(url)
+	return INDEX_CACHE .. (url:gsub("^%a+://", ""):gsub("[^%w%.%-]", "_")) .. ".json"
+end
+
+local function fetchIndex(url, maxAge)
+	local path = indexCachePath(url)
+	local body
+	if maxAge then
+		local stamp = tonumber(FS.read(path .. ".time") or "")
+		if stamp and Clock.now() - stamp >= 0 and Clock.now() - stamp < maxAge then
+			body = FS.read(path)
+			if body and body ~= "" then
+				ExtLog("repo " .. url .. ": cached copy (" .. math.floor((Clock.now() - stamp) / 60) .. " min old)")
+			end
+		end
+	end
+	if not body or body == "" then
+		body = Http.get(url)
+		if body ~= "" then
+			if not FS.exists(INDEX_CACHE) then
+				FS.mkdir(INDEX_CACHE)
+			end
+			FS.write(path, body)
+			FS.write(path .. ".time", tostring(Clock.now()))
+		end
+	end
 	if body == "" then
 		ExtLog("repo " .. url .. ": empty response")
 		return nil
@@ -563,7 +604,9 @@ end
 
 local refreshAgain = false
 
-function Extensions.refresh(force)
+---Reloads every repository index. `force` skips the 10 minute guard; `maxAge` (seconds) lets a recent copy of an index
+---on the card stand in for the download (start-up)
+function Extensions.refresh(force, maxAge)
 	if refreshing then
 		-- a repository was added while a refresh runs: do another pass when this one ends
 		refreshAgain = refreshAgain or force
@@ -577,7 +620,7 @@ function Extensions.refresh(force)
 		local refreshClock = Timer.new()
 		local ok, err = pcall(function()
 		local newCatalog, newById = {}, {}
-		catalog, catalogById = newCatalog, newById
+		catalog, catalogById, catalogPos = newCatalog, newById, {}
 		onlineRepos = {}
 		local first = Extensions.getRepos()[1]
 		local official = first and first.builtin and first or nil
@@ -599,7 +642,7 @@ function Extensions.refresh(force)
 		local online = Threads.isOnline()
 		-- 2. official repo online: only adds newer versions on top of the built-in copy
 		if online and official and official.url ~= "" then
-			local index = fetchIndex(official.url)
+			local index = fetchIndex(official.url, maxAge)
 			if index then
 				mergeIndex(index, official, (official.url:gsub("[^/]+$", "")))
 				repoStatus[official.url] = "ok"
@@ -610,7 +653,7 @@ function Extensions.refresh(force)
 		-- 3. user repositories
 		for _, repo in ipairs(repos) do
 			repoStatus[repo.url] = "loading"
-			local index = online and fetchIndex(repo.url)
+			local index = online and fetchIndex(repo.url, maxAge)
 			if index and isMihonIndex(index) then
 				local matched, total = matchMihonIndex(index, repo)
 				repoStatus[repo.url] = "mihon:" .. matched .. "/" .. total

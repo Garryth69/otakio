@@ -264,7 +264,7 @@ local function preloadData()
 		FS.write(FIRST_RUN_FLAG, Config.VERSION_NAME)
 		Extensions.refresh(true)
 	elseif Settings.CheckExtUpdatesAtStart then
-		Extensions.refresh(true)
+		Extensions.refresh(true, 3 * 3600) -- an index downloaded in the last 3 hours is read from the card
 	end
 	stage("done")
 	pcall(ExtLog, "startup: " .. table.concat(stageTimes, ", "))
