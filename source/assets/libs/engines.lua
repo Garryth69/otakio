@@ -257,8 +257,63 @@ local function madaraLoadMore(p, page, dt, sortKey, extra)
 	return count
 end
 
+-- Madara sites list their genres in the advanced search form (checkboxes "genre[]"): read once per source, in the
+-- background after its first listing, and kept (SourcePrefs cache) for the Genres filter
+local madaraGenresTried = {}
+local function madaraLearnGenres(p)
+	local doc, body = Http.getDocument(p.Config.baseUrl .. "/?s=&post_type=wp-manga", headers(p))
+	if not body or body == "" then
+		return -- unreachable now: tried again next session
+	end
+	local genres, seen = {}, {}
+	for _, box in ipairs(doc:select("div.checkbox-group div.checkbox")) do
+		local input = box:selectFirst("input")
+		local label = box:selectFirst("label")
+		local value = input and input:attr("value") or ""
+		local name = label and trim(label:text()) or ""
+		if value ~= "" and name ~= "" and not seen[name] then
+			seen[name] = true
+			genres[#genres + 1] = {value, name}
+		end
+	end
+	SourcePrefs.setCache(p.ID, "genres", genres)
+end
+
+local function madaraScheduleGenres(p)
+	if not SourcePrefs or madaraGenresTried[p.ID] or SourcePrefs.getCache(p.ID, "genres") then
+		return
+	end
+	madaraGenresTried[p.ID] = true
+	Threads.addTask("madara-genres-" .. tostring(p.ID), {
+		Type = "function",
+		Priority = Threads.BACKGROUND,
+		OnComplete = function()
+			local ok, err = pcall(madaraLearnGenres, p)
+			if not ok then
+				Console.error("Madara genres: " .. tostring(err))
+			end
+		end
+	})
+end
+
+---Genres filter of a Madara source, once its genre list is known
+local function madaraGenreFilters(p)
+	local genres = SourcePrefs and SourcePrefs.getCache(p.ID, "genres")
+	if type(genres) ~= "table" or #genres == 0 then
+		return nil
+	end
+	local names = {}
+	for i, g in ipairs(genres) do
+		names[i] = g[2]
+	end
+	return {{Name = "Genres", Type = "check", Tags = names}}
+end
+
 local function madaraListing(p, page, dt, orderBy, sortKey)
 	local cfg = p.Config
+	if page == 1 then
+		madaraScheduleGenres(p)
+	end
 	if not cfg.useGetListing then
 		local count = madaraLoadMore(p, page, dt, sortKey)
 		if count > 0 or page > 1 then
@@ -285,6 +340,16 @@ local function madaraSearch(p, query, page, dt, tags)
 		for _, status in ipairs(tags["Status"] or {}) do
 			if MADARA_STATUS[status] then
 				params[#params + 1] = {"status[]", MADARA_STATUS[status]}
+			end
+		end
+		local genres = SourcePrefs and SourcePrefs.getCache(p.ID, "genres")
+		if type(genres) == "table" then
+			for _, name in ipairs(type(tags["Genres"]) == "table" and tags["Genres"] or {}) do
+				for _, g in ipairs(genres) do
+					if g[2] == name then
+						params[#params + 1] = {"genre[]", g[1]}
+					end
+				end
 			end
 		end
 		local adult = tags["Adult content"]
@@ -463,6 +528,7 @@ function Engines.Madara(cfg)
 		{Name = "Status", Type = "check", Tags = {"Completed", "Ongoing", "Canceled", "On hold"}},
 		{Name = "Adult content", Type = "radio", Tags = {"All", "None", "Only"}}
 	}
+	p.extraFilters = madaraGenreFilters
 	function p:getPopularManga(page, dt)
 		madaraListing(self, page, dt, "views", "_wp_manga_views")
 	end

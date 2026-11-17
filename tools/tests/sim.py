@@ -95,6 +95,9 @@ SCENARIOS = {
     "sourcepanel": [("wait", 150), "R", "R", "R", ("wait", 20), "DOWN", "CROSS", ("wait", 400), "SQUARE", ("wait", 60),
                     "DOWN", "DOWN", "DOWN", "DOWN", ("wait", 20), "CROSS", ("wait", 30), "DOWN", "CROSS", ("wait", 30),
                     "DOWN", "DOWN", ("wait", 40), "CIRCLE", ("wait", 40)],
+    # the bottom of a source's panel: its filters (Madara: genres learned from the site) and the source settings
+    "sourcesettings": [("wait", 600), "R", "R", "R", ("wait", 20), "DOWN", "CROSS", ("wait", 700), "SQUARE", ("wait", 60)]
+                      + ["DOWN", ("wait", 8)] * 14 + [("wait", 60), "CIRCLE", ("wait", 30)],
     "browse": [("wait", 150), "R", "R", "R", ("wait", 20), "DOWN", "CROSS", ("wait", 400), "DOWN", "RIGHT", "RIGHT", "CROSS", ("wait", 400),
                "DOWN", "CROSS", ("wait", 500), "RIGHT", ("wait", 200), "CIRCLE", ("wait", 60), "TRIANGLE", ("wait", 60), "CIRCLE", ("wait", 60),
                "CIRCLE", "CIRCLE", ("wait", 30), "TRIANGLE", ("wait", 700), "DOWN", "CROSS", ("wait", 300), "CIRCLE", ("wait", 40), "CIRCLE"],

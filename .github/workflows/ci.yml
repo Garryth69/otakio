@@ -42,7 +42,7 @@ jobs:
         run: python tools/check_syntax.py
 
       - name: Core tests (JSON, HTML, serialization)
-        run: python tools/run_lua.py tools/tests/test_core.lua tools/tests/test_diag.lua tools/tests/test_browselang.lua
+        run: python tools/run_lua.py tools/tests/test_core.lua tools/tests/test_diag.lua tools/tests/test_browselang.lua tools/tests/test_sourceprefs.lua
 
       - name: Data migrations and source health history
         run: |

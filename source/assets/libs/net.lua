@@ -1024,7 +1024,14 @@ local function newTask(uniqueKey, t, front)
 	end
 	if type(task.Link) == "string" then
 		task.RawLink = task.Link:match("^(.-)%s*$") or ""
-		task.Link = escapeLink(task.Link)
+		-- a source whose site moved (source settings > site address): its requests go to the new address
+		if SourcePrefs then
+			task.RawLink = SourcePrefs.rewrite(task.RawLink)
+			for h = 1, 4 do
+				task["Header" .. h] = SourcePrefs.rewriteHeader(task["Header" .. h])
+			end
+		end
+		task.Link = escapeLink(task.RawLink)
 	end
 	if (task.Type == "ImageDownload" or task.ImageFile) and task.RawLink and ImageProxy.shouldProxy(task.RawLink) then
 		task.RawLink = ImageProxy.wrap(task.RawLink, task.MaxHeight and task.MaxHeight / 1.5 or nil)

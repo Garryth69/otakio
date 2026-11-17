@@ -22,6 +22,14 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
   fails or comes back empty is logged with its address and HTTP status. Images that a site refuses (404, 403) are
   not asked again three times.
 
+- **Source settings** (Square in a source, at the bottom of the panel): the site's address can be changed when a site
+  moves (every request, Referer included, goes to the new one; empty goes back to the default), and extensions can
+  declare their own options (`Preferences`, read with `self:pref(key)`).
+- **Filters are remembered per source** and come back the next time; *Reset filters* brings the defaults back.
+- **Genres filter for Madara sources** (about 170): the genre list is read from the site the first time it is opened.
+- Filter names and common values (Sort by, Status, Completed...) are shown in the interface language.
+- The source panel follows the theme like the other side sheets.
+
 ### Fixed
 - **POST requests with `%` in their body** (most searches sent as a form) reached the site mangled; very long
   addresses (over 512 characters, common behind the image proxy) overwrote engine memory, a likely cause of rare

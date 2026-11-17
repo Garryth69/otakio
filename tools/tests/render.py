@@ -18,8 +18,17 @@ def font(size, bold):
     return ImageFont.truetype(BOLD if bold else REG, int(size))
 
 
+@lru_cache(maxsize=64)
+def font_basic(size, bold):
+    """Without raqm: some site titles make raqm_layout() fail (the Vita's FreeType draws them fine)."""
+    return ImageFont.truetype(BOLD if bold else REG, int(size), layout_engine=ImageFont.Layout.BASIC)
+
+
 def text_width(size, bold, text):
-    return int(round(font(size, bool(bold)).getlength(text)))
+    try:
+        return int(round(font(size, bool(bold)).getlength(text)))
+    except Exception:  # raqm_layout() failed (OSError or ValueError, depending on Pillow)
+        return int(round(font_basic(size, bool(bold)).getlength(text)))
 
 
 SNAPSHOTS = {}
@@ -141,5 +150,9 @@ def render(ops, path):
             size, bold, x, y, text, c = op[1:7]
             col = rgba(c)
             f = font(size, bool(bold))
-            blend(lambda d, o: d.text((x, y), text, font=f, fill=col))
+            try:
+                blend(lambda d, o: d.text((x, y), text, font=f, fill=col))
+            except Exception:
+                fb = font_basic(size, bool(bold))
+                blend(lambda d, o: d.text((x, y), text, font=fb, fill=col))
     canvas.convert("RGB").save(path)

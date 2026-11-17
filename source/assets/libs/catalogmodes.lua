@@ -29,12 +29,25 @@ local selectedIndex = 0
 local controlTimer = Timer.new()
 local controlInterval = 400
 local searchData = ""
+local currentParser = nil
+
+local function LO()
+	return Language[Settings.Language].OTAKIO
+end
+
+---Common filter words ("Sort By", "Completed"...) in the interface language; anything else as the extension wrote it
+local function tr(text)
+	local words = Language[Settings.Language].FILTER_WORDS
+	return words and words[text] or text
+end
 
 local function setFinalTags()
 	local filter = {}
 	for j = 1, #currentFilters do
 		local f = currentFilters[j]
-		if f.Type == "check" then
+		if f.Setting then
+			-- source settings are not search filters
+		elseif f.Type == "check" then
 			local list = {}
 			for i = 1, #currentChecked[j] do
 				if currentChecked[j][i] then
@@ -130,6 +143,233 @@ local function scrollUpdate()
 	end
 end
 
+
+---The value a filter group holds now, by name (radio: tag; check: {tags}; checkcross: {include, exclude})
+local function groupValue(k)
+	local f, c = currentFilters[k], currentChecked[k]
+	if f.Type == "radio" then
+		return f.Tags[c]
+	elseif f.Type == "check" then
+		local list = {}
+		for i = 1, #f.Tags do
+			if c[i] then
+				list[#list + 1] = f.Tags[i]
+			end
+		end
+		return list
+	elseif f.Type == "checkcross" then
+		local include, exclude = {}, {}
+		for i = 1, #f.Tags do
+			if c[i] == "cross" then
+				exclude[#exclude + 1] = f.Tags[i]
+			elseif c[i] then
+				include[#include + 1] = f.Tags[i]
+			end
+		end
+		return {include = include, exclude = exclude}
+	end
+end
+
+---Sets a filter group from a value saved by groupValue (tags the source no longer has are ignored)
+local function setGroup(k, value)
+	local f = currentFilters[k]
+	if f.Type == "radio" then
+		currentChecked[k] = 1
+		for e = 1, #f.Tags do
+			if f.Tags[e] == value then
+				currentChecked[k] = e
+			end
+		end
+	elseif f.Type == "check" or f.Type == "checkcross" then
+		local c = {}
+		for e = 1, #f.Tags do
+			c[e] = false
+		end
+		local include = f.Type == "checkcross" and type(value) == "table" and value.include or value
+		local exclude = f.Type == "checkcross" and type(value) == "table" and value.exclude or {}
+		for _, name in ipairs(type(include) == "table" and include or {}) do
+			for e = 1, #f.Tags do
+				if f.Tags[e] == name then
+					c[e] = true
+				end
+			end
+		end
+		for _, name in ipairs(type(exclude) == "table" and exclude or {}) do
+			for e = 1, #f.Tags do
+				if f.Tags[e] == name then
+					c[e] = "cross"
+				end
+			end
+		end
+		currentChecked[k] = c
+	end
+end
+
+local function isFilter(f)
+	return not f.Setting and (f.Type == "radio" or f.Type == "check" or f.Type == "checkcross")
+end
+
+---The search filters as chosen now are kept for this source (SourcePrefs)
+local function saveFilters()
+	if not currentParser then
+		return
+	end
+	local saved = {}
+	for k = 1, #currentFilters do
+		if isFilter(currentFilters[k]) then
+			saved[currentFilters[k].Name] = groupValue(k)
+		end
+	end
+	SourcePrefs.setFilters(currentParser.ID, saved)
+end
+
+local function saveSetting(k)
+	local f = currentFilters[k]
+	if currentParser and f.Setting and f.Key then
+		SourcePrefs.setPref(currentParser.ID, f.Key, groupValue(k))
+	end
+end
+
+local function hostOf(url)
+	return tostring(url or ""):match("^%a+://([^/:?#]+)") or tostring(url or "")
+end
+
+local function editDomain()
+	local parser = currentParser
+	if not parser then
+		return
+	end
+	local current = SourcePrefs.getDomain(parser.ID) or parser.Link or ""
+	local text = TextInput(string.format(LO().SOURCE_DOMAIN_PROMPT, parser.Name or ""), current, 256, TYPE_DEFAULT)
+	if text == nil then
+		return
+	end
+	text = text:match("^%s*(.-)%s*$")
+	if text == "" or text:gsub("/+$", "") == tostring(parser.Link or ""):gsub("/+$", "") then
+		SourcePrefs.setDomain(parser.ID, parser.Link, nil)
+		Notifications.push(LO().SOURCE_DOMAIN_CLEARED)
+	elseif SourcePrefs.setDomain(parser.ID, parser.Link, text) then
+		Notifications.push(string.format(LO().SOURCE_DOMAIN_SET, hostOf(SourcePrefs.getDomain(parser.ID))))
+	else
+		Notifications.push(LO().SOURCE_DOMAIN_INVALID)
+		return
+	end
+	Catalogs.terminate() -- the list loads again from the new address
+end
+
+local buildFilters
+
+local function resetFilters()
+	if currentParser then
+		SourcePrefs.setFilters(currentParser.ID, nil)
+		buildFilters()
+		Notifications.push(LO().FILTERS_RESET)
+	end
+end
+
+---Filter groups of the source (its Filters, then extraFilters: lists an engine learned from the site, like genres),
+---then the source settings: its own Preferences, the site address and "reset filters". Saved choices are restored.
+buildFilters = function()
+	local parser = currentParser
+	local list = {}
+	for _, f in ipairs(type(parser.Filters) == "table" and parser.Filters or {}) do
+		list[#list + 1] = f
+	end
+	if parser.extraFilters then
+		local ok, extra = pcall(parser.extraFilters, parser)
+		if ok and type(extra) == "table" then
+			for _, f in ipairs(extra) do
+				list[#list + 1] = f
+			end
+		end
+	end
+	local filterCount = #list
+	list[#list + 1] = {Type = "section", Name = LO().SOURCE_SETTINGS, Tags = {}}
+	for _, pf in ipairs(type(parser.Preferences) == "table" and parser.Preferences or {}) do
+		if pf.Key and (pf.Type == "radio" or pf.Type == "check") and type(pf.Tags) == "table" then
+			local stored = SourcePrefs.getPref(parser.ID, pf.Key)
+			list[#list + 1] = {Name = pf.Name or pf.Key, Type = pf.Type, Tags = pf.Tags, Key = pf.Key, Setting = true,
+				Default = stored ~= nil and stored or pf.Default}
+		end
+	end
+	list[#list + 1] = {Type = "action", Name = LO().SOURCE_DOMAIN, Tags = {}, Run = editDomain, Value = function()
+		local d = SourcePrefs.getDomain(parser.ID)
+		return d and hostOf(d) or LO().SOURCE_DOMAIN_DEFAULT
+	end}
+	if filterCount > 0 then
+		list[#list + 1] = {Type = "action", Name = LO().RESET_FILTERS, Tags = {}, Run = resetFilters}
+	end
+	currentFilters = list
+	currentChecked = {}
+	for k = 1, #currentFilters do
+		local f = currentFilters[k]
+		f.visible = false
+		f.Tags = f.Tags or {}
+		if f.Type == "check" or f.Type == "checkcross" or f.Type == "radio" then
+			local default = f.Default
+			if f.Type == "checkcross" and type(default) == "table" and not default.include then
+				default = {include = default, exclude = {}}
+			end
+			setGroup(k, default)
+		end
+	end
+	local saved = SourcePrefs.getFilters(parser.ID)
+	if type(saved) == "table" then
+		for k = 1, #currentFilters do
+			local f = currentFilters[k]
+			if isFilter(f) and saved[f.Name] ~= nil then
+				setGroup(k, saved[f.Name])
+			end
+		end
+	end
+	setFinalTags()
+	updateItemsDraw()
+end
+
+---A row of the filter list chosen (Cross or a tap): opens/closes a group, runs an action, or toggles an option
+local function activate(id)
+	for i = 1, #currentFilters do
+		local f = currentFilters[i]
+		id = id - 1
+		if id == 0 then
+			if f.Type == "action" then
+				if f.Run then
+					f.Run()
+				end
+			elseif f.Type ~= "section" then
+				f.visible = not f.visible
+				updateItemsDraw()
+			end
+			return
+		end
+		if f.visible then
+			if id <= #f.Tags then
+				if f.Type == "check" then
+					currentChecked[i][id] = not currentChecked[i][id]
+				elseif f.Type == "radio" then
+					currentChecked[i] = id
+				elseif f.Type == "checkcross" then
+					if currentChecked[i][id] == "cross" then
+						currentChecked[i][id] = false
+					elseif currentChecked[i][id] == false then
+						currentChecked[i][id] = true
+					elseif currentChecked[i][id] == true then
+						currentChecked[i][id] = "cross"
+					end
+				end
+				if f.Setting then
+					saveSetting(i)
+				else
+					saveFilters()
+					setFinalTags()
+				end
+				return
+			end
+			id = id - #f.Tags
+		end
+	end
+end
+
 local easingFunction = EaseInOutCubic
 
 local function animationUpdate()
@@ -175,54 +415,8 @@ function CatalogModes.load(parser)
 		for i = 1, #modes do
 			modesFade[modes[i]] = 0
 		end
-		currentFilters = parser.Filters or {}
-		currentChecked = {}
-		for k = 1, #currentFilters do
-			local f = currentFilters[k]
-			f.visible = false
-			local default = f.Default
-			if f.Type == "check" or f.Type == "checkcross" then
-				currentChecked[k] = {}
-				for i = 1, #f.Tags do
-					currentChecked[k][i] = false
-				end
-				if default then
-					if f.Type == "checkcross" then
-						for i = 1, #default.include do
-							for e = 1, #f.Tags do
-								if f.Tags[e] == default.include[i] then
-									currentChecked[k][e] = true
-								end
-							end
-						end
-						for i = 1, #default.exclude do
-							for e = 1, #f.Tags do
-								if f.Tags[e] == default.exclude[i] then
-									currentChecked[k][e] = "cross"
-								end
-							end
-						end
-					elseif f.Type == "check" then
-						for i = 1, #default do
-							for e = 1, #f.Tags do
-								if f.Tags[e] == default[i] then
-									currentChecked[k][e] = true
-								end
-							end
-						end
-					end
-				end
-			elseif f.Type == "radio" then
-				currentChecked[k] = 1
-				if default then
-					for e = 1, #f.Tags do
-						if f.Tags[e] == default then
-							currentChecked[k] = e
-						end
-					end
-				end
-			end
-		end
+		currentParser = parser
+		buildFilters()
 		nowMode = 1
 		searchData = ""
 		slider.Y = -50
@@ -231,6 +425,9 @@ function CatalogModes.load(parser)
 end
 
 function CatalogModes.show()
+	if currentParser then
+		buildFilters()
+	end
 	status = "START"
 	oldFade = 1
 	Timer.reset(animationTimer)
@@ -265,35 +462,7 @@ function CatalogModes.input(pad, oldpad, touch, oldtouch)
 					if oldtouch.y > 40 + 8 + 50 * #modes then
 						local id = math.floor((slider.Y + oldtouch.y - (40 + 8 + 50 * #modes)) / 50) + 1
 						if id > 0 then
-							for i = 1, #currentFilters do
-								local f = currentFilters[i]
-								id = id - 1
-								if id == 0 then
-									f.visible = not f.visible
-									updateItemsDraw()
-									break
-								end
-								if f.visible then
-									if id <= #f.Tags then
-										if f.Type == "check" then
-											currentChecked[i][id] = not currentChecked[i][id]
-										elseif f.Type == "radio" then
-											currentChecked[i] = id
-										elseif f.Type == "checkcross" then
-											if currentChecked[i][id] == "cross" then
-												currentChecked[i][id] = false
-											elseif currentChecked[i][id] == false then
-												currentChecked[i][id] = true
-											elseif currentChecked[i][id] == true then
-												currentChecked[i][id] = "cross"
-											end
-										end
-										break
-									else
-										id = id - #f.Tags
-									end
-								end
-							end
+							activate(id)
 						end
 					else
 						local id = math.floor((oldtouch.y - 40) / 50) + 1
@@ -322,35 +491,7 @@ function CatalogModes.input(pad, oldpad, touch, oldtouch)
 				else
 					local id = selectedIndex - #modes
 					if id > 0 then
-						for i = 1, #currentFilters do
-							local f = currentFilters[i]
-							id = id - 1
-							if id == 0 then
-								f.visible = not f.visible
-								updateItemsDraw()
-								break
-							end
-							if f.visible then
-								if id <= #f.Tags then
-									if f.Type == "check" then
-										currentChecked[i][id] = not currentChecked[i][id]
-									elseif f.Type == "radio" then
-										currentChecked[i] = id
-									elseif f.Type == "checkcross" then
-										if currentChecked[i][id] == "cross" then
-											currentChecked[i][id] = false
-										elseif currentChecked[i][id] == false then
-											currentChecked[i][id] = true
-										elseif currentChecked[i][id] == true then
-											currentChecked[i][id] = "cross"
-										end
-									end
-									break
-								else
-									id = id - #f.Tags
-								end
-							end
-						end
+						activate(id)
 					end
 				end
 			end
@@ -489,8 +630,19 @@ function CatalogModes.draw()
 		end
 		if item.type == "filter" then
 			local f = item.data
-			UI.text(BONT16, PX + 52, y, f.Name or "", COLOR_FONT, 280)
-			Graphics.drawImage(PX + 14, y - 1, (f.visible and HideIcon or ShowIcon).e, COLOR_SUBFONT)
+			if f.Type == "section" then
+				UI.text(FONT13, PX + 20, y + 6, f.Name or "", COLOR_ACCENT, 310)
+			elseif f.Type == "action" then
+				local value = f.Value and f.Value() or nil
+				local vw = value and math.min(Font.getTextWidth(FONT16, value), 150) or 0
+				UI.text(FONT16, PX + 20, y, f.Name or "", COLOR_FONT, 300 - vw - 20)
+				if value then
+					UI.text(FONT16, PX + 330 - vw, y, value, COLOR_SUBFONT, 150)
+				end
+			else
+				UI.text(BONT16, PX + 52, y, tr(f.Name or ""), COLOR_FONT, 280)
+				Graphics.drawImage(PX + 14, y - 1, (f.visible and HideIcon or ShowIcon).e, COLOR_SUBFONT)
+			end
 		elseif item.type == "tag" and y - 1 + 24 > 8 + 50 * #modes + 8 then
 			local f, k, i, v = item.f, item.k, item.i, item.data
 			local checked = currentChecked[k]
@@ -510,7 +662,7 @@ function CatalogModes.draw()
 				end
 			end
 			Graphics.drawImage(PX + 34, y - 1, icon.e, tint)
-			UI.text(FONT16, PX + 72, y, v or "", crossed and COLOR_SUBFONT or COLOR_FONT, 260)
+			UI.text(FONT16, PX + 72, y, tr(v or ""), crossed and COLOR_SUBFONT or COLOR_FONT, 260)
 		end
 		y = y + 50
 	end
