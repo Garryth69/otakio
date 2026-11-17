@@ -171,6 +171,13 @@ function Http.image(url, referer, headers)
 	local t = {Link = url}
 	local slots = {}
 	if referer then
+		-- like a browser (strict-origin-when-cross-origin): an image on another host gets only the page's origin;
+		-- some CDNs refuse a full chapter address they never see from browsers
+		local rhost = string.match(referer, "^%a+://([^/?#]+)")
+		local ihost = type(url) == "string" and string.match(url, "^%a+://([^/?#]+)")
+		if rhost and ihost and string.lower(rhost) ~= string.lower(ihost) then
+			referer = string.match(referer, "^(%a+://[^/?#]+)") .. "/"
+		end
 		slots[#slots + 1] = "Referer: " .. referer
 	end
 	if headers then

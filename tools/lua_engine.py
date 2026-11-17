@@ -196,7 +196,11 @@ class Engine:
                 n = L.eval("#CH")
                 if n:
                     res["chapters"] = n
-                    L.execute("PG = {}; RUN(function() P:prepareChapter(CH[#CH], PG) end)")
+                    # the newest chapter first; when it has no pages (often a paid or upcoming one), an older one
+                    for idx in dict.fromkeys(("#CH", "math.max(1, #CH - 3)", "1")):
+                        L.execute("PG = {}; RUN(function() P:prepareChapter(CH[%s], PG) end)" % idx)
+                        if L.eval("#PG"):
+                            break
                     res["pages"] = L.eval("#PG")
                     if res["pages"]:
                         res["image"] = self.check_image()

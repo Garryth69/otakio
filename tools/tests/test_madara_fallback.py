@@ -83,4 +83,32 @@ for i in range(1, L.eval("#PG") + 1):
     v = L.eval("PG[%d]" % i)
     links.append(v if isinstance(v, str) else v.Link)
 assert links == [BASE + "/p/1.webp", BASE + "/p/2.webp"], links
+
+# the paged reader keeps its pages in a script (written by PHP: trailing comma)
+pages[BASE + "/manga/x/chapter-2/"] = """<html><body><div class="reading-content"></div><script>
+var chapter_images_per_page = 1, chapter_preloaded_images=[{"src":"%(b)s/q/1.jpg"},{"src":"%(b)s/q/2.jpg"},];
+</script></body></html>""" % {"b": BASE}
+L.execute('PG = {}; RUN(function() P:prepareChapter({Link = "/manga/x/chapter-2/", Name = "2", Manga = {}}, PG) end)')
+got = [L.eval("PG[%d]" % i) for i in range(1, L.eval("#PG") + 1)]
+got = [g if isinstance(g, str) else g.Link for g in got]
+assert got == [BASE + "/q/1.jpg", BASE + "/q/2.jpg"], got
+
+# a skin with its own reader: img.reader-page inside .reader-pages
+pages[BASE + "/manga/x/chapter-3/"] = """<html><body><div class="reader-pages"><img class="reader-page" src="%(b)s/r/1.webp">
+<img class="reader-page" src="%(b)s/r/2.webp"></div></body></html>""" % {"b": BASE}
+L.execute('PG = {}; RUN(function() P:prepareChapter({Link = "/manga/x/chapter-3/", Name = "3", Manga = {}}, PG) end)')
+got = [L.eval("PG[%d]" % i) for i in range(1, L.eval("#PG") + 1)]
+got = [g if isinstance(g, str) else g.Link for g in got]
+assert got == [BASE + "/r/1.webp", BASE + "/r/2.webp"], got
+
+# a skin with its own chapter rows: links one level below the series page, newest first, labels for names
+pages[BASE + "/manga/own-rows/"] = """<html><body><nav><a href="/manga/own-rows/menu-link/">Menu</a></nav>
+<div class="chapter-list-full"><div class="chapter-row-full"><a class="chapter-link" href="/manga/own-rows/capitulo-2/">
+<img src="t.webp"><span class="chapter-num">Capitulo 2</span><span class="chapter-date">20.10.26</span></a></div>
+<div class="chapter-row-full"><a class="chapter-link" href="/manga/own-rows/capitulo-1/"><span class="chapter-num">Capitulo 1</span></a></div>
+</div><a href="/manga/own-rows/capitulo-1/page/2/">deeper</a><a href="/manga/other/">other</a></body></html>"""
+L.execute('CH = {}; RUN(function() P:getChapters({Link = "/manga/own-rows/", Name = "x"}, CH) end)')
+names = [L.eval("CH[%d].Name" % i) for i in range(1, L.eval("#CH") + 1)]
+assert names == ["Capitulo 1", "Capitulo 2"], names
+assert L.eval("CH[2].Link") == "/manga/own-rows/capitulo-2/" and L.eval("CH[2].Date") == "20.10.26"
 print("madara fallback: OK")

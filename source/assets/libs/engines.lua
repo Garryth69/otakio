@@ -563,6 +563,26 @@ local function madaraGetChapters(p, manga, dt)
 			page = page + 1
 		end
 	end
+	if #list == 0 then
+		-- a skin with its own chapter rows: every link one level below the series page is a chapter (page order,
+		-- newest first like Madara); its name is the row's number label, else the link's text
+		local base = gsub(pathOf(mangaUrl), "/+$", "") .. "/"
+		local seen = {}
+		for _, a in ipairs(doc:select("a[href]")) do
+			local path = pathOf(a:attr("abs:href"), cfg.baseUrl)
+			local rest = path and sub(path, 1, #base) == base and sub(path, #base + 1) or nil
+			local slug = rest and match(rest, "^([^/?#]+)/?$")
+			if slug and slug ~= "feed" and slug ~= "amp" and slug ~= "page" and not seen[path] and not inFurniture(a) then
+				seen[path] = true
+				local label = a:selectFirst("[class*=chapter-num], [class*=chapter-name], [class*=chapter-title]")
+				local name = trim(label and label:text() or a:text())
+				local date = a:selectFirst("[class*=chapter-date], [class*=release-date]")
+				if name ~= "" then
+					list[#list + 1] = {Name = name, Link = path, Date = date and trim(date:text()) or nil}
+				end
+			end
+		end
+	end
 	-- Madara lists newest first; Otakio stores oldest first
 	for i = #list, 1, -1 do
 		local c = list[i]
@@ -580,6 +600,7 @@ local function madaraPrepareChapter(p, chapter, dt)
 		return
 	end
 	local doc = Http.getDocument(url, headers(p))
+	local pagedDoc = doc -- the paged reader's own page keeps its script list even when the list style is asked
 	if doc:selectFirst("#single-pager") then
 		doc = Http.getDocument(url .. (find(url, "?", 1, true) and "&" or "?") .. "style=list", headers(p))
 	end
@@ -594,6 +615,29 @@ local function madaraPrepareChapter(p, chapter, dt)
 		end
 	end
 	if #dt == 0 then
+		-- Madara's paged reader lists the pages in a script: chapter_preloaded_images = [{"src": ...}, ...] (or strings)
+		local scripts = doc:select("script")
+		if pagedDoc ~= doc then
+			for _, s in ipairs(pagedDoc:select("script")) do
+				scripts[#scripts + 1] = s
+			end
+		end
+		for _, script in ipairs(scripts) do
+			local list = string.match(script:data() or "", "chapter_preloaded_images%s*=%s*(%b[])")
+			if list then
+				-- (written by PHP templates: a trailing comma before "]" is common)
+				local ok, items = pcall(Json.decode, (gsub(list, ",%s*([%]}])", "%1")))
+				for _, it in ipairs(ok and type(items) == "table" and items or {}) do
+					local src = type(it) == "table" and it.src or it
+					if type(src) == "string" and src ~= "" then
+						dt[#dt + 1] = Http.image(trim(src), url)
+					end
+				end
+				break
+			end
+		end
+	end
+	if #dt == 0 then
 		-- "protected" readers draw each page on a canvas that names its image
 		for _, canvas in ipairs(doc:select("canvas[data-page-url]")) do
 			local src = gsub(trim(canvas:attr("abs:data-page-url")), "^http:", "https:")
@@ -605,7 +649,7 @@ local function madaraPrepareChapter(p, chapter, dt)
 	if #dt == 0 then
 		-- last resort: images placed straight in the reader (centered ones are prev/next buttons)
 		-- (newer skins keep .reading-manga on their own reader and number each page image: data-page)
-		for _, img in ipairs(doc:select(".reading-content img, .reading-manga img[data-page]")) do
+		for _, img in ipairs(doc:select(".reading-content img, .reading-manga img[data-page], .reader-pages img.reader-page")) do
 			local src = imageFromElement(img)
 			if src and src ~= "" and not find(img:attr("class"), "aligncenter", 1, true) then
 				dt[#dt + 1] = Http.image(trim(src), url)

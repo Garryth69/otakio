@@ -41,11 +41,15 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
   known card layouts is found, any link to a series page with a cover next to it is a result (menus, sliders and
   sidebars left out); readers that number their page images are read too.
 - **Keyoapp sites on the new reader** (Art Lapsa, Kitsune Dawn, Rithar Scans): pages load again.
+- **Images on another server** get only the site's address as Referer, like a browser does: several sources
+  whose image server refused the full chapter address load again (KunManga, TopManhua, ZazaManga, ZinManga...).
+- **More Madara layouts**: the paged reader's page list (`chapter_preloaded_images`), skins with their own chapter
+  rows and their own reader (Manhwa-Online, CartoonPorn).
 - **MangaLib**: pages load again (its default image server stopped resolving outside Russia); SlashLib keeps the
   server that works for it.
 
 ### Sources
-- 18 more sources work end to end than in 1.1.4 (247 of 353), several thanks to native AVIF/GIF and the POST fix.
+- 22 more sources work end to end than in 1.1.4 (251 of 353), several thanks to native AVIF/GIF and the POST fix.
 - **New native extensions** replacing broken NOBORU parsers: HeavenManga (es), InManga (es), MyHentaiGallery (en),
   VerComicsPorno (es). Installed NOBORU copies are swapped for them automatically.
 - Removed 2 NOBORU sources whose domains are now parked pages (Leomangas, ReadM).
