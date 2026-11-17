@@ -463,6 +463,7 @@ local function mergeIndex(index, repo, base)
 				relay = e.relay and true or nil,
 				health = e.health,
 				issue = ISSUES[e.issue] and e.issue or nil,
+				movedTo = type(e.movedTo) == "string" and e.movedTo:match("^https?://[^/?#]+$") or nil,
 				checked = e.checked,
 				recommended = e.recommended == true or nil,
 				sha256 = type(e.sha256) == "string" and e.sha256 or nil,
@@ -684,6 +685,17 @@ function Extensions.refresh(force, maxAge)
 			co_yield(false)
 		end
 		migrateReplaced()
+		-- sites the daily check found at a new address: requests follow them without a new extension version
+		-- (offline only the bundled copy is known: the moves kept from last time stay)
+		if SourcePrefs and SourcePrefs.setMoves and next(onlineRepos) then
+			local moves = {}
+			for _, e in ipairs(catalog) do
+				if e.movedTo and e.baseUrl then
+					moves[e.baseUrl] = e.movedTo
+				end
+			end
+			SourcePrefs.setMoves(moves)
+		end
 		table.sort(catalog, function(a, b)
 			if a.lang ~= b.lang then
 				return a.lang < b.lang

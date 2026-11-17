@@ -82,7 +82,7 @@ Language.PortugueseBR = {
 	OTAKIO = {
 		SOURCE_SETTINGS = "Configurações da fonte",
 		SOURCE_DOMAIN = "Endereço do site",
-		SOURCE_DOMAIN_DEFAULT = "Padrão",
+		SOURCE_DOMAIN_DEFAULT = "Padrão", SOURCE_DOMAIN_AUTO = "automático",
 		SOURCE_DOMAIN_PROMPT = "Novo endereço para %s (vazio: o padrão)",
 		SOURCE_DOMAIN_SET = "Endereço alterado para %s",
 		SOURCE_DOMAIN_INVALID = "Não é um endereço da web",

@@ -41,6 +41,8 @@ def main():
         for k in REQUIRED:
             if e.get(k) in (None, ""):
                 errors.append(f"{ext_id}: missing '{k}'")
+        if "movedTo" in e and not re.match(r"^https?://[^/?#\s]+$", str(e["movedTo"])):
+            errors.append(f"{ext_id}: movedTo must be a bare http(s) address, got {e['movedTo']!r}")
         if ext_id in seen:
             errors.append(f"{ext_id}: duplicate id")
         seen.add(ext_id)

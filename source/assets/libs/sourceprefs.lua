@@ -4,6 +4,8 @@
 ---  domain   = "https://new.example"     another address for the site; every request to the original host goes there
 ---  base     = "https://old.example"     the original address the domain replaces
 ---  cache    = {[key] = value}           data an engine keeps between sessions (a site's genre list...)
+---and one shared entry, __moves = {[original host] = "https://new.example"}: the sites the extension catalog says
+---moved (index "movedTo", found by the daily check); kept so they apply from the start, before the catalog is fetched
 SourcePrefs = {}
 
 local PATH = "ux0:data/otakio/source_prefs.json"
@@ -159,6 +161,13 @@ end
 
 local function buildRewrites()
 	rewrites = {}
+	-- moves the catalog knows about first; an address the user set for a source wins over them
+	for from, to in pairs(type(load().__moves) == "table" and load().__moves or {}) do
+		local scheme, host = splitUrl(to)
+		if host and host ~= from then
+			rewrites[from] = {scheme = scheme, host = host}
+		end
+	end
 	for _, e in pairs(load()) do
 		if type(e) == "table" and e.domain and e.base then
 			local _, from = splitUrl(e.base)
@@ -168,6 +177,34 @@ local function buildRewrites()
 			end
 		end
 	end
+end
+
+---The catalog's moves: {[original base address] = new address}. Written only when they change.
+function SourcePrefs.setMoves(moves)
+	local map, same = {}, true
+	local old = type(load().__moves) == "table" and load().__moves or {}
+	for from, to in pairs(type(moves) == "table" and moves or {}) do
+		local _, fromHost = splitUrl(from)
+		local scheme, toHost = splitUrl(to)
+		if fromHost and toHost and fromHost ~= toHost and (scheme == "http" or scheme == "https") then
+			map[fromHost] = scheme .. "://" .. toHost
+			same = same and old[fromHost] == map[fromHost]
+		end
+	end
+	for k in pairs(old) do
+		same = same and map[k] ~= nil
+	end
+	if not same then
+		load().__moves = next(map) and map or nil
+		changed()
+	end
+end
+
+---@return string|nil the address the catalog says the site at `base` moved to
+function SourcePrefs.movedTo(base)
+	local _, host = splitUrl(base)
+	local moves = load().__moves
+	return host and type(moves) == "table" and moves[host] or nil
 end
 
 ---A link (or header value) pointing at a source whose address was replaced, pointed at the new address.

@@ -82,7 +82,7 @@ Language.Russian = {
 	OTAKIO = {
 		SOURCE_SETTINGS = "Настройки источника",
 		SOURCE_DOMAIN = "Адрес сайта",
-		SOURCE_DOMAIN_DEFAULT = "По умолчанию",
+		SOURCE_DOMAIN_DEFAULT = "По умолчанию", SOURCE_DOMAIN_AUTO = "автоматически",
 		SOURCE_DOMAIN_PROMPT = "Новый адрес для %s (пусто: по умолчанию)",
 		SOURCE_DOMAIN_SET = "Адрес изменён на %s",
 		SOURCE_DOMAIN_INVALID = "Это не веб-адрес",

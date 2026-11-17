@@ -5,8 +5,10 @@
   python tools/probe_sources.py --file my.lua   # test a new extension file
   python tools/probe_sources.py --candidates file.json   # used by gen_repo.py for theme auto-detection
 
-Writes repo/health.json: {id: {status, popular, chapters, pages, checked}}
+Writes repo/health.json: {id: {status, popular, chapters, pages, checked, movedTo?}}
 status: ok (pages load) | partial (listing works, chapters/pages don't) | dead (nothing works)
+movedTo: the site answers from another address now (its own sends visitors there) and the extension works there; the
+app sends the source's requests to it (see sourceprefs.lua), so nobody has to wait for a new extension version
 """
 import argparse, json, os, sys, time, threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -91,6 +93,85 @@ def probe_entry(entry):
         best["engine"] = chosen[0]
         best["cfg"] = {k: v for k, v in chosen[1].items() if k in ("mangaSubString", "mangaUrlDirectory")}
     return entry["id"], best
+
+
+# where expired or sold domains end up: never a site's new home
+PARKING = ("sedo.", "parkingcrew", "bodis.", "hugedomains", "dan.com", "afternic", "godaddy", "namecheap", "porkbun",
+           "parklogic", "above.com", "/lander")
+
+
+def origin_of(url):
+    """'https://Host.example:443/x' -> 'https://host.example' (scheme and host; a port only when it isn't the default)"""
+    scheme, _, rest = (url or "").partition("://")
+    host = rest.split("/", 1)[0].split("?", 1)[0].lower()
+    if host.endswith(":443") or host.endswith(":80"):
+        host = host.rsplit(":", 1)[0]
+    return scheme.lower() + "://" + host
+
+
+def host_key(url):
+    host = origin_of(url).split("://", 1)[-1]
+    return host[4:] if host.startswith("www.") else host
+
+
+def find_move(base_url, timeout=15):
+    """The address a site answers from now, when its own sends visitors to another host (an HTTP redirect or a meta
+    refresh); None when it stays on its host, nothing answers, or the new place is a parking page"""
+    import re, urllib.error, urllib.parse, urllib.request
+    from lua_engine import UA, _ctx
+    try:
+        req = urllib.request.Request(base_url.rstrip("/") + "/", headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=timeout, context=_ctx) as r:
+            target, body = r.geturl(), r.read(300000).decode("utf8", "replace")
+    except urllib.error.HTTPError as err:
+        # the redirect was followed but the new place answered with an error (a block page...): its address still
+        # counts, the extension's own probe there decides
+        target, body = err.geturl() or base_url, ""
+    except Exception:
+        return None
+    if host_key(target) == host_key(base_url):
+        m = re.search(r"""<meta[^>]+http-equiv=["']?refresh["']?[^>]*url=['"]?([^"'>\s]+)""", body, re.I)
+        if not m:
+            return None
+        target = urllib.parse.urljoin(target, m.group(1))
+    if host_key(target) == host_key(base_url) or not target.startswith("http") or any(p in target.lower() for p in PARKING):
+        return None
+    return origin_of(target)
+
+
+def probe_moved(entry, new_origin):
+    """Probes the extension with its address swapped for `new_origin` (a temporary copy of its file)"""
+    import tempfile
+    path = entry["file"] if os.path.isabs(entry["file"]) else os.path.join(ROOT, "repo", entry["file"])
+    old = origin_of(entry["baseUrl"])
+    text = open(path, encoding="utf8").read()
+    if old not in text:
+        return None
+    tmp = os.path.join(tempfile.mkdtemp(prefix="otakio_moved_"), os.path.basename(path))
+    open(tmp, "w", encoding="utf8").write(text.replace(old, new_origin))
+    moved = dict(entry, file=tmp, baseUrl=new_origin)
+    return probe_entry(moved)[1]
+
+
+def detect_moves(entries, results, workers=8, verbose=True):
+    """Sources whose list doesn't load: if their address now leads to another domain where the extension works
+    better, the result becomes that one, with movedTo = the new address"""
+    rank = {"ok": 2, "partial": 1, "dead": 0}
+    cands = [en for en in entries if en.get("baseUrl") and not (results.get(en["id"]) or {}).get("popular")]
+
+    def one(en):
+        new = find_move(en["baseUrl"])
+        return en, new, probe_moved(en, new) if new else None
+
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        for en, new, r in pool.map(one, cands):
+            old = results.get(en["id"]) or {}
+            if r and r.get("popular") and rank.get(r["status"], 0) > rank.get(old.get("status"), 0):
+                r["movedTo"] = new
+                results[en["id"]] = r
+                if verbose:
+                    print("moved   %s  %s -> %s  (%s)" % (en["id"], en["baseUrl"], new, r["status"]), flush=True)
+    return results
 
 
 def run(entries, workers=24, verbose=True):
@@ -184,6 +265,14 @@ def set_issue(entry, h):
         entry.pop("issue", None)
 
 
+def set_moved(entry, h):
+    """movedTo travels from health.json to the index entry (the app reads it there)"""
+    if h and h.get("movedTo"):
+        entry["movedTo"] = h["movedTo"]
+    else:
+        entry.pop("movedTo", None)
+
+
 def apply_health(entries, health):
     """Copies health.json results into index entries (health, checked, compat, issue, unverified)"""
     for e in entries:
@@ -193,6 +282,7 @@ def apply_health(entries, health):
         e["health"], e["checked"] = h["status"], h.get("checked")
         e["compat"] = {"dead": "broken", "partial": "partial"}.get(h["status"], "full")
         set_issue(e, h)
+        set_moved(e, h)
         if h.get("unverified"):
             e["unverified"] = h["unverified"]
         else:
@@ -264,6 +354,7 @@ def main():
             if path:
                 entries.append({"id": e["id"], "engine": "native", "baseUrl": e["baseUrl"], "file": path, "lang": e["lang"]})
     results = run(entries, args.workers)
+    detect_moves(entries, results, workers=min(args.workers, 8))
     health = load_health()
     merge_health(health, results, ci=args.ci)
     pruned = prune_health(health, {e["id"] for e in index["extensions"]})

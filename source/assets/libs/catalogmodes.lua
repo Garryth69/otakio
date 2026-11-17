@@ -239,7 +239,7 @@ local function editDomain()
 	if not parser then
 		return
 	end
-	local current = SourcePrefs.getDomain(parser.ID) or parser.Link or ""
+	local current = SourcePrefs.getDomain(parser.ID) or SourcePrefs.movedTo(parser.Link) or parser.Link or ""
 	local text = TextInput(string.format(LO().SOURCE_DOMAIN_PROMPT, parser.Name or ""), current, 256, TYPE_DEFAULT)
 	if text == nil then
 		return
@@ -294,7 +294,12 @@ buildFilters = function()
 	end
 	list[#list + 1] = {Type = "action", Name = LO().SOURCE_DOMAIN, Tags = {}, Run = editDomain, Value = function()
 		local d = SourcePrefs.getDomain(parser.ID)
-		return d and hostOf(d) or LO().SOURCE_DOMAIN_DEFAULT
+		if d then
+			return hostOf(d)
+		end
+		-- moved by the catalog: the new address, marked as automatic
+		local moved = SourcePrefs.movedTo(parser.Link)
+		return moved and (hostOf(moved) .. " (" .. LO().SOURCE_DOMAIN_AUTO .. ")") or LO().SOURCE_DOMAIN_DEFAULT
 	end}
 	if filterCount > 0 then
 		list[#list + 1] = {Type = "action", Name = LO().RESET_FILTERS, Tags = {}, Run = resetFilters}

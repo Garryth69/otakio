@@ -82,7 +82,7 @@ Language.ChineseTraditional = {
 	OTAKIO = {
 		SOURCE_SETTINGS = "來源設定",
 		SOURCE_DOMAIN = "網站位址",
-		SOURCE_DOMAIN_DEFAULT = "預設",
+		SOURCE_DOMAIN_DEFAULT = "預設", SOURCE_DOMAIN_AUTO = "自動",
 		SOURCE_DOMAIN_PROMPT = "%s 的新位址（留空為預設）",
 		SOURCE_DOMAIN_SET = "位址已改為 %s",
 		SOURCE_DOMAIN_INVALID = "不是網址",

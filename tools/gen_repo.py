@@ -409,6 +409,7 @@ def main():
             e["health"] = h["status"]
             e["checked"] = h.get("checked")
             probe_sources.set_issue(e, h)
+            probe_sources.set_moved(e, h)
             if h["status"] == "dead":
                 e["compat"] = "broken"
             elif h["status"] == "partial":

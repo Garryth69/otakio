@@ -82,7 +82,7 @@ Language.Japanese = {
 	OTAKIO = {
 		SOURCE_SETTINGS = "ソースの設定",
 		SOURCE_DOMAIN = "サイトのアドレス",
-		SOURCE_DOMAIN_DEFAULT = "デフォルト",
+		SOURCE_DOMAIN_DEFAULT = "デフォルト", SOURCE_DOMAIN_AUTO = "自動",
 		SOURCE_DOMAIN_PROMPT = "%s の新しいアドレス（空欄でデフォルト）",
 		SOURCE_DOMAIN_SET = "アドレスを %s に変更しました",
 		SOURCE_DOMAIN_INVALID = "ウェブアドレスではありません",

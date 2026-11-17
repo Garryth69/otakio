@@ -27,6 +27,10 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - **Source settings** (Square in a source, at the bottom of the panel): the site's address can be changed when a site
   moves (every request, Referer included, goes to the new one; empty goes back to the default), and extensions can
   declare their own options (`Preferences`, read with `self:pref(key)`).
+- **Sites that move to a new address keep working:** the daily check notices when a site's address now leads to
+  another domain, tests the extension there, and the catalog says where it went. The app sends that source's requests
+  to the new address by itself (no extension update needed); an address set by hand in the source settings wins, and
+  the panel shows the automatic one.
 - **Filters are remembered per source** and come back the next time; *Reset filters* brings the defaults back.
 - **Genres filter for Madara sources** (about 170): the genre list is read from the site the first time it is opened.
 - Filter names and common values (Sort by, Status, Completed...) are shown in the interface language.

@@ -82,7 +82,7 @@ Language.ChineseSimplified = {
 	OTAKIO = {
 		SOURCE_SETTINGS = "来源设置",
 		SOURCE_DOMAIN = "网站地址",
-		SOURCE_DOMAIN_DEFAULT = "默认",
+		SOURCE_DOMAIN_DEFAULT = "默认", SOURCE_DOMAIN_AUTO = "自动",
 		SOURCE_DOMAIN_PROMPT = "%s 的新地址（留空为默认）",
 		SOURCE_DOMAIN_SET = "地址已改为 %s",
 		SOURCE_DOMAIN_INVALID = "不是网址",
