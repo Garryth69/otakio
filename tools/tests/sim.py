@@ -91,6 +91,10 @@ SCENARIOS = {
                "L", ("wait", 20), "DOWN", "CROSS", ("wait", 500), "DOWN", "CROSS", ("wait", 600), "DOWN", "CROSS", ("wait", 600),
                "RIGHT", ("wait", 300), "CIRCLE", ("wait", 60), "START", ("wait", 20), "DOWN", "DOWN", "CROSS", ("wait", 30), "CIRCLE", "CIRCLE"],
     # open the first source (installed on first run), browse popular, open a manga, read, global search
+    # a source's panel (Square): modes on top, then the filters; opens the first filter group and checks an item
+    "sourcepanel": [("wait", 150), "R", "R", "R", ("wait", 20), "DOWN", "CROSS", ("wait", 400), "SQUARE", ("wait", 60),
+                    "DOWN", "DOWN", "DOWN", "DOWN", ("wait", 20), "CROSS", ("wait", 30), "DOWN", "CROSS", ("wait", 30),
+                    "DOWN", "DOWN", ("wait", 40), "CIRCLE", ("wait", 40)],
     "browse": [("wait", 150), "R", "R", "R", ("wait", 20), "DOWN", "CROSS", ("wait", 400), "DOWN", "RIGHT", "RIGHT", "CROSS", ("wait", 400),
                "DOWN", "CROSS", ("wait", 500), "RIGHT", ("wait", 200), "CIRCLE", ("wait", 60), "TRIANGLE", ("wait", 60), "CIRCLE", ("wait", 60),
                "CIRCLE", "CIRCLE", ("wait", 30), "TRIANGLE", ("wait", 700), "DOWN", "CROSS", ("wait", 300), "CIRCLE", ("wait", 40), "CIRCLE"],

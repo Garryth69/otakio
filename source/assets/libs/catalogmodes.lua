@@ -462,106 +462,99 @@ function CatalogModes.update()
 	end
 end
 
+local MODE_ICONS = {
+	Popular = "HotIcon", Latest = "HistoryIcon", Search = "SearchIcon", ByLetter = "LetterAIcon", ByTag = "TagIcon",
+	Alphabet = "AZIcon"
+}
+
+---Source panel (modes and filters). Same geometry as before (input and touch use it); colors, type and highlights
+---follow the theme like the other side sheets (reader settings), and look the same for every extension.
 function CatalogModes.draw()
-	if status ~= "END" then
-		local M = oldFade * fade
-		Graphics.fillRect(0, 960, 0, 544, Color.new(0, 0, 0, 150 * M))
-		Graphics.fillRect(960 - M * 350, 960, 40 + 8 + 50 * #modes, 544, Color.new(0, 0, 0))
-		local start_i = math.floor((slider.Y - (40 + 8 + 50 * #modes)) / 50) + 1
-		local y = 40 + 50 * #modes + 17 - slider.Y + (math.max(1, start_i) - 1) * 50
-		for n = math.max(1, start_i), math.min(#itemsToDraw, start_i + 12) do
-			if itemsToDraw[n].type == "filter" then
-				local f = itemsToDraw[n].data
-				Font.print(FONT16, 960 - M * 350 + 52, y, f.Name, COLOR_WHITE)
-				if not f.visible then
-					Graphics.drawImage(960 - M * 350 + 14, y - 1, ShowIcon.e)
-				else
-					Graphics.drawImage(960 - M * 350 + 14, y - 1, HideIcon.e)
-				end
-			elseif itemsToDraw[n].type == "tag" then
-				local f = itemsToDraw[n].f
-				local k = itemsToDraw[n].k
-				local i = itemsToDraw[n].i
-				local v = itemsToDraw[n].data
-				if y - 1 > 544 then
-					break
-				end
-				if y - 1 + 24 > 8 + 50 * #modes + 8 then
-					if f.Type == "check" then
-						if currentChecked[k][i] then
-							Graphics.drawImage(960 - M * 350 + 14 + 20, y - 1, CheckboxCheckedIcon.e)
-						else
-							Graphics.drawImage(960 - M * 350 + 14 + 20, y - 1, CheckboxIcon.e)
-						end
-					elseif f.Type == "checkcross" then
-						if currentChecked[k][i] then
-							if currentChecked[k][i] == "cross" then
-								Graphics.drawImage(960 - M * 350 + 14 + 20, y - 1, CheckboxCrossedIcon.e, Color.new(255, 255, 255, 100))
-							else
-								Graphics.drawImage(960 - M * 350 + 14 + 20, y - 1, CheckboxCheckedIcon.e)
-							end
-						else
-							Graphics.drawImage(960 - M * 350 + 14 + 20, y - 1, CheckboxIcon.e)
-						end
-					elseif f.Type == "radio" then
-						if currentChecked[k] == i then
-							Graphics.drawImage(960 - M * 350 + 14 + 20, y - 1, RadioCheckedIcon.e)
-						else
-							Graphics.drawImage(960 - M * 350 + 14 + 20, y - 1, RadioIcon.e)
-						end
-					end
-					if type(currentChecked[k]) == "table" and currentChecked[k][i] == "cross" then
-						Font.print(FONT16, 960 - M * 350 + 52 + 20, y, v, Color.new(255, 255, 255, 100))
-					else
-						Font.print(FONT16, 960 - M * 350 + 52 + 20, y, v, COLOR_WHITE)
-					end
-				end
-			end
-			y = y + 50
-		end
-		Graphics.fillRect(960 - M * 350, 960, 0, 40 + 8 + 50 * #modes, Color.new(0, 0, 0))
-		for i = 1, #modes do
-			local v = modes[i]
-			if v == "Popular" then
-				Graphics.drawImage(960 - M * 350 + 14, 17 + 40 + (i - 1) * 50 - 1, HotIcon.e, COLOR_GRADIENT(COLOR_GRAY, Color.new(255, 106, 0), modesFade[v]))
-			elseif v == "Latest" then
-				Graphics.drawImage(960 - M * 350 + 14, 17 + 40 + (i - 1) * 50 - 1, HistoryIcon.e, COLOR_GRADIENT(COLOR_GRAY, Color.new(0, 188, 18), modesFade[v]))
-			elseif v == "Search" then
-				Graphics.drawImage(960 - M * 350 + 14, 17 + 40 + (i - 1) * 50 - 1, SearchIcon.e, COLOR_GRADIENT(COLOR_GRAY, Color.new(255, 74, 58), modesFade[v]))
-			elseif v == "ByLetter" then
-				Graphics.drawImage(960 - M * 350 + 14, 17 + 40 + (i - 1) * 50 - 1, LetterAIcon.e, COLOR_GRADIENT(COLOR_GRAY, Color.new(255, 216, 0), modesFade[v]))
-			elseif v == "ByTag" then
-				Graphics.drawImage(960 - M * 350 + 14, 17 + 40 + (i - 1) * 50 - 1, TagIcon.e, COLOR_GRADIENT(COLOR_GRAY, Color.new(127, 201, 255), modesFade[v]))
-			elseif v == "Alphabet" then
-				Graphics.drawImage(960 - M * 350 + 14, 17 + 40 + (i - 1) * 50 - 1, AZIcon.e, COLOR_GRADIENT(COLOR_GRAY, COLOR_ROYAL_BLUE, modesFade[v]))
-			end
-			local text = Language[Settings.Language].MODES[modes[i]] or modes[i] or ""
-			if modes[i] == "Search" and searchData:gsub("%s", "") ~= "" then
-				text = text .. " : " .. searchData
-			end
-			if modes[i] == "ByLetter" then
-				text = text .. " < " .. currentLetters[currentLettersIndex] .. " >"
-			end
-			if modes[i] == "ByTag" then
-				text = text .. " < " .. currentTags[currentTagsIndex] .. " >"
-			end
-			Font.print(FONT16, 960 - M * 350 + 52, 17 + 40 + (i - 1) * 50, text, COLOR_GRADIENT(COLOR_GRAY, COLOR_WHITE, modesFade[v]))
-			if i == selectedIndex then
-				local y = 42 + (i - 1) * 50
-				UI.selectionRing(960 + 5 - 350 * M, y + 2, 960 - 10 - 350 * M + 350, y + 51, M)
-			end
-		end
-		if selectedIndex > #modes then
-			local y = 40 + 50 * #modes - slider.Y + 50 * (selectedIndex - #modes - 1) + 2
-			UI.selectionRing(960 + 5 - 350 * M, y + 2, 960 - 10 - 350 * M + 350, y + 51, M)
-		end
-		Graphics.fillRect(960 - (M - 1) * 350 - 5, 960, 40 + 8 + 50 * #modes, 544, COLOR_BLACK)
-		if countFilterElements() > 7 then
-			local h = getFiltersHeight() / (544 - 40 - 8 - 50 * #modes)
-			Graphics.fillRect(960 - (M - 1) * 350 - 5, 960, 40 + 8 + 50 * #modes + (slider.Y) / h, 8 + 8 + 50 * #modes + (slider.Y + (544 - 8 - 8 - 50 * #modes)) / h, COLOR_WHITE)
-		end
-		Font.print(BONT30, 960 - (M - 0.5) * 350 - Font.getTextWidth(BONT30, Name) / 2, 4, Name, COLOR_WHITE)
+	if status == "END" then
+		return
 	end
+	local M = oldFade * fade
+	local PX = 960 - M * 350 -- left edge of the panel
+	local listTop = 40 + 8 + 50 * #modes
+	local DANGER = COLOR_DANGER or Color.new(240, 80, 100)
+	Graphics.fillRect(0, 960, 0, 544, Color.new(0, 0, 0, 150 * M))
+	-- filters: drawn first, they scroll under the header
+	Graphics.fillRect(PX, 960, listTop, 544, COLOR_SURFACE)
+	local start_i = math.floor((slider.Y - listTop) / 50) + 1
+	local y = 40 + 50 * #modes + 17 - slider.Y + (math.max(1, start_i) - 1) * 50
+	for n = math.max(1, start_i), math.min(#itemsToDraw, start_i + 12) do
+		local item = itemsToDraw[n]
+		if y - 1 > 544 then
+			break
+		end
+		if item.type == "filter" then
+			local f = item.data
+			UI.text(BONT16, PX + 52, y, f.Name or "", COLOR_FONT, 280)
+			Graphics.drawImage(PX + 14, y - 1, (f.visible and HideIcon or ShowIcon).e, COLOR_SUBFONT)
+		elseif item.type == "tag" and y - 1 + 24 > 8 + 50 * #modes + 8 then
+			local f, k, i, v = item.f, item.k, item.i, item.data
+			local checked = currentChecked[k]
+			local crossed = type(checked) == "table" and checked[i] == "cross"
+			local icon, tint = CheckboxIcon, COLOR_SUBFONT
+			if f.Type == "check" or f.Type == "checkcross" then
+				if crossed then
+					icon, tint = CheckboxCrossedIcon, DANGER
+				elseif type(checked) == "table" and checked[i] then
+					icon, tint = CheckboxCheckedIcon, COLOR_ACCENT
+				end
+			elseif f.Type == "radio" then
+				if checked == i then
+					icon, tint = RadioCheckedIcon, COLOR_ACCENT
+				else
+					icon = RadioIcon
+				end
+			end
+			Graphics.drawImage(PX + 34, y - 1, icon.e, tint)
+			UI.text(FONT16, PX + 72, y, v or "", crossed and COLOR_SUBFONT or COLOR_FONT, 260)
+		end
+		y = y + 50
+	end
+	-- header and modes
+	Graphics.fillRect(PX, 960, 0, listTop, COLOR_SURFACE)
+	for i = 1, #modes do
+		local v = modes[i]
+		local f = modesFade[v] or 0
+		local ry = 42 + (i - 1) * 50
+		-- the mode in use: soft accent background (inactive modes rest at 0.3)
+		local on = math.max(0, (f - 0.3) / 0.7)
+		if on > 0.01 then
+			UI.roundRect(PX + 5, ry + 2, PX + 340, ry + 51, 10, WithAlpha(COLOR_ACCENT_SOFT, 255 * on * M))
+		end
+		local icon = _G[MODE_ICONS[v] or ""]
+		if icon and icon.e then
+			Graphics.drawImage(PX + 14, 17 + 40 + (i - 1) * 50 - 1, icon.e, COLOR_GRADIENT(COLOR_SUBFONT, COLOR_ACCENT, on))
+		end
+		local text = Language[Settings.Language].MODES[v] or v or ""
+		if v == "Search" and searchData:gsub("%s", "") ~= "" then
+			text = text .. ": " .. searchData
+		elseif v == "ByLetter" then
+			text = text .. "  ‹ " .. tostring(currentLetters[currentLettersIndex]) .. " ›"
+		elseif v == "ByTag" then
+			text = text .. "  ‹ " .. tostring(currentTags[currentTagsIndex]) .. " ›"
+		end
+		UI.text(FONT16, PX + 52, 17 + 40 + (i - 1) * 50, text, COLOR_GRADIENT(COLOR_SUBFONT, COLOR_FONT, f), 280)
+		if i == selectedIndex then
+			UI.selectionRing(PX + 5, ry + 2, PX + 340, ry + 51, M)
+		end
+	end
+	if #itemsToDraw > 0 then
+		Graphics.fillRect(PX + 16, PX + 334, listTop - 2, listTop - 1, COLOR_DIVIDER)
+	end
+	if selectedIndex > #modes then
+		local sy = 40 + 50 * #modes - slider.Y + 50 * (selectedIndex - #modes - 1) + 2
+		if sy + 51 > listTop then
+			UI.selectionRing(PX + 5, math.max(sy + 2, listTop), PX + 340, sy + 51, M)
+		end
+	end
+	UI.scrollbar(PX + 342, listTop + 4, 540, slider.Y, getFiltersHeight(), 544 - listTop)
+	-- edge and title, like the other side sheets
+	Graphics.fillRect(PX, PX + 1, 0, 544, COLOR_DIVIDER)
+	UI.text(BONT16, PX + 20, 14, Name or "", COLOR_FONT, 310)
 end
 
 function CatalogModes.getStatus()
