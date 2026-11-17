@@ -231,7 +231,8 @@ NOBORU_LANG = {"ENG": "en", "RUS": "ru", "ESP": "es", "PRT": "pt", "BRA": "pt-BR
 
 
 # keep in sync with REPLACED_BY in source/assets/libs/extensions.lua
-NOBORU_REPLACED = {"noboru.mangadex", "noboru.mangadexdif", "noboru.mangakakalot"}
+NOBORU_REPLACED = {"noboru.mangadex", "noboru.mangadexdif", "noboru.mangakakalot", "noboru.myhentaigalleryen",
+                   "noboru.heavenmangaesp", "noboru.inmangaspa", "noboru.vercomicspornoesp"}
 
 # sites that shut down for good (domain gone, parked/for sale, "website closed" page); checked 2026-11-03.
 # Sites that are only behind Cloudflare are NOT listed: they are alive and stay in the catalog as dead.

@@ -35,6 +35,17 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
   addresses (over 512 characters, common behind the image proxy) overwrote engine memory, a likely cause of rare
   crashes.
 - A broken zip no longer closes the app when it is opened.
+- **Madara sites with their own card design** (Aqua Manga, Cocomic...) list their series again: when none of the
+  known card layouts is found, any link to a series page with a cover next to it is a result (menus, sliders and
+  sidebars left out); readers that number their page images are read too.
+- **MangaLib**: pages load again (its default image server stopped resolving outside Russia); SlashLib keeps the
+  server that works for it.
+
+### Sources
+- 15 more sources work end to end than in 1.1.4 (244 of 353), several thanks to native AVIF/GIF and the POST fix.
+- **New native extensions** replacing broken NOBORU parsers: HeavenManga (es), InManga (es), MyHentaiGallery (en),
+  VerComicsPorno (es). Installed NOBORU copies are swapped for them automatically.
+- Removed 2 NOBORU sources whose domains are now parked pages (Leomangas, ReadM).
 
 ## 1.1.4
 

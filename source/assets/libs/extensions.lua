@@ -587,7 +587,11 @@ local REPLACED_BY = {
 	["noboru.mangadex"] = "otakio.mangadex",
 	["noboru.mangadexdif"] = "otakio.mangadex",
 	["noboru.mangakakalot"] = "otakio.mangakakalot",
-	["noboru.mangasee"] = "otakio.weebcentral"
+	["noboru.mangasee"] = "otakio.weebcentral",
+	["noboru.myhentaigalleryen"] = "otakio.myhentaigallery",
+	["noboru.heavenmangaesp"] = "otakio.heavenmanga",
+	["noboru.inmangaspa"] = "otakio.inmanga",
+	["noboru.vercomicspornoesp"] = "otakio.vercomicsporno"
 }
 
 local function migrateReplaced()

@@ -199,6 +199,93 @@ local MADARA_STATUS = {
 local madaraArchiveSelector = "div.page-item-detail, .manga__item, .c-tabs-item__content, .manga-hover-card"
 local madaraSearchCardSelector = ".c-tabs-item__content, div.page-item-detail"
 
+-- page furniture whose links to series (menus, sidebars, sliders) are not results
+local MADARA_FURNITURE = {"nav", "menu", "header", "footer", "sidebar", "widget", "slider", "swiper", "modal", "carousel", "breadcrumb"}
+
+local function inFurniture(node)
+	-- class words, not substrings: <body class="header-style-1 is-sidebar"> holds everything
+	local e = node:parentElement()
+	while e do
+		local tag = e:tagName()
+		if tag == "body" or tag == "html" then
+			return false
+		end
+		if tag == "nav" or tag == "header" or tag == "footer" or tag == "aside" then
+			return true
+		end
+		for token in (e:attr("class") or ""):lower():gmatch("%S+") do
+			token = "-" .. token:gsub("_", "-") .. "-"
+			for _, word in ipairs(MADARA_FURNITURE) do
+				if token:find("-" .. word .. "-", 1, true) then
+					return true
+				end
+			end
+		end
+		e = e:parentElement()
+	end
+	return false
+end
+
+-- Newer skins (aqua-manga-card, asura-card...) drop every Madara class. A result is then any link to a series page
+-- (/manga/<slug>/) with a cover next to it; the title comes from the card's text link, else the link or cover labels.
+local function madaraParseLinks(p, doc, dt)
+	local path = "/" .. p.Config.mangaSubString .. "/"
+	local order, groups = {}, {}
+	for _, a in ipairs(doc:select('a[href*="' .. path .. '"]')) do
+		local href = a:attr("abs:href") or ""
+		local at = href:find(path, 1, true)
+		local slug = at and href:sub(at + #path):match("^([^/?#]+)/?$")
+		if slug and slug ~= "page" and slug ~= "feed" then
+			local g = groups[href]
+			if not g then
+				g = {}
+				groups[href] = g
+				order[#order + 1] = href
+			end
+			g[#g + 1] = a
+		end
+	end
+	local count = 0
+	for _, href in ipairs(order) do
+		local links = groups[href]
+		if not inFurniture(links[1]) then
+			local img, title
+			for _, a in ipairs(links) do
+				local inner = a:selectFirst("img")
+				if inner then
+					img = img or inner
+				elseif not title then
+					local t = trim(a:text())
+					title = t ~= "" and t or nil
+				end
+			end
+			-- the cover may sit beside the title link rather than inside a link: look a few levels up
+			local card = links[1]
+			for _ = 1, 3 do
+				if img or not card then
+					break
+				end
+				card = card:parentElement()
+				img = card and card:selectFirst("img")
+			end
+			if img then
+				for _, a in ipairs(links) do
+					if title then
+						break
+					end
+					local t = trim(a:attr("title") or a:attr("aria-label") or "")
+					title = t ~= "" and t or nil
+				end
+				title = title or trim(img:attr("alt") or "")
+				if title ~= "" and addManga(dt, p, title, href, imageFromElement(img)) then
+					count = count + 1
+				end
+			end
+		end
+	end
+	return count
+end
+
 local function madaraParseArchive(p, doc, dt, selector)
 	local cfg = p.Config
 	local count = 0
@@ -220,6 +307,9 @@ local function madaraParseArchive(p, doc, dt, selector)
 				count = count + 1
 			end
 		end
+	end
+	if count == 0 then
+		count = madaraParseLinks(p, doc, dt)
 	end
 	return count
 end
@@ -504,7 +594,8 @@ local function madaraPrepareChapter(p, chapter, dt)
 	end
 	if #dt == 0 then
 		-- last resort: images placed straight in the reader (centered ones are prev/next buttons)
-		for _, img in ipairs(doc:select(".reading-content img")) do
+		-- (newer skins keep .reading-manga on their own reader and number each page image: data-page)
+		for _, img in ipairs(doc:select(".reading-content img, .reading-manga img[data-page]")) do
 			local src = imageFromElement(img)
 			if src and src ~= "" and not find(img:attr("class"), "aligncenter", 1, true) then
 				dt[#dt + 1] = Http.image(trim(src), url)

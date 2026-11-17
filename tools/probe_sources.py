@@ -26,7 +26,8 @@ def engine():
 
 def status_of(r):
     """ok = the reader shows real pages | partial = something works (list, chapters) | dead = nothing"""
-    if r.get("pages") and r.get("image") in (None, "ok"):
+    # the engine decodes GIF and AVIF itself since engine 2
+    if r.get("pages") and r.get("image") in (None, "ok", "gif", "avif"):
         return "ok"
     if r.get("popular"):
         return "partial"

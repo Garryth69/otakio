@@ -235,11 +235,21 @@ function Engines.LibGroup(cfg)
 		end
 		local data = getJson(API .. "/api/constants?fields[]=imageServers", H)
 		local list = type(data.data) == "table" and data.data.imageServers or {}
-		-- "compress" is keiyoushi's default; "main" answers 403 to apps
+		-- "compress" is keiyoushi's default; "main" answers 403 to apps. MangaLib's compress server sits on a domain that
+		-- doesn't resolve outside Russia (its "secondary" works); SlashLib's secondary is its 403 main (compress works).
 		local preferred = {cfg.imageServer or "compress", "secondary", "download", "main"}
+		local unreachable = {"cdnrulib%.link"}
+		local function reachable(url)
+			for _, pat in ipairs(unreachable) do
+				if url:find(pat) then
+					return false
+				end
+			end
+			return true
+		end
 		for _, id in ipairs(preferred) do
 			for _, s in ipairs(type(list) == "table" and list or {}) do
-				if s.id == id and type(s.site_ids) == "table" then
+				if s.id == id and type(s.site_ids) == "table" and type(s.url) == "string" and reachable(s.url) then
 					for _, sid in ipairs(s.site_ids) do
 						if tonumber(sid) == tonumber(cfg.siteId) and type(s.url) == "string" then
 							imageServer = s.url
