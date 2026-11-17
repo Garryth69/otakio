@@ -181,6 +181,18 @@ function SourceStatus.of(id, entry)
 	return "unstable"
 end
 
+---@param entry table|nil catalog/installed metadata
+---@return string|nil where the source stops ("no chapters", "images blocked"...), from the PC health check
+function SourceStatus.issueText(entry)
+	local issue = entry and entry.issue
+	if type(issue) ~= "string" then
+		return nil
+	end
+	local key = "ISSUE_" .. issue:upper()
+	local lang = Language[Settings.Language] and Language[Settings.Language].OTAKIO
+	return lang and lang[key] or (Language.English.OTAKIO or {})[key]
+end
+
 ---Small status dot (radius 6) centered at cx, cy
 function SourceStatus.drawDot(cx, cy, status)
 	local color = (status == "ok" and COLOR_SUCCESS) or (status == "broken" and COLOR_DANGER) or COLOR_WARNING

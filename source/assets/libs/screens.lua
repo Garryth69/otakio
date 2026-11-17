@@ -883,6 +883,11 @@ function Ext.draw()
 		else
 			-- "Works" / "Unstable" / "Doesn't work" in the status color, then the details
 			local label = L()["STATUS_" .. status:upper()] or status
+			-- and where it stops, when the PC check knows ("Unstable · no chapters")
+			local issue = status ~= "ok" and SourceStatus.issueText(e.entry or e) or nil
+			if issue then
+				label = label .. " · " .. issue
+			end
 			local color = (status == "ok" and COLOR_SUCCESS) or (status == "broken" and COLOR_DANGER) or COLOR_WARNING
 			Font.print(FONT16, tx, y + 40, label, color)
 			local sub = "  ·  " .. (e.langLabel or e.lang or "all") .. "  ·  v" .. tostring(e.version or "?") .. "  ·  " .. (ORIGIN_LABEL[e.origin] or e.origin or "")

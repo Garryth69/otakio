@@ -99,7 +99,7 @@ Language.ChineseSimplified = {
 		JUST_NOW = "刚刚", MINUTES_AGO = "%d 分钟前", HOURS_AGO = "%d 小时前", DAYS_AGO = "%d 天前", TODAY = "今天", YESTERDAY = "昨天",
 		YES = "是", NO = "否", OFF = "关闭",
 		HINT_TOGGLE_APPLY = "X 切换   O / △ 应用", HINT_SELECT_BACK = "X 选择   O 返回",
-		STATUS_OK = "可用", STATUS_UNSTABLE = "不稳定", STATUS_BROKEN = "不可用",
+		STATUS_OK = "可用", STATUS_UNSTABLE = "不稳定", STATUS_BROKEN = "不可用", ISSUE_BLOCKED = "网站拦截应用", ISSUE_LIST = "列表无法加载", ISSUE_CHAPTERS = "没有章节", ISSUE_PAGES = "章节没有页面", ISSUE_IMAGES = "图片被拦截",
 		-- library
 		LIBRARY_EMPTY = "书架是空的", LIBRARY_EMPTY_HINT = "在“浏览”中找到作品后按 START\n即可加入书架。",
 		LIBRARY_FILTER_EMPTY = "没有符合筛选的作品", LIBRARY_FILTER_EMPTY_HINT = "按 START 更改排序/筛选，按 □ 切换分类。",

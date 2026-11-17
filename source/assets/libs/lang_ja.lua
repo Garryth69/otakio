@@ -99,7 +99,7 @@ Language.Japanese = {
 		JUST_NOW = "たった今", MINUTES_AGO = "%d分前", HOURS_AGO = "%d時間前", DAYS_AGO = "%d日前", TODAY = "今日", YESTERDAY = "昨日",
 		YES = "はい", NO = "いいえ", OFF = "オフ",
 		HINT_TOGGLE_APPLY = "× 切り替え   ○ / △ 適用", HINT_SELECT_BACK = "× 選択   ○ 戻る",
-		STATUS_OK = "動作中", STATUS_UNSTABLE = "不安定", STATUS_BROKEN = "動作しません",
+		STATUS_OK = "動作中", STATUS_UNSTABLE = "不安定", STATUS_BROKEN = "動作しません", ISSUE_BLOCKED = "サイトがアプリを拒否", ISSUE_LIST = "一覧を読み込めません", ISSUE_CHAPTERS = "章がありません", ISSUE_PAGES = "ページのない章", ISSUE_IMAGES = "画像がブロックされています",
 		-- library
 		LIBRARY_EMPTY = "ライブラリは空です", LIBRARY_EMPTY_HINT = "「さがす」で作品を見つけてSTARTを押すと\nライブラリに追加できます。",
 		LIBRARY_FILTER_EMPTY = "条件に合う作品がありません", LIBRARY_FILTER_EMPTY_HINT = "STARTで並べ替え・絞り込み、□でカテゴリーを切り替え。",

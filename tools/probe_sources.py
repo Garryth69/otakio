@@ -160,14 +160,39 @@ def merge_health(health, results, today=None, ci=False):
     return health
 
 
+def issue_of(h):
+    """Where a source that doesn't fully work stops, for the app to say it in words (None when it works):
+    blocked (Cloudflare/anti-bot page) | list | chapters | pages | images (pages found, the image server refuses)"""
+    if not h or h.get("status") == "ok":
+        return None
+    if h.get("cloudflare") or h.get("blocked"):
+        return "blocked"
+    if not h.get("popular"):
+        return "list"
+    if not h.get("chapters"):
+        return "chapters"
+    if not h.get("pages"):
+        return "pages"
+    return "images"
+
+
+def set_issue(entry, h):
+    issue = issue_of(h)
+    if issue:
+        entry["issue"] = issue
+    else:
+        entry.pop("issue", None)
+
+
 def apply_health(entries, health):
-    """Copies health.json results into index entries (health, checked, compat, unverified)"""
+    """Copies health.json results into index entries (health, checked, compat, issue, unverified)"""
     for e in entries:
         h = health.get(e["id"])
         if not h or e.get("relay"):
             continue
         e["health"], e["checked"] = h["status"], h.get("checked")
         e["compat"] = {"dead": "broken", "partial": "partial"}.get(h["status"], "full")
+        set_issue(e, h)
         if h.get("unverified"):
             e["unverified"] = h["unverified"]
         else:

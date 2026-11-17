@@ -591,6 +591,23 @@ function Engines.Keyoapp(cfg)
 				end
 			end
 		end
+		if #dt == 0 then
+			-- newer Keyoapp (Livewire): immersiveReader({canRead, pages: JSON.parse('[{"path": ...}]'), baseLink});
+			-- a chapter the visitor can't read (coins) has pages: [] and stays empty
+			local cfgText = match(body or "", "immersiveReader%((.-)baseLink") or ""
+			local base = match(body or "", "baseLink:%s*'([^']*)'") or (cfg.baseUrl .. "/")
+			base = gsub(base, "\\/", "/")
+			cfgText = gsub(gsub(cfgText, "\\u0022", '"'), "&quot;", '"')
+			for path in string.gmatch(cfgText, '"path\\*"%s*:%s*\\*"(.-)\\*"') do
+				path = gsub(gsub(path, "\\+/", "/"), "\\+$", "")
+				if path ~= "" then
+					if not find(path, "^https?://") then
+						path = gsub(base, "/*$", "/") .. gsub(path, "^/+", "")
+					end
+					dt[#dt + 1] = Http.image(path, url)
+				end
+			end
+		end
 	end
 	function p:loadChapterPage(link, dt)
 		dt.Link = link

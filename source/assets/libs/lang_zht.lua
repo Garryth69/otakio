@@ -99,7 +99,7 @@ Language.ChineseTraditional = {
 		JUST_NOW = "剛剛", MINUTES_AGO = "%d 分鐘前", HOURS_AGO = "%d 小時前", DAYS_AGO = "%d 天前", TODAY = "今天", YESTERDAY = "昨天",
 		YES = "是", NO = "否", OFF = "關閉",
 		HINT_TOGGLE_APPLY = "X 切換   O / △ 套用", HINT_SELECT_BACK = "X 選擇   O 返回",
-		STATUS_OK = "可用", STATUS_UNSTABLE = "不穩定", STATUS_BROKEN = "無法使用",
+		STATUS_OK = "可用", STATUS_UNSTABLE = "不穩定", STATUS_BROKEN = "無法使用", ISSUE_BLOCKED = "網站封鎖應用程式", ISSUE_LIST = "清單無法載入", ISSUE_CHAPTERS = "沒有章節", ISSUE_PAGES = "章節沒有頁面", ISSUE_IMAGES = "圖片被封鎖",
 		-- library
 		LIBRARY_EMPTY = "書櫃是空的", LIBRARY_EMPTY_HINT = "在「瀏覽」中找到作品後按 START\n即可加入書櫃。",
 		LIBRARY_FILTER_EMPTY = "沒有符合篩選的作品", LIBRARY_FILTER_EMPTY_HINT = "按 START 變更排序/篩選，按 □ 切換分類。",

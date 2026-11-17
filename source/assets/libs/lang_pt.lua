@@ -99,7 +99,7 @@ Language.PortugueseBR = {
 		JUST_NOW = "agora", MINUTES_AGO = "há %d min", HOURS_AGO = "há %d h", DAYS_AGO = "há %d dias", TODAY = "Hoje", YESTERDAY = "Ontem",
 		YES = "Sim", NO = "Não", OFF = "Desligado",
 		HINT_TOGGLE_APPLY = "X marcar   O / △ aplicar", HINT_SELECT_BACK = "X selecionar   O voltar",
-		STATUS_OK = "Funciona", STATUS_UNSTABLE = "Instável", STATUS_BROKEN = "Não funciona",
+		STATUS_OK = "Funciona", STATUS_UNSTABLE = "Instável", STATUS_BROKEN = "Não funciona", ISSUE_BLOCKED = "site bloqueia apps", ISSUE_LIST = "lista não carrega", ISSUE_CHAPTERS = "sem capítulos", ISSUE_PAGES = "capítulos sem páginas", ISSUE_IMAGES = "imagens bloqueadas",
 		-- biblioteca
 		LIBRARY_EMPTY = "Sua biblioteca está vazia", LIBRARY_EMPTY_HINT = "Encontre algo em Navegar e aperte START\npara adicionar à biblioteca.",
 		LIBRARY_FILTER_EMPTY = "Nada corresponde a este filtro", LIBRARY_FILTER_EMPTY_HINT = "Aperte START para mudar ordem/filtro ou □ para trocar a categoria.",

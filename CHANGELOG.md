@@ -29,6 +29,8 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - **Genres filter for Madara sources** (about 170): the genre list is read from the site the first time it is opened.
 - Filter names and common values (Sort by, Status, Completed...) are shown in the interface language.
 - The source panel follows the theme like the other side sheets.
+- **Extensions say where a source stops**, next to its status: *site blocks apps*, *list doesn't load*, *no
+  chapters*, *chapters without pages* or *images blocked* (from the daily check of every source).
 
 ### Fixed
 - **POST requests with `%` in their body** (most searches sent as a form) reached the site mangled; very long
@@ -38,11 +40,12 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - **Madara sites with their own card design** (Aqua Manga, Cocomic...) list their series again: when none of the
   known card layouts is found, any link to a series page with a cover next to it is a result (menus, sliders and
   sidebars left out); readers that number their page images are read too.
+- **Keyoapp sites on the new reader** (Art Lapsa, Kitsune Dawn, Rithar Scans): pages load again.
 - **MangaLib**: pages load again (its default image server stopped resolving outside Russia); SlashLib keeps the
   server that works for it.
 
 ### Sources
-- 15 more sources work end to end than in 1.1.4 (244 of 353), several thanks to native AVIF/GIF and the POST fix.
+- 18 more sources work end to end than in 1.1.4 (247 of 353), several thanks to native AVIF/GIF and the POST fix.
 - **New native extensions** replacing broken NOBORU parsers: HeavenManga (es), InManga (es), MyHentaiGallery (en),
   VerComicsPorno (es). Installed NOBORU copies are swapped for them automatically.
 - Removed 2 NOBORU sources whose domains are now parked pages (Leomangas, ReadM).

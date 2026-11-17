@@ -99,7 +99,7 @@ Language.French = {
 		JUST_NOW = "à l'instant", MINUTES_AGO = "il y a %d min", HOURS_AGO = "il y a %d h", DAYS_AGO = "il y a %d j", TODAY = "Aujourd'hui", YESTERDAY = "Hier",
 		YES = "Oui", NO = "Non", OFF = "Désactivé",
 		HINT_TOGGLE_APPLY = "X cocher   O / △ appliquer", HINT_SELECT_BACK = "X choisir   O retour",
-		STATUS_OK = "Fonctionne", STATUS_UNSTABLE = "Instable", STATUS_BROKEN = "Ne fonctionne pas",
+		STATUS_OK = "Fonctionne", STATUS_UNSTABLE = "Instable", STATUS_BROKEN = "Ne fonctionne pas", ISSUE_BLOCKED = "le site bloque les apps", ISSUE_LIST = "la liste ne charge pas", ISSUE_CHAPTERS = "aucun chapitre", ISSUE_PAGES = "chapitres sans pages", ISSUE_IMAGES = "images bloquées",
 		-- bibliothèque
 		LIBRARY_EMPTY = "Votre bibliothèque est vide", LIBRARY_EMPTY_HINT = "Trouvez quelque chose dans Parcourir et appuyez sur START\npour l'ajouter à votre bibliothèque.",
 		LIBRARY_FILTER_EMPTY = "Rien ne correspond à ce filtre", LIBRARY_FILTER_EMPTY_HINT = "START pour changer le tri/filtre, □ pour changer de catégorie.",

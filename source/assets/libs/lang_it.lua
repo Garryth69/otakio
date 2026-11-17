@@ -99,7 +99,7 @@ Language.Italian = {
 		JUST_NOW = "adesso", MINUTES_AGO = "%d min fa", HOURS_AGO = "%d h fa", DAYS_AGO = "%d g fa", TODAY = "Oggi", YESTERDAY = "Ieri",
 		YES = "Sì", NO = "No", OFF = "Disattivato",
 		HINT_TOGGLE_APPLY = "X seleziona   O / △ applica", HINT_SELECT_BACK = "X scegli   O indietro",
-		STATUS_OK = "Funziona", STATUS_UNSTABLE = "Instabile", STATUS_BROKEN = "Non funziona",
+		STATUS_OK = "Funziona", STATUS_UNSTABLE = "Instabile", STATUS_BROKEN = "Non funziona", ISSUE_BLOCKED = "il sito blocca le app", ISSUE_LIST = "l'elenco non si carica", ISSUE_CHAPTERS = "nessun capitolo", ISSUE_PAGES = "capitoli senza pagine", ISSUE_IMAGES = "immagini bloccate",
 		-- libreria
 		LIBRARY_EMPTY = "La tua libreria è vuota", LIBRARY_EMPTY_HINT = "Trova qualcosa in Sfoglia e premi START\nper aggiungerlo alla libreria.",
 		LIBRARY_FILTER_EMPTY = "Niente corrisponde a questo filtro", LIBRARY_FILTER_EMPTY_HINT = "START cambia ordinamento/filtro, □ cambia categoria.",

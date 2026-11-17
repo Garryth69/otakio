@@ -99,7 +99,7 @@ Language.English = {
 		JUST_NOW = "just now", MINUTES_AGO = "%d min ago", HOURS_AGO = "%d h ago", DAYS_AGO = "%d d ago", TODAY = "Today", YESTERDAY = "Yesterday",
 		YES = "Yes", NO = "No", OFF = "Off",
 		HINT_TOGGLE_APPLY = "X toggle   O / △ apply", HINT_SELECT_BACK = "X select   O back",
-		STATUS_OK = "Works", STATUS_UNSTABLE = "Unstable", STATUS_BROKEN = "Doesn't work",
+		STATUS_OK = "Works", STATUS_UNSTABLE = "Unstable", STATUS_BROKEN = "Doesn't work", ISSUE_BLOCKED = "site blocks apps", ISSUE_LIST = "list doesn't load", ISSUE_CHAPTERS = "no chapters", ISSUE_PAGES = "chapters without pages", ISSUE_IMAGES = "images blocked",
 		-- library
 		LIBRARY_EMPTY = "Your library is empty", LIBRARY_EMPTY_HINT = "Find something in Browse and press START\nto add it to your library.",
 		LIBRARY_FILTER_EMPTY = "Nothing matches this filter", LIBRARY_FILTER_EMPTY_HINT = "Press START to change sorting/filter or □ to switch category.",

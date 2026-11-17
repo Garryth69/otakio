@@ -109,6 +109,8 @@ SCENARIOS = {
     "extensions": ["R", "R", "R", "R", ("wait", 120), "SQUARE", "DOWN", "CROSS", ("wait", 60), "SQUARE", "SQUARE", "DOWN", "CROSS",
                    ("wait", 30), "L", "DOWN", "CROSS", ("wait", 60), "SQUARE", ("wait", 30), "CIRCLE", "CIRCLE", ("wait", 20),
                    "TRIANGLE", ("wait", 120), "DOWN", "CIRCLE"],
+    # Extensions > Available, scrolled: sources that stop somewhere say where ("Unstable · no chapters")
+    "extissues": ["R", "R", "R", "R", ("wait", 120), "SQUARE", ("wait", 40), "TRIANGLE", ("wait", 60)],
     # install a source, then Extensions > Installed > (X) > "Open source" must land on its catalog in Browse
     "opensrc": ["R", "R", "R", "R", ("wait", 120), "SQUARE", "DOWN", "CROSS", ("wait", 90), "SQUARE", "SQUARE", "DOWN",
                 "CROSS", ("wait", 20), "CROSS", ("wait", 60)],

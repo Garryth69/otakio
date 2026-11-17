@@ -99,7 +99,7 @@ Language.German = {
 		JUST_NOW = "gerade eben", MINUTES_AGO = "vor %d Min.", HOURS_AGO = "vor %d Std.", DAYS_AGO = "vor %d T.", TODAY = "Heute", YESTERDAY = "Gestern",
 		YES = "Ja", NO = "Nein", OFF = "Aus",
 		HINT_TOGGLE_APPLY = "X umschalten   O / △ übernehmen", HINT_SELECT_BACK = "X auswählen   O zurück",
-		STATUS_OK = "Funktioniert", STATUS_UNSTABLE = "Instabil", STATUS_BROKEN = "Funktioniert nicht",
+		STATUS_OK = "Funktioniert", STATUS_UNSTABLE = "Instabil", STATUS_BROKEN = "Funktioniert nicht", ISSUE_BLOCKED = "Seite blockiert Apps", ISSUE_LIST = "Liste lädt nicht", ISSUE_CHAPTERS = "keine Kapitel", ISSUE_PAGES = "Kapitel ohne Seiten", ISSUE_IMAGES = "Bilder blockiert",
 		-- Bibliothek
 		LIBRARY_EMPTY = "Deine Bibliothek ist leer", LIBRARY_EMPTY_HINT = "Finde etwas unter Stöbern und drücke START,\num es zur Bibliothek hinzuzufügen.",
 		LIBRARY_FILTER_EMPTY = "Nichts passt zu diesem Filter", LIBRARY_FILTER_EMPTY_HINT = "START ändert Sortierung/Filter, □ wechselt die Kategorie.",

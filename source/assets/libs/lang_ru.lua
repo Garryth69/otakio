@@ -99,7 +99,7 @@ Language.Russian = {
 		JUST_NOW = "только что", MINUTES_AGO = "%d мин назад", HOURS_AGO = "%d ч назад", DAYS_AGO = "%d д назад", TODAY = "Сегодня", YESTERDAY = "Вчера",
 		YES = "Да", NO = "Нет", OFF = "Выкл.",
 		HINT_TOGGLE_APPLY = "X переключить   O / △ применить", HINT_SELECT_BACK = "X выбрать   O назад",
-		STATUS_OK = "Работает", STATUS_UNSTABLE = "Нестабильно", STATUS_BROKEN = "Не работает",
+		STATUS_OK = "Работает", STATUS_UNSTABLE = "Нестабильно", STATUS_BROKEN = "Не работает", ISSUE_BLOCKED = "сайт блокирует приложения", ISSUE_LIST = "список не загружается", ISSUE_CHAPTERS = "нет глав", ISSUE_PAGES = "главы без страниц", ISSUE_IMAGES = "изображения заблокированы",
 		-- library
 		LIBRARY_EMPTY = "Библиотека пуста", LIBRARY_EMPTY_HINT = "Найдите что-нибудь в Каталоге и нажмите START,\nчтобы добавить в библиотеку.",
 		LIBRARY_FILTER_EMPTY = "Ничего не подходит под фильтр", LIBRARY_FILTER_EMPTY_HINT = "START — сортировка/фильтр, □ — сменить категорию.",

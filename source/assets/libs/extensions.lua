@@ -5,6 +5,9 @@
 ---  * Classic NOBORU parsers are listed too and run unchanged
 Extensions = {}
 
+-- where a source stops in the PC health check (repo index "issue"), shown in words next to its status
+local ISSUES = {blocked = true, list = true, chapters = true, pages = true, images = true}
+
 local EXT_DIR = Config.DATA .. "extensions/"
 local MANUAL_SUBDIR = "manual/"
 local DB_PATH = Config.DATA .. "extensions.dat"
@@ -459,6 +462,7 @@ local function mergeIndex(index, repo, base)
 				compat = e.compat or "full",
 				relay = e.relay and true or nil,
 				health = e.health,
+				issue = ISSUES[e.issue] and e.issue or nil,
 				checked = e.checked,
 				recommended = e.recommended == true or nil,
 				sha256 = type(e.sha256) == "string" and e.sha256 or nil,
@@ -829,6 +833,7 @@ function Extensions.install(entry)
 				origin = entry.origin,
 				compat = entry.compat,
 				health = entry.health,
+				issue = entry.issue,
 				repo = entry.repo,
 				file = file,
 				date = Clock.now()
