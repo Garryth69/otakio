@@ -259,13 +259,23 @@ local function madaraParseLinks(p, doc, dt)
 					title = t ~= "" and t or nil
 				end
 			end
-			-- the cover may sit beside the title link rather than inside a link: look a few levels up
+			-- the cover may sit beside the title link rather than inside a link: look a few levels up, but only while
+			-- the element is still this series' card (no link to another series inside, else it is the whole grid)
 			local card = links[1]
 			for _ = 1, 3 do
 				if img or not card then
 					break
 				end
 				card = card:parentElement()
+				if card then
+					for _, other in ipairs(card:select('a[href*="' .. path .. '"]')) do
+						local h = other:attr("abs:href") or ""
+						if h ~= href and not h:find(href, 1, true) then
+							card = nil
+							break
+						end
+					end
+				end
 				img = card and card:selectFirst("img")
 			end
 			if img then

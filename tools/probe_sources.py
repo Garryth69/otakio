@@ -174,6 +174,14 @@ def apply_health(entries, health):
             e.pop("unverified", None)
 
 
+def prune_health(health, ids):
+    """Drops the entries of extensions no longer in the catalog (removed, replaced, filtered out); returns how many"""
+    gone = [k for k in health if k not in ids]
+    for k in gone:
+        del health[k]
+    return len(gone)
+
+
 def save_health(h):
     with open(HEALTH, "w", encoding="utf8", newline="\n") as fh:
         json.dump(h, fh, ensure_ascii=False, indent=0, sort_keys=True)
@@ -233,6 +241,9 @@ def main():
     results = run(entries, args.workers)
     health = load_health()
     merge_health(health, results, ci=args.ci)
+    pruned = prune_health(health, {e["id"] for e in index["extensions"]})
+    if pruned:
+        print("health.json: dropped %d entries of extensions no longer in the catalog" % pruned)
     save_health(health)
     if args.update_index:
         apply_health(index["extensions"], health)

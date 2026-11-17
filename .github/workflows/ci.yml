@@ -48,6 +48,7 @@ jobs:
         run: |
           python tools/tests/test_migrations.py
           python tools/tests/test_health_merge.py
+          python tools/tests/test_madara_fallback.py
 
       - name: Translations
         run: python tools/check_lang.py

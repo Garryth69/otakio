@@ -2,7 +2,7 @@
 python tools/tests/test_health_merge.py"""
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from probe_sources import merge_health
+from probe_sources import merge_health, prune_health
 
 h = {"a": {"status": "ok"}, "b": {"status": "ok"}, "c": {"status": "dead", "deadSince": "2026-11-01"}, "d": {"status": "ok"}}
 merge_health(h, {"a": {"status": "dead", "error": "timeout"}, "b": {"status": "dead"}, "c": {"status": "ok"},
@@ -20,4 +20,8 @@ assert h["d"]["status"] == "partial" and "pending" not in h["d"], h["d"]
 merge_health(h, {"a": {"status": "dead"}, "e": {"status": "dead"}}, today="2026-11-12")
 assert h["a"]["deadSince"] == "2026-11-10", h["a"]
 assert h["e"]["status"] == "dead" and h["e"]["deadSince"] == "2026-11-12", h["e"]
+
+# entries of extensions that left the catalog are dropped, the others kept as they are
+n = prune_health(h, {"a", "b", "c"})
+assert n == 2 and sorted(h) == ["a", "b", "c"], h
 print("health merge: OK")
