@@ -94,8 +94,12 @@ Your library and settings are kept.
 
 - Library with categories, filters and new-chapter checks.
 - Search inside each source (**Triangle** in a catalog) and global search.
+- Per-source settings (**Square** in a source): filters that are remembered, the site's address when it moves, and the
+  extension's own options. Sites that move to a new domain are followed automatically once the daily check finds them.
+- Each extension shows whether it works and, when it doesn't, where it stops (no chapters, images blocked...).
 - Reader settings at any time (**Select** while reading): orientation, direction and scaling per manga, and page
-  colors like Mihon's: background, brightness and a color filter with presets.
+  colors like Mihon's: background, brightness, a color filter with presets, grayscale or inverted pages.
+- Webtoon (vertical) mode: the page buttons jump a page at a time, or scroll (More → Controls).
 - Offline downloads; the **Downloads** tab shows the queue, everything already downloaded and the download history.
 - Import your own files: copy `.cbz`, `.zip` or image folders to `ux0:data/otakio/import/`.
 - Backup and restore (More → Data): library, progress, history, categories, repositories and extensions. A backup is
@@ -103,7 +107,7 @@ Your library and settings are kept.
 - Themes with a live preview.
 - Import NOBORU data if `ux0:data/noboru/` exists.
 - Save the current page as PNG, JPEG or WebP.
-- Engine with native TLS 1.3 and WebP.
+- Engine with native TLS 1.3, WebP, AVIF and GIF; compressed and reused connections; HTML read in C.
 - No telemetry: nothing about you or your reading is sent anywhere.
 
 ## Troubleshooting
@@ -170,7 +174,8 @@ Security problems: please report them privately, as described in [SECURITY.md](S
 **GPLv3** ([LICENSE](LICENSE)), the same license as NOBORU, which Otakio was forked from. Anyone distributing the VPK must
 also make the source code available, including the engine changes.
 
-**Engine source:** `eboot.bin` is lpp-vita with Otakio's changes (TLS 1.3, WebP, image conversion). The changes are in
+**Engine source:** `eboot.bin` is lpp-vita with Otakio's changes (TLS 1.3, WebP, AVIF, GIF, image conversion, shared
+and compressed connections, an HTML parser in C, a font cache). The changes are in
 [`engine/patches/`](engine/patches) and, as commits, in the fork
 [Garryth69/lpp-vita](https://github.com/Garryth69/lpp-vita) (branch `otakio`, see its `BUILDING.md`).
 
@@ -183,7 +188,7 @@ logic of [keiyoushi/extensions-source](https://github.com/keiyoushi/extensions-s
 - **Author:** Garryth69, with AI assistance (Claude, by Anthropic).
 - **NOBORU** by [Creckeryop](https://github.com/Creckeryop): the original reader and engine fork.
 - **Engine:** [lpp-vita](https://github.com/Rinnegatamante/lpp-vita) (Rinnegatamante), VitaSDK, vita2d (xerpi),
-  LuaJIT, curl, OpenSSL, libpng, libjpeg and libwebp.
+  LuaJIT, curl, OpenSSL, libpng, libjpeg, libwebp, libavif, dav1d and stb_image.
 - **Source themes:** the [Mihon](https://github.com/mihonapp/mihon) community and [keiyoushi](https://github.com/keiyoushi).
 - **Logo title font:** [Fredoka](https://github.com/hafontia/Fredoka-One), SIL Open Font License 1.1.
 - Full list of components and licenses: [NOTICE.md](NOTICE.md).

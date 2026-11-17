@@ -116,15 +116,33 @@ def main():
         return
 
     targets = []
+    rank = {"ok": 2, "partial": 1, "dead": 0}
+    applied = []
     for e, new in moved:
+        if args.probe:
+            # try the new address first: keiyoushi may follow a site to a domain that blocks apps (Cloudflare) while
+            # the old one still works; then the old one stays
+            r = probe_sources.probe_moved({"id": e["id"], "engine": "native", "baseUrl": e["baseUrl"], "file": e["file"],
+                                           "lang": e["lang"]}, probe_sources.origin_of(new))
+            now = (health.get(e["id"]) or {}).get("status", "dead")
+            if not r or rank.get(r["status"], 0) < rank.get(now, 0):
+                print("  kept %s: %s answers %s, %s answers %s" % (e["id"], new, r and r["status"], e["baseUrl"], now))
+                continue
         path = os.path.join(REPO, e["file"])
         text = open(path, encoding="utf8").read().replace(e["baseUrl"], new)
+        # a new version, or the copies already installed would keep the old address (the app updates on a higher
+        # version only)
+        text = re.sub(r"(\bversion\s*=\s*)(\d+)", lambda m: m.group(1) + str(int(m.group(2)) + 1), text, count=1)
         open(path, "w", encoding="utf8", newline="\n").write(text)
+        e["version"] = int(e.get("version", 1)) + 1
         e["baseUrl"] = new
+        e.pop("movedTo", None)
         health.pop(e["id"], None)
         for k in ("health", "checked"):
             e.pop(k, None)
+        applied.append((e, new))
         targets.append({"id": e["id"], "engine": "native", "baseUrl": new, "lang": e["lang"], "file": e["file"]})
+    moved = applied
     kept = []
     for e in idx["extensions"]:
         why = remove.get(e["id"])

@@ -14,6 +14,8 @@ contains or builds on.
 | lpp-vita (Lua Player Plus Vita) | [Rinnegatamante/lpp-vita](https://github.com/Rinnegatamante/lpp-vita), NOBORU fork [Creckeryop/lpp-vita](https://github.com/Creckeryop/lpp-vita) | GPL-3.0 | the engine, `source/eboot.bin`; Otakio's changes: `engine/patches/`, fork [Garryth69/lpp-vita](https://github.com/Garryth69/lpp-vita) (branch `otakio`) |
 | libvita2d | [xerpi/libvita2d](https://github.com/xerpi/libvita2d), fork [Creckeryop/libvita2d](https://github.com/Creckeryop/libvita2d) | MIT | linked into the engine |
 | LuaJIT, curl, OpenSSL 1.1.1, libpng, libjpeg, libwebp, zlib | their respective authors (via VitaSDK / vdpm) | MIT, curl, OpenSSL (dual OpenSSL/SSLeay), libpng, IJG, BSD, zlib | linked into the engine |
+| libavif, dav1d | [AOMediaCodec/libavif](https://github.com/AOMediaCodec/libavif) (1.4.2), [VideoLAN dav1d](https://code.videolan.org/videolan/dav1d) (1.5.4) | BSD-2-Clause | linked into the engine (AVIF pages and covers) |
+| stb_image | [nothings/stb](https://github.com/nothings/stb) | MIT or public domain (Unlicense), at the user's choice | in the engine source (`source/include/stb_image.h`, GIF decoding) |
 | keiyoushi extensions-source | [keiyoushi/extensions-source](https://github.com/keiyoushi/extensions-source) | Apache-2.0 | theme logic adapted to Lua in `source/assets/libs/engines.lua`, `engines_extra.lua`, `engines_intl.lua` (changes: rewritten in Lua for LuaJIT on the Vita, reduced to listing, search, chapters and pages) |
 
 ## Fonts and images
