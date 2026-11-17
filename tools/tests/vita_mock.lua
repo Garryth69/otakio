@@ -87,6 +87,7 @@ local function newImage(w, h, path)
 end
 
 local asyncResult = nil
+local imageResult = nil -- engine 2: images decode in their own lane
 SIM.ops = nil -- list of draw ops for the current frame when capturing
 local function rec(op)
 	if SIM.ops then
@@ -95,6 +96,8 @@ local function rec(op)
 end
 
 Graphics = {
+	-- engine 2: grayscale/inverted pixels written into a decoded texture
+	filterImage = function(img, mode) SIM.filtered = (SIM.filtered or 0) + 1 return true end,
 	initBlend = function() end,
 	termBlend = function() end,
 	fillRect = function(...) checkNum("fillRect", ...) SIM.draws = SIM.draws + 1 rec({"rect", ...}) end,
@@ -134,7 +137,7 @@ Graphics = {
 			images[id].w = math.ceil(images[id].w / scale)
 			images[id].h = math.ceil(images[id].h / scale)
 		end
-		asyncResult = id
+		imageResult = id
 	end,
 	-- a slice of a tall image; slices taller than the 4096 px texture limit come back at half size
 	loadPartImageAsync = function(path, x, y, w, h)
@@ -145,8 +148,10 @@ Graphics = {
 		if half then
 			w, h = math.ceil(w / 2), math.ceil(h / 2)
 		end
-		asyncResult = newImage(w, h, part or nil)
+		imageResult = newImage(w, h, part or nil)
 	end,
+	getAsyncState = function() return 1 end,
+	getAsyncResult = function() local r = imageResult imageResult = nil return r end,
 	loadGifAsync = function(path) asyncResult = nil end,
 	returnGif = function() return nil end,
 	getImageWidth = function(img) return images[img] and images[img].w or 0 end,
@@ -406,8 +411,14 @@ Network = {
 		end
 		SIM.busyUntil = nil
 	end,
-	setConnectionTime = function() end
+	setConnectionTime = function() end,
+	-- engine 2: report of the last async request (SIM.response overrides it for a scenario)
+	getLastResponse = function()
+		return SIM.response or {status = 200, code = 0, url = "", contentType = "", error = "", seconds = 0.05, bytes = 0, compressed = false}
+	end,
+	clearCookies = function() SIM.cookiesCleared = (SIM.cookiesCleared or 0) + 1 end
 }
+OTAKIO_ENGINE = {version = 2, gzip = true, cookies = true, response = true, plainArgs = true, gif = true, avif = true, filters = true, imageLane = true}
 
 local kbState = 0
 Keyboard = {

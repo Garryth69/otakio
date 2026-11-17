@@ -2617,6 +2617,18 @@ function Reader.loadChapter(chapter)
 	Timer.reset(mangaNameTickerTimer)
 end
 
+---Pixels (grayscale/inverted) changed: the decoded pages are dropped and decoded again with the new filter
+function Reader.redecodePages()
+	if not allPages then
+		return
+	end
+	for i = 1, #allPages do
+		if allPages[i] then
+			deletePageImage(i)
+		end
+	end
+end
+
 function Reader.updateSettings()
 	local settings = CuSettings.load(Chapters[1].Manga)
 	local old_read_dir = readDirection

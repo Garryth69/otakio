@@ -1,0 +1,172 @@
+diff --git a/libvita2d/source/vita2d_font.c b/libvita2d/source/vita2d_font.c
+index d1d9287..b9664db 100755
+--- a/libvita2d/source/vita2d_font.c
++++ b/libvita2d/source/vita2d_font.c
+@@ -5,6 +5,7 @@
+ #include <freetype2/ft2build.h>
+ #include FT_CACHE_H
+ #include FT_FREETYPE_H
++#include FT_SYSTEM_H
+ #include "vita2d.h"
+ #include "texture_atlas.h"
+ #include "bin_packing_2d.h"
+@@ -35,6 +36,146 @@ typedef struct vita2d_font {
+ 	texture_atlas *atlas;
+ } vita2d_font;
+ 
++// Otakio: font files are read through a block cache shared by every face. FreeType's default stream does several
++// small fseek/fread calls per glyph, each one a memory card access (about 10 ms per new glyph with the 13 MB CJK
++// fonts); here a glyph costs at most one 16 KB read, and the tables used all the time (cmap, loca, hmtx) stay in RAM.
++#include <psp2/io/fcntl.h>
++#define FB_BLOCK 16384
++#define FB_BLOCKS 128 /* 2 MB in all */
++#define FB_FILES 8
++
++typedef struct {
++	int file;
++	unsigned long block;
++	unsigned long stamp;
++	unsigned char *data;
++} fb_entry;
++
++typedef struct {
++	SceUID fd;
++	int file;
++} fb_stream;
++
++static fb_entry fb_cache[FB_BLOCKS];
++static unsigned char *fb_memory = NULL;
++static unsigned long fb_clock = 0;
++static char *fb_names[FB_FILES];
++
++static int fb_file_id(const char *filename)
++{
++	for (int i = 0; i < FB_FILES; i++) {
++		if (fb_names[i] && strcmp(fb_names[i], filename) == 0)
++			return i;
++	}
++	for (int i = 0; i < FB_FILES; i++) {
++		if (!fb_names[i]) {
++			fb_names[i] = strdup(filename);
++			return i;
++		}
++	}
++	return -1;
++}
++
++static unsigned char *fb_block(fb_stream *s, unsigned long block)
++{
++	fb_entry *victim = NULL;
++	for (int i = 0; i < FB_BLOCKS; i++) {
++		fb_entry *e = &fb_cache[i];
++		if (e->data && e->file == s->file && e->block == block) {
++			e->stamp = ++fb_clock;
++			return e->data;
++		}
++		if (!victim || !e->data || (victim->data && e->stamp < victim->stamp))
++			victim = e;
++	}
++	if (!fb_memory) {
++		fb_memory = malloc(FB_BLOCK * FB_BLOCKS);
++		if (!fb_memory)
++			return NULL;
++		for (int i = 0; i < FB_BLOCKS; i++)
++			fb_cache[i].data = NULL;
++	}
++	if (!victim->data)
++		victim->data = fb_memory + (size_t)(victim - fb_cache) * FB_BLOCK;
++	victim->file = -1;
++	int got = sceIoPread(s->fd, victim->data, FB_BLOCK, (SceOff)block * FB_BLOCK);
++	if (got < 0)
++		return NULL;
++	if (got < FB_BLOCK)
++		memset(victim->data + got, 0, FB_BLOCK - got);
++	victim->file = s->file;
++	victim->block = block;
++	victim->stamp = ++fb_clock;
++	return victim->data;
++}
++
++static unsigned long fb_read(FT_Stream stream, unsigned long offset, unsigned char *buffer, unsigned long count)
++{
++	fb_stream *s = (fb_stream *)stream->descriptor.pointer;
++	if (count == 0) /* a seek: fine while inside the file */
++		return offset <= stream->size ? 0 : 1;
++	if (offset >= stream->size)
++		return 0;
++	if (count > stream->size - offset)
++		count = stream->size - offset;
++	unsigned long done = 0;
++	while (done < count) {
++		unsigned long pos = offset + done;
++		unsigned char *data = fb_block(s, pos / FB_BLOCK);
++		if (!data)
++			break;
++		unsigned long in = pos % FB_BLOCK;
++		unsigned long n = FB_BLOCK - in;
++		if (n > count - done)
++			n = count - done;
++		memcpy(buffer + done, data + in, n);
++		done += n;
++	}
++	return done;
++}
++
++static void fb_close(FT_Stream stream)
++{
++	fb_stream *s = (fb_stream *)stream->descriptor.pointer;
++	if (s) {
++		sceIoClose(s->fd);
++		free(s);
++	}
++	free(stream);
++}
++
++static FT_Error fb_open_face(FT_Library library, const char *filename, FT_Face *face)
++{
++	int file = fb_file_id(filename);
++	if (file < 0)
++		return FT_New_Face(library, filename, 0, face);
++	SceUID fd = sceIoOpen(filename, SCE_O_RDONLY, 0);
++	if (fd < 0)
++		return FT_Err_Cannot_Open_Resource;
++	SceOff size = sceIoLseek(fd, 0, SCE_SEEK_END);
++	FT_Stream stream = calloc(1, sizeof(*stream));
++	fb_stream *s = malloc(sizeof(*s));
++	if (!stream || !s || size <= 0) {
++		free(stream);
++		free(s);
++		sceIoClose(fd);
++		return FT_Err_Cannot_Open_Resource;
++	}
++	s->fd = fd;
++	s->file = file;
++	stream->size = (unsigned long)size;
++	stream->pos = 0;
++	stream->descriptor.pointer = s;
++	stream->read = fb_read;
++	stream->close = fb_close;
++	FT_Open_Args args;
++	memset(&args, 0, sizeof(args));
++	args.flags = FT_OPEN_STREAM;
++	args.stream = stream;
++	/* FreeType calls stream->close (fb_close frees it) when the face is done, or right away if opening fails */
++	return FT_Open_Face(library, &args, 0, face);
++}
++
+ static FT_Error ftc_face_requester(FTC_FaceID face_id, FT_Library library,
+ 				   FT_Pointer request_data, FT_Face *face)
+ {
+@@ -43,11 +184,7 @@ static FT_Error ftc_face_requester(FTC_FaceID face_id, FT_Library library,
+ 	FT_Error error = FT_Err_Cannot_Open_Resource;
+ 
+ 	if (font->load_from == VITA2D_LOAD_FONT_FROM_FILE) {
+-		error = FT_New_Face(
+-				font->ftlibrary,
+-				font->filename,
+-				0,
+-				face);
++		error = fb_open_face(font->ftlibrary, font->filename, face);
+ 	} else if (font->load_from == VITA2D_LOAD_FONT_FROM_MEM) {
+ 		error = FT_New_Memory_Face(
+ 				font->ftlibrary,

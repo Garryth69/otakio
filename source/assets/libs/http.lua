@@ -76,7 +76,8 @@ local function toHeaderSlots(headers, task)
 	return task
 end
 
----Low level request. Returns response body (string, possibly empty).
+---Low level request. Returns the response body (string, possibly empty) and, with engine 2+, the engine's report:
+---{status = 200, url = final URL, contentType, error, code = curl error (0: none), seconds, bytes, compressed}
 ---@param options table {url, method="GET"|"POST", body, contentType="form"|"json"|string, headers={}, cookie}
 ---@return string
 function Http.request(options)
@@ -86,7 +87,8 @@ function Http.request(options)
 		Link = threadSafeLink(options.url),
 		Table = result,
 		Index = "body",
-		Cookie = options.cookie
+		Cookie = options.cookie,
+		WantResponse = true
 	}
 	if options.method == "POST" then
 		task.HttpMethod = POST_METHOD
@@ -117,7 +119,7 @@ function Http.request(options)
 	if co then
 		pending[co] = nil
 	end
-	return result.body or ""
+	return result.body or "", result.bodyResponse
 end
 
 ---@param url string

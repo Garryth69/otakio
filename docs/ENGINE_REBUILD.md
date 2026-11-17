@@ -23,6 +23,17 @@ The shipped binary is `source/eboot.bin`. `engine/*.bin` are local build outputs
 | Zip extraction creates missing parent folders and skips files it can't open | zips without folder entries (common in .cbz) made it write to a NULL file and close the app |
 | vita2d per-frame pool of 4 MB instead of 16 MB | the pool is reset every frame; 16 MB kept 12 MB of main RAM idle |
 | Release flags `-DSKIP_ERROR_HANDLING -fno-optimize-sibling-calls` | NOBORU's engine was a release build. Without `-fno-optimize-sibling-calls` the new toolchain crashed in `png_read_info` (jump to an unrelocated stub) |
+| Arguments copied as plain strings (`snprintf("%s")`), 1 KB path buffers | `sprintf(dst, arg)` read URLs, POST bodies, cookies, headers, paths and dialog text as printf formats: a `%20` in a POST body was mangled, and a URL over 512 bytes overflowed a static buffer next to other engine state. Links keep the app's doubled `%%` (collapsed by the engine) |
+| gzip/deflate transfers, 64 KB buffer, TCP keep-alive, 10 min DNS cache | listings and JSON arrive 5-10x smaller; a body a server compressed wrongly is asked again uncompressed |
+| One curl share for DNS, TLS sessions, connections and cookies | no new TLS handshake per request; sites that set a cookie on the first visit get it back |
+| `Network.getLastResponse([sync])`, `Network.clearCookies()` | HTTP status, curl error, final URL, content type, time, bytes and compression of each request, for retries and the log |
+| `OTAKIO_ENGINE` table (`version`, `gzip`, `cookies`, `response`, `plainArgs`, `gif`, `avif`, `filters`, `imageLane`, `htmlNative`) | scripts use a feature only when the engine has it |
+| Image decoding in its own async lane (`Graphics.getAsyncState/getAsyncResult`) | the next page downloads while the current one decodes |
+| GIF first frame through stb_image | the old GIF decoder wrote frames without bounds checks and took the app down |
+| Native AVIF (libavif 1.4.2 + dav1d 1.5.4 with NEON), straight into the texture at the kept scale | AVIF pages no longer go through the image proxy |
+| `Graphics.filterImage(img, "gray"\|"invert")` | grayscale and inverted reader pages, written into the texture once after decoding |
+| `HtmlNative.new/parse` (luaHtml.cpp) | the app's HTML tree built in C, in steps; identical to html.lua's parser on real pages |
+| `libvita2d-otakio.patch`: font files read through a 2 MB shared block cache | FreeType's default stream made several card reads per new glyph (about 10 ms each with the 13 MB CJK fonts) |
 
 ## Automatic build
 
@@ -52,4 +63,8 @@ Prerequisites (OpenSSL 1.1.1 and the rebuilt libcurl, vdpm packages) are listed 
   `--tls12` emulates NOBORU's old engine.
 - On the console: replace `ux0:app/OTAK00001/eboot.bin` over FTP (keep a backup). Then open a TLS 1.3-only source
   and a WebP source, and use "Save image" in the reader.
-- Crash dumps (`ux0:data/*.psp2dmp`) can be read with `vita-parse-core`.
+- Crash dumps (`ux0:data/*.psp2dmp`): `python tools/parse_crash.py <dump> <lpp-vita.elf.unstripped.elf>`. Every CI
+  build keeps that ELF with its symbols (artifact and `engine-*` release); for an older engine, rebuild its commit with
+  the same toolchain (the build is reproducible: same eboot hash). The script needs `pyelftools` and the VitaSDK
+  binutils on PATH, and a checkout of [vita-parse-core](https://github.com/xyzz/vita-parse-core) (it patches its few
+  Python 2 leftovers on the fly).

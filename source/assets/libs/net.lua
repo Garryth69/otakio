@@ -42,8 +42,11 @@ function ImageProxy.needsConversion(link)
 		return false
 	end
 	local lower = url:lower():gsub("[?#].*$", "")
-	-- .gif: lpp-vita's GIF decoder crashes the app on malformed/animated files, wsrv returns the first frame as JPEG
-	return (not ImageProxy.nativeWebp and lower:find("%.webp$") ~= nil) or lower:find("%.avif$") ~= nil or lower:find("%.jxl$") ~= nil or lower:find("%.gif$") ~= nil
+	local engine = OTAKIO_ENGINE or {}
+	-- .gif: the old engine's GIF decoder crashed the app on malformed/animated files (engine 2 reads the first frame
+	-- safely); .avif: decoded by engine 2 (dav1d); wsrv returns either as JPEG for older engines
+	return (not ImageProxy.nativeWebp and lower:find("%.webp$") ~= nil) or (not engine.avif and lower:find("%.avif$") ~= nil)
+		or lower:find("%.jxl$") ~= nil or (not engine.gif and lower:find("%.gif$") ~= nil)
 end
 
 function ImageProxy.shouldProxy(link)
@@ -171,7 +174,19 @@ local DEADLINE = {
 }
 
 local queue = {} -- pending tasks, ordered by Priority (stable)
-local current = nil -- task holding the async slot
+local current = nil -- task holding the async slot (downloads, requests, zips; images too with older engines)
+-- Engine 2 decodes images in a lane of its own (Graphics.getAsyncState/getAsyncResult): the next page downloads while
+-- the current one decodes. Image and ImageSlice tasks then wait in the same queue for that lane.
+local LANE = OTAKIO_ENGINE and OTAKIO_ENGINE.imageLane and Graphics.getAsyncState and true or false
+local decoding = nil -- task holding the image lane
+local getImageState = LANE and Graphics.getAsyncState or System.getAsyncState
+local getImageResult = LANE and Graphics.getAsyncResult or System.getAsyncResult
+local tempCount = 0 -- downloaded images get their own temporary file: two can be in flight at once
+
+---@return boolean the task runs in the image lane
+local function isImageTask(task)
+	return LANE and (task.Type == "Image" or task.Type == "ImageSlice")
+end
 local uniques = {} -- uniqueKey -> task (pending or running)
 -- image links that failed for good this session: not asked again (the cover of a title that comes back on every
 -- screen would be downloaded, refused and retried over and over); a page's retry (reader, `Force`) still may
@@ -243,6 +258,9 @@ end
 local function finish(task)
 	if current == task then
 		current = nil
+	end
+	if decoding == task then
+		decoding = nil
 	end
 	release(task)
 	if task.Cancelled then
@@ -320,6 +338,9 @@ local function fail(task, reason)
 	if current == task then
 		current = nil
 	end
+	if decoding == task then
+		decoding = nil
+	end
 	task.Retry = task.Retry - 1
 	if task.Retry > 0 and not task.Cancelled then
 		task.Type = task.Kind
@@ -363,8 +384,8 @@ local function decodeImage(task)
 		return finish(task)
 	end
 	local width, height = getPictureResolution(path)
-	-- GIFs never reach lpp-vita's decoder: it takes the whole app down (data abort in "Image loader Thread")
-	local isGif = width and width > 0 and getImageFormat(path) == "gif"
+	-- with the old engine GIFs never reach its decoder: it took the whole app down (data abort in "Image loader Thread")
+	local isGif = width and width > 0 and not (OTAKIO_ENGINE and OTAKIO_ENGINE.gif) and getImageFormat(path) == "gif"
 	if not width or width <= 0 or isGif then
 		if task.Link and not task.Proxied and (Settings.ImageProxy or "Auto") ~= "Off" then
 			-- WebP/AVIF/GIF the engine can't read: retry through the converting proxy (it always returns JPEG)
@@ -388,7 +409,7 @@ local function decodeImage(task)
 	if tall then
 		-- long strip (webtoon) page: nothing is decoded now. The reader asks for the 4096 px slices near the screen
 		-- ("ImageSlice" tasks) and frees the ones that scroll away, so a 15000 px page never sits whole in memory.
-		if path == IMAGE_CACHE_PATH then
+		if path == IMAGE_CACHE_PATH or path == task.TempPath then
 			-- the shared download file is overwritten by the next page: give this one its own file
 			if not doesDirExist(LAZY_DIR) then
 				createDirectory(LAZY_DIR)
@@ -491,7 +512,11 @@ end
 -------------------------------------------------------------------------------
 
 local function start(task)
-	current = task
+	if isImageTask(task) then
+		decoding = task
+	else
+		current = task
+	end
 	task.StartedAt = now()
 	local t0 = Diag and Diag.now and Diag.now()
 	local function done()
@@ -570,9 +595,38 @@ local function start(task)
 end
 
 local function freeAsyncImage()
-	local img = getAsyncResult()
+	local img = getImageResult()
 	if img then
 		Textures.release(img)
+	end
+end
+
+-- Engine 2 (OTAKIO_ENGINE) reports how each request went: HTTP status, curl error, time, bytes and compression
+local getLastResponse = Network and Network.getLastResponse
+-- curl errors worth another try: transfer cut short, TLS handshake hiccup, empty reply, connection dropped
+local TRANSIENT = {[18] = true, [35] = true, [52] = true, [55] = true, [56] = true}
+
+---@return table|nil the engine's report of the request that just finished (also counted for the log's "net:" line)
+local function responseOf(task)
+	if not getLastResponse then
+		return nil
+	end
+	local ok, r = pcall(getLastResponse)
+	if not ok or type(r) ~= "table" then
+		return nil
+	end
+	if Diag and Diag.request then
+		local host = type(task.Link) == "string" and task.Link:match("^%a+://([^/:]+)") or nil
+		Diag.request(host, (r.seconds or 0) * 1000, r.bytes, r.compressed and (r.bytes or 0) > 0, (r.code or 0) ~= 0 or (r.status or 0) >= 400)
+	end
+	return r
+end
+
+---Reader pages: grayscale/inverted pixels (ReaderLook "Pixels", engine 2) written into the texture before first use
+local function pixelFilter(raw)
+	local mode = ReaderLook and ReaderLook.pixelFilter and ReaderLook.pixelFilter()
+	if mode then
+		pcall(Graphics.filterImage, raw, mode)
 	end
 end
 
@@ -586,7 +640,12 @@ local function complete(task)
 		if task.Result and task.Result.free then
 			task.Result:free()
 		end
-		current = nil
+		if current == task then
+			current = nil
+		end
+		if decoding == task then
+			decoding = nil
+		end
 		return
 	end
 	if task.TimedOut then
@@ -602,12 +661,53 @@ local function complete(task)
 		if trimmed < #body then
 			body = string.rawsub(body, 1, trimmed)
 		end
+		local r = responseOf(task)
+		if r then
+			local where = describeLink(task.RawLink or task.Link or "")
+			if (r.code or 0) ~= 0 then
+				if TRANSIENT[r.code] then
+					return fail(task, "request failed: " .. tostring(r.error))
+				end
+				Console.error("NET: request failed: " .. tostring(r.error) .. " (" .. where .. ")")
+			elseif (r.status or 0) >= 400 then
+				Console.error("NET: HTTP " .. r.status .. " (" .. where .. ")")
+			elseif body == "" and task.HttpMethod ~= HEAD_METHOD and r.status ~= 204 then
+				Console.error("NET: empty response, HTTP " .. tostring(r.status) .. " (" .. where .. ")")
+			end
+			if task.WantResponse and type(task.Table) == "table" then
+				task.Table[task.Index .. "Response"] = r
+			end
+		end
 		task.Table[task.Index] = body
 		bytes = bytes + #body
 		return finish(task)
 	elseif stage == "download" then
+		local r = responseOf(task)
+		if r and task.Kind == "ImageDownload" then
+			if (r.code or 0) ~= 0 then
+				if not TRANSIENT[r.code] and r.code ~= 28 then
+					task.Retry = 1
+				end
+				return fail(task, "download failed: " .. tostring(r.error))
+			elseif (r.status or 0) >= 400 then
+				-- a missing or refused image stays so: only rate limits, timeouts and server errors are asked again
+				if r.status < 500 and r.status ~= 429 and r.status ~= 408 then
+					task.Retry = 1
+				end
+				return fail(task, "HTTP " .. r.status)
+			end
+		elseif r and ((r.code or 0) ~= 0 or (r.status or 0) >= 400) then
+			Console.error("NET: download " .. ((r.code or 0) ~= 0 and ("failed: " .. tostring(r.error)) or ("HTTP " .. r.status)) .. " (" .. describeLink(task.RawLink or task.Link or "") .. ")")
+		end
 		if task.Kind == "ImageDownload" then
 			task.Type = "Image"
+			if LANE then
+				-- the network slot is free again: the image waits (at the front of its priority) for the image lane
+				current = nil
+				task.Stage = nil
+				enqueue(task, true)
+				return
+			end
 			return decodeImage(task)
 		end
 		if doesFileExist(task.Path) then
@@ -617,7 +717,11 @@ local function complete(task)
 		end
 		return finish(task)
 	elseif stage == "decode" then
-		local img = Image:new(getAsyncResult(), FILTER_LINEAR)
+		local raw = getImageResult()
+		if raw and task.Index == "Image" and not task.MaxWidth and not task.MaxHeight then
+			pixelFilter(raw)
+		end
+		local img = Image:new(raw, FILTER_LINEAR)
 		if not img then
 			return fail(task, "image decode failed")
 		end
@@ -626,7 +730,11 @@ local function complete(task)
 		return finish(task)
 	elseif stage == "parts" then
 		task.Part = task.Part + 1
-		local img = Image:new(getAsyncResult(), FILTER_LINEAR)
+		local raw = getImageResult()
+		if raw and task.Index == "Image" then
+			pixelFilter(raw)
+		end
+		local img = Image:new(raw, FILTER_LINEAR)
 		if not img then
 			task.Result:free()
 			return fail(task, "image slice decode failed")
@@ -634,7 +742,11 @@ local function complete(task)
 		task.Result[task.Part] = img
 		return startNext(task)
 	elseif stage == "slice" then
-		local img = Image:new(getAsyncResult(), FILTER_LINEAR)
+		local raw = getImageResult()
+		if raw then
+			pixelFilter(raw) -- slices only come from reader pages
+		end
+		local img = Image:new(raw, FILTER_LINEAR)
 		if img then
 			if task.Plan[task.Slice] and task.Plan[task.Slice].free then
 				task.Plan[task.Slice]:free()
@@ -687,10 +799,21 @@ function Threads.update()
 	if #jobs > 0 then
 		resumeJobs()
 	end
-	if not current and #queue == 0 then
+	if not current and not decoding and #queue == 0 then
 		return
 	end
 	netInit()
+	-- image lane (engine 2): the decode, slice or next part of a tall image finished
+	if decoding and getImageState() ~= 0 then
+		local task = decoding
+		local ok, err = pcall(complete, task)
+		if not ok then
+			Console.error("NET: " .. tostring(err))
+			if decoding == task then
+				fail(task, err)
+			end
+		end
+	end
 	if current then
 		if getAsyncState() == 0 then
 			-- still running: enforce the deadline
@@ -716,57 +839,61 @@ function Threads.update()
 					Console.error("NET: slow " .. tostring(current.Stage) .. " " .. tostring(current.Path))
 				end
 			end
-			return
-		end
-		local task = current
-		local ok, err = pcall(complete, task)
-		if not ok then
-			Console.error("NET: " .. tostring(err))
-			if current == task then
-				fail(task, err)
+		else
+			local task = current
+			local ok, err = pcall(complete, task)
+			if not ok then
+				Console.error("NET: " .. tostring(err))
+				if current == task then
+					fail(task, err)
+				end
 			end
 		end
-		if current then
-			return -- the task started another async stage (decode, next slice)
-		end
 	end
-	-- start the next task in the same frame (a few instant ones at most, to keep the frame short)
+	-- start the next tasks in the same frame, one per free lane (a few instant ones at most, to keep the frame short)
 	local started = 0
-	while not current and #queue > 0 and started < 4 do
+	while #queue > 0 and started < 4 do
+		local netFree, imageFree = not current, LANE and not decoding
+		if not netFree and not imageFree then
+			return
+		end
 		started = started + 1
-		-- aging: a low-priority task waiting more than 15 s goes first, so background work never starves
-		local pick = 1
+		-- good neighbour: the same site at most once every HOST_GAP ms; a task for a site asked just now waits while
+		-- one for another site (or work that needs no network) goes first
 		local t = now()
-		for i = 2, #queue do
-			if t - queue[i].QueuedAt > 15000 and queue[i].Priority > queue[1].Priority then
+		local function eligible(q)
+			if isImageTask(q) then
+				return imageFree
+			end
+			return netFree and hostReady(q, t)
+		end
+		local pick = nil
+		for i = 1, #queue do
+			if eligible(queue[i]) then
 				pick = i
 				break
 			end
 		end
-		-- good neighbour: the same site at most once every HOST_GAP ms; a task for a site asked just now waits while
-		-- one for another site (or work that needs no network) goes first
-		local t2 = now()
-		if not hostReady(queue[pick], t2) then
-			pick = nil
-			for i = 1, #queue do
-				if hostReady(queue[i], t2) then
-					pick = i
-					break
-				end
-			end
-			if not pick then
-				return
+		if not pick then
+			return
+		end
+		-- aging: a low-priority task waiting more than 15 s goes first, so background work never starves
+		for i = pick + 1, #queue do
+			local q = queue[i]
+			if t - q.QueuedAt > 15000 and q.Priority > queue[pick].Priority and eligible(q) then
+				pick = i
+				break
 			end
 		end
 		local task = table.remove(queue, pick)
-		local host = taskHost(task)
+		local host = not isImageTask(task) and taskHost(task)
 		if host then
-			hostLast[host] = t2
+			hostLast[host] = t
 		end
 		local ok, err = pcall(start, task)
 		if not ok then
 			Console.error("NET: " .. tostring(err))
-			if current == task then
+			if current == task or decoding == task then
 				fail(task, err)
 			else
 				release(task)
@@ -788,16 +915,24 @@ function Threads.clear()
 			Network.stopCurrentDownload()
 		end
 	end
+	if decoding then
+		decoding.Cancelled = true
+	end
 end
 
 ---Gives boolean that is any task is running
 ---For diagnostics: what the async slot is doing right now ("download", "decode", "slice", ...), or nil
 function Threads.currentStage()
-	return current and (current.Stage or current.Type) or nil
+	local a = current and (current.Stage or current.Type) or nil
+	local b = decoding and (decoding.Stage or decoding.Type) or nil
+	if a and b then
+		return a .. "+" .. b
+	end
+	return a or b
 end
 
 function Threads.isDownloadRunning()
-	return getAsyncState() == 0 or #queue ~= 0 or current ~= nil
+	return getAsyncState() == 0 or #queue ~= 0 or current ~= nil or decoding ~= nil
 end
 
 ---You can use Network function in here if you sure that your function is safe
@@ -854,9 +989,10 @@ local function newTask(uniqueKey, t, front)
 		OnFinalComplete = t.OnFinalComplete,
 		Extract = t.Extract,
 		ImageFile = t.ImageFile,
+		WantResponse = t.WantResponse,
 		Plan = t.Plan,
 		Slice = t.Slice,
-		Path = t.Path and (t.Path:find("^...?0:") and t.Path or ("ux0:data/otakio/" .. t.Path)) or IMAGE_CACHE_PATH,
+		Path = t.Path and (t.Path:find("^...?0:") and t.Path or ("ux0:data/otakio/" .. t.Path)) or nil,
 		Retry = 3,
 		HttpMethod = t.HttpMethod or GET_METHOD,
 		PostData = t.PostData or "",
@@ -865,6 +1001,15 @@ local function newTask(uniqueKey, t, front)
 		UniqueKey = uniqueKey,
 		Priority = t.Priority or Threads.defaultPriority or (front and Threads.URGENT or Threads.NORMAL)
 	}
+	if not task.Path then
+		if LANE and task.Type == "ImageDownload" then
+			tempCount = tempCount % 32 + 1
+			task.Path = "ux0:data/otakio/temp/img_" .. tempCount .. ".tmp"
+			task.TempPath = task.Path
+		else
+			task.Path = IMAGE_CACHE_PATH
+		end
+	end
 	if type(task.Link) == "table" then
 		local l = task.Link
 		task.Link = l.Link
@@ -916,13 +1061,18 @@ end
 function Threads.terminate()
 	Threads.clear()
 	local guard = now()
-	while current and now() - guard < 5000 do
-		if getAsyncState() ~= 0 then
+	while (current or decoding) and now() - guard < 5000 do
+		if current and getAsyncState() ~= 0 then
 			pcall(complete, current)
 			current = nil
 		end
+		if decoding and getImageState() ~= 0 then
+			pcall(complete, decoding)
+			decoding = nil
+		end
 	end
 	current = nil
+	decoding = nil
 	if is_net_inited then
 		Network.term()
 		is_net_inited = false
@@ -939,6 +1089,9 @@ function Threads.getProgress(uniqueKey)
 			end
 			return math.max(math.min(1, Network.getDownloadedBytes() / total), 0)
 		end
+		return 1
+	end
+	if task and task == decoding then
 		return 1
 	end
 	return 0
@@ -966,7 +1119,7 @@ function Threads.remove(uniqueKey)
 		if task.Stage == "string" or task.Stage == "download" then
 			Network.stopCurrentDownload()
 		end
-	else
+	elseif task ~= decoding then -- a decode can't be stopped: its texture is freed when it ends (Cancelled)
 		dequeue(task)
 	end
 end
@@ -983,7 +1136,7 @@ end
 
 ---@return integer number of tasks (queued + running)
 function Threads.getTasksNum()
-	return #queue + (current and 1 or 0)
+	return #queue + (current and 1 or 0) + (decoding and 1 or 0)
 end
 
 function Threads.getNonSkipTasksNum()

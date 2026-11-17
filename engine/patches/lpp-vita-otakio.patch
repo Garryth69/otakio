@@ -1,5 +1,5 @@
 diff --git a/Makefile b/Makefile
-index 14cb9bc..317c341 100644
+index 14cb9bc..18d9cb4 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -3,13 +3,13 @@ SOURCES		:= source/resources source/include/ftp source/include/autovpk source/in
@@ -15,7 +15,7 @@ index 14cb9bc..317c341 100644
  	-lspeexdsp -lmpg123 -lSceAudio_stub -lSceGxm_stub -lSceDisplay_stub -lSceShellSvc_stub \
 -	-lopusfile -lopus -lSceHttp_stub -lSceAudioIn_stub -lluajit -ldl -ltaihen_stub  -lSceSysmodule_stub \
 -	-lSceVideodec_stub -lSceShutterSound_stub -lSceSsl_stub
-+	-lopusfile -lopus -lSceHttp_stub -lSceAudioIn_stub -lwebp -lsharpyuv -lluajit-5.1 -ltaihen_stub  -lSceSysmodule_stub \
++	-lopusfile -lopus -lSceHttp_stub -lSceAudioIn_stub -lavif -ldav1d -lwebp -lsharpyuv -lluajit-5.1 -ltaihen_stub  -lSceSysmodule_stub \
 +	-lSceVideodec_stub -lSceShutterSound_stub -lSceSsl_stub -lzstd -lz -lpthread
  
  CFILES   := $(foreach dir,$(SOURCES), $(wildcard $(dir)/*.c))
@@ -79,6 +79,252 @@ index 5dcd982..078bb63 100644
  			
  		void* extractBuffer = buffer;
  		unsigned int remainingSize = buffersize;
+diff --git a/source/include/avif_pic.c b/source/include/avif_pic.c
+new file mode 100644
+index 0000000..9cb0224
+--- /dev/null
++++ b/source/include/avif_pic.c
+@@ -0,0 +1,240 @@
++// Otakio: native AVIF support for piclib (libavif + dav1d). Some sites serve pages and covers only as AVIF, which used
++// to go through an image-converting proxy. The decoded YUV planes are converted straight into the texture, sampling
++// only the pixels the texture keeps (a region and/or 1/2, 1/4, 1/8 scale), so no full-size RGBA copy is ever made.
++#include <vitasdk.h>
++#include <vita2d.h>
++#include <stdlib.h>
++#include <string.h>
++#include <stdbool.h>
++#include <avif/avif.h>
++
++#define AVIF_MAX_TEXTURE_SIZE 4096
++
++int is_AVIF_file(const char *filename)
++{
++	unsigned char head[32];
++	SceUID fd = sceIoOpen(filename, SCE_O_RDONLY, 0777);
++	if (fd < 0)
++		return 0;
++	int n = sceIoRead(fd, head, sizeof(head));
++	sceIoClose(fd);
++	if (n < 16 || memcmp(head + 4, "ftyp", 4) != 0)
++		return 0;
++	// the major brand, or a compatible brand listed in the same box
++	for (int i = 8; i + 4 <= n; i += 4)
++		if (memcmp(head + i, "avif", 4) == 0 || memcmp(head + i, "avis", 4) == 0)
++			return 1;
++	return 0;
++}
++
++static unsigned char *avif_read_whole(const char *filename, size_t *size)
++{
++	SceUID fd = sceIoOpen(filename, SCE_O_RDONLY, 0777);
++	if (fd < 0)
++		return NULL;
++	SceOff len = sceIoLseek(fd, 0, SCE_SEEK_END);
++	sceIoLseek(fd, 0, SCE_SEEK_SET);
++	if (len <= 0 || len > 48 * 1024 * 1024)
++	{
++		sceIoClose(fd);
++		return NULL;
++	}
++	unsigned char *buf = (unsigned char *)malloc((size_t)len);
++	if (!buf)
++	{
++		sceIoClose(fd);
++		return NULL;
++	}
++	size_t got = 0;
++	while (got < (size_t)len)
++	{
++		int r = sceIoRead(fd, buf + got, (SceSize)((size_t)len - got));
++		if (r <= 0)
++			break;
++		got += (size_t)r;
++	}
++	sceIoClose(fd);
++	if (got != (size_t)len)
++	{
++		free(buf);
++		return NULL;
++	}
++	*size = got;
++	return buf;
++}
++
++static avifDecoder *avif_open(const unsigned char *data, size_t size)
++{
++	avifDecoder *decoder = avifDecoderCreate();
++	if (!decoder)
++		return NULL;
++	decoder->maxThreads = 2;
++	decoder->strictFlags = AVIF_STRICT_DISABLED;
++	decoder->ignoreExif = AVIF_TRUE;
++	decoder->ignoreXMP = AVIF_TRUE;
++	if (avifDecoderSetIOMemory(decoder, data, size) != AVIF_RESULT_OK || avifDecoderParse(decoder) != AVIF_RESULT_OK)
++	{
++		avifDecoderDestroy(decoder);
++		return NULL;
++	}
++	return decoder;
++}
++
++void get_AVIF_resolution(const char *filename, int *dest_width, int *dest_height)
++{
++	size_t size = 0;
++	unsigned char *data = avif_read_whole(filename, &size);
++	if (!data)
++		return;
++	avifDecoder *decoder = avif_open(data, size);
++	if (decoder)
++	{
++		*dest_width = (int)decoder->image->width;
++		*dest_height = (int)decoder->image->height;
++		avifDecoderDestroy(decoder);
++	}
++	free(data);
++}
++
++static int avif_denom(int width, int height, int level)
++{
++	float sw = (float)width / AVIF_MAX_TEXTURE_SIZE, sh = (float)height / AVIF_MAX_TEXTURE_SIZE;
++	float scale = sw > sh ? sw : sh;
++	if (scale < level)
++		scale = (float)level;
++	if (scale <= 1.f)
++		return 1;
++	if (scale <= 2.f)
++		return 2;
++	if (scale <= 4.f)
++		return 4;
++	if (scale <= 8.f)
++		return 8;
++	return 0;
++}
++
++static inline uint8_t clamp8(int v)
++{
++	return v < 0 ? 0 : (v > 255 ? 255 : (uint8_t)v);
++}
++
++// region x,y,width,height of the image (width 0: all of it), kept at 1/denom
++static vita2d_texture *avif_decode(const unsigned char *data, size_t size, int x, int y, int width, int height, int level)
++{
++	avifDecoder *decoder = avif_open(data, size);
++	if (!decoder)
++		return NULL;
++	vita2d_texture *texture = NULL;
++	avifImage *img = decoder->image;
++	if (width == 0)
++	{
++		x = 0;
++		y = 0;
++		width = (int)img->width;
++		height = (int)img->height;
++	}
++	int denom = avif_denom(width, height, level);
++	if (denom && x >= 0 && y >= 0 && x + width <= (int)img->width && y + height <= (int)img->height &&
++		avifDecoderNextImage(decoder) == AVIF_RESULT_OK && img->depth == 8)
++	{
++		int tw = width / denom, th = height / denom;
++		if (tw > 0 && th > 0)
++			texture = vita2d_create_empty_texture(tw, th);
++		if (texture)
++		{
++			// Y'CbCr -> RGB, 16.16 fixed point. Unspecified matrices are read as BT.601, like libavif does.
++			float kr = 0.299f, kb = 0.114f;
++			if (img->matrixCoefficients == AVIF_MATRIX_COEFFICIENTS_BT709)
++			{
++				kr = 0.2126f;
++				kb = 0.0722f;
++			}
++			else if (img->matrixCoefficients == AVIF_MATRIX_COEFFICIENTS_BT2020_NCL || img->matrixCoefficients == AVIF_MATRIX_COEFFICIENTS_BT2020_CL)
++			{
++				kr = 0.2627f;
++				kb = 0.0593f;
++			}
++			float kg = 1.f - kr - kb;
++			bool full = img->yuvRange == AVIF_RANGE_FULL;
++			float ys = full ? 1.f : 255.f / 219.f, cs = full ? 1.f : 255.f / 224.f;
++			int yoff = full ? 0 : 16;
++			int fy = (int)(ys * 65536), fcr_r = (int)(2.f * (1.f - kr) * cs * 65536), fcb_b = (int)(2.f * (1.f - kb) * cs * 65536);
++			int fcb_g = (int)(2.f * kb * (1.f - kb) / kg * cs * 65536), fcr_g = (int)(2.f * kr * (1.f - kr) / kg * cs * 65536);
++			int sx = 0, sy = 0;
++			bool mono = img->yuvFormat == AVIF_PIXEL_FORMAT_YUV400;
++			if (img->yuvFormat == AVIF_PIXEL_FORMAT_YUV420)
++				sx = sy = 1;
++			else if (img->yuvFormat == AVIF_PIXEL_FORMAT_YUV422)
++				sx = 1;
++			bool identity = img->matrixCoefficients == AVIF_MATRIX_COEFFICIENTS_IDENTITY;
++			uint8_t *Y = img->yuvPlanes[AVIF_CHAN_Y], *U = img->yuvPlanes[AVIF_CHAN_U], *V = img->yuvPlanes[AVIF_CHAN_V];
++			uint32_t yr = img->yuvRowBytes[AVIF_CHAN_Y], ur = img->yuvRowBytes[AVIF_CHAN_U], vr = img->yuvRowBytes[AVIF_CHAN_V];
++			uint8_t *A = img->alphaPlane;
++			uint32_t ar = img->alphaRowBytes;
++			uint8_t *dst = (uint8_t *)vita2d_texture_get_datap(texture);
++			unsigned int stride = vita2d_texture_get_stride(texture);
++			for (int j = 0; j < th; j++)
++			{
++				int py = y + j * denom;
++				uint8_t *out = dst + (size_t)j * stride;
++				uint8_t *yrow = Y + (size_t)py * yr;
++				uint8_t *urow = mono ? NULL : U + (size_t)(py >> sy) * ur;
++				uint8_t *vrow = mono ? NULL : V + (size_t)(py >> sy) * vr;
++				uint8_t *arow = A ? A + (size_t)py * ar : NULL;
++				for (int i = 0; i < tw; i++, out += 4)
++				{
++					int px = x + i * denom;
++					int r, g, b;
++					if (mono)
++					{
++						r = g = b = clamp8(((yrow[px] - yoff) * fy) >> 16);
++					}
++					else if (identity)
++					{
++						g = yrow[px];
++						b = urow[px >> sx];
++						r = vrow[px >> sx];
++					}
++					else
++					{
++						int yy = (yrow[px] - yoff) * fy;
++						int cb = urow[px >> sx] - 128, cr = vrow[px >> sx] - 128;
++						r = clamp8((yy + cr * fcr_r) >> 16);
++						g = clamp8((yy - cb * fcb_g - cr * fcr_g) >> 16);
++						b = clamp8((yy + cb * fcb_b) >> 16);
++					}
++					out[0] = (uint8_t)r;
++					out[1] = (uint8_t)g;
++					out[2] = (uint8_t)b;
++					out[3] = arow ? arow[px] : 255; // libavif keeps alpha in full range
++				}
++			}
++		}
++	}
++	avifDecoderDestroy(decoder);
++	return texture;
++}
++
++vita2d_texture *load_AVIF_file_downscaled(const char *filename, int level)
++{
++	size_t size = 0;
++	unsigned char *data = avif_read_whole(filename, &size);
++	if (!data)
++		return NULL;
++	vita2d_texture *texture = avif_decode(data, size, 0, 0, 0, 0, level);
++	free(data);
++	return texture;
++}
++
++vita2d_texture *load_AVIF_file_part(const char *filename, int x, int y, int width, int height)
++{
++	if (x < 0 || y < 0 || width <= 0 || height <= 0)
++		return NULL;
++	size_t size = 0;
++	unsigned char *data = avif_read_whole(filename, &size);
++	if (!data)
++		return NULL;
++	vita2d_texture *texture = avif_decode(data, size, x, y, width, height, 1);
++	free(data);
++	return texture;
++}
 diff --git a/source/include/dl_stubs.c b/source/include/dl_stubs.c
 new file mode 100644
 index 0000000..ed1f29e
@@ -282,11 +528,267 @@ index 1bad889..a438976 100644
  #define lua_callk(L, na, nr, ctx, cont) ((void)(ctx), (void)(cont), lua_call(L, na, nr))
  #define lua_rawlen(L, i) lua_objlen(L, i)
  #define LUA_OK 0
+diff --git a/source/include/message_dialog.cpp b/source/include/message_dialog.cpp
+index ad97371..9c5cf3e 100644
+--- a/source/include/message_dialog.cpp
++++ b/source/include/message_dialog.cpp
+@@ -142,7 +142,7 @@ int sceMsgDialogInit(const SceMsgDialogParam *param) {
+ 	float len = 0.0f;
+ 	if (spc != NULL){
+ 		spc[0] = 0;
+-		sprintf(buf, str);
++		snprintf(buf, sizeof(buf), "%s", str);
+ 		spc[0] = ' ';
+ 		len = vita2d_pgf_text_width(debug_font, 1.0f, buf);
+ 	}
+@@ -152,7 +152,7 @@ int sceMsgDialogInit(const SceMsgDialogParam *param) {
+ 			str = next_newline;
+ 			next_newline = strstr(str + 1, "\n");
+ 			spc[0] = 0;
+-			sprintf(buf, str);
++			snprintf(buf, sizeof(buf), "%s", str);
+ 			spc[0] = ' ';
+ 			len = vita2d_pgf_text_width(debug_font, 1.0f, buf);
+ 			lines++;
+@@ -161,7 +161,7 @@ int sceMsgDialogInit(const SceMsgDialogParam *param) {
+ 			spc = strstr(spc + 1, " ");
+ 			if (spc != NULL){
+ 				spc[0] = 0;
+-				sprintf(buf, str);
++				snprintf(buf, sizeof(buf), "%s", str);
+ 				spc[0] = ' ';
+ 				len = vita2d_pgf_text_width(debug_font, 1.0f, buf);
+ 			}
+@@ -171,7 +171,7 @@ int sceMsgDialogInit(const SceMsgDialogParam *param) {
+ 			spc = strstr(str, " ");
+ 			if (spc != NULL){
+ 				spc[0] = 0;
+-				sprintf(buf, str);
++				snprintf(buf, sizeof(buf), "%s", str);
+ 				spc[0] = ' ';
+ 				len = vita2d_pgf_text_width(debug_font, 1.0f, buf);
+ 			}
 diff --git a/source/include/piclib.c b/source/include/piclib.c
-index a78a9a9..6a10708 100644
+index a78a9a9..d3dc04d 100644
 --- a/source/include/piclib.c
 +++ b/source/include/piclib.c
-@@ -1071,6 +1071,13 @@ void get_GIF_resolution(const char *filename, int *dest_width, int *dest_height)
+@@ -832,126 +832,106 @@ GIFStatus close_vita_gif(void *fd)
+ 	return GIF_OK;
+ }
+ 
+-vita2d_texture *load_GIF_file_part(const char *filename, int x, int y, int width, int height)
++// GIF: first frame through stb_image (bounds-checked). The old decoder wrote frames without checking their offsets
++// or palette indexes and took the whole app down (data abort in "Image loader Thread") on some GIF covers.
++#define STB_IMAGE_IMPLEMENTATION
++#define STBI_ONLY_GIF
++#define STBI_NO_STDIO
++#define STBI_NO_HDR
++#define STBI_NO_LINEAR
++#define STBI_MAX_DIMENSIONS 16384
++#include "stb_image.h"
++
++static unsigned char *read_whole_file(const char *filename, int *size)
+ {
+-	if (x < 0 || y < 0 || width < 0 || height < 0)
++	SceUID fd = sceIoOpen(filename, SCE_O_RDONLY, 0777);
++	if (fd < 0) return NULL;
++	SceOff len = sceIoLseek(fd, 0, SCE_SEEK_END);
++	if (len <= 0 || len > 48 * 1024 * 1024)
+ 	{
++		sceIoClose(fd);
+ 		return NULL;
+ 	}
+-	struct GIFHandler vita_gif_handler;
+-	vita_gif_handler.chunk_size = 1 << 12;
+-	vita_gif_handler.fd_size = sizeof(SceUID);
+-	vita_gif_handler.init_f = open_vita_gif;
+-	vita_gif_handler.read_f = read_vita_gif;
+-	vita_gif_handler.term_f = close_vita_gif;
+-	struct GIFObject gif;
+-	vita2d_texture *texture = NULL;
+-	if (OpenGIF(&vita_gif_handler, &gif, filename) == GIF_OK)
++	sceIoLseek(fd, 0, SCE_SEEK_SET);
++	unsigned char *buf = (unsigned char*)malloc((size_t)len);
++	if (buf == NULL)
+ 	{
+-		if (x > gif.width || y > gif.height || x + width > gif.width || y + height > gif.height)
+-		{
+-			FreeGIF(&gif);
+-			return NULL;
+-		}
+-		GIFStatus err = GetFrameGIF(&gif);
+-		float scaleWidth = (float)width / MAX_TEXTURE_SIZE;
+-		float scaleHeight = (float)height / MAX_TEXTURE_SIZE;
+-		float scale = scaleWidth > scaleHeight ? scaleWidth : scaleHeight;
+-		int scale_int = 1;
+-		if (scale <= 1.f)
+-		{
+-			scale_int = 1;
+-		}
+-		else if (scale <= 2.f)
+-		{
+-			scale_int = 2;
+-		}
+-		else if (scale <= 4.f)
+-		{
+-			scale_int = 4;
+-		}
+-		else if (scale <= 8.f)
+-		{
+-			scale_int = 8;
+-		}
+-		else
+-		{
+-			FreeGIF(&gif);
+-			return NULL;
+-		}
+-		if (err == GIF_OK)
+-		{
+-			texture = vita2d_create_empty_texture(width / scale_int, height / scale_int);
+-			uint32_t *datap = (unsigned int *)vita2d_texture_get_datap(texture);
+-			size_t stride = vita2d_texture_get_stride(texture) >> 2;
+-			for (size_t i = 0, _i = x; i < width / scale_int; ++i, ++_i)
+-			{
+-				for (size_t j = 0, _j = y; j < height / scale_int; ++j, ++_j)
+-				{
+-					datap[j * stride + i] = gif.frame[(_j * scale_int) * gif.width + (_i * scale_int)];
+-				}
+-			}
+-		}
+-		FreeGIF(&gif);
++		sceIoClose(fd);
++		return NULL;
+ 	}
+-	return texture;
++	int got = sceIoRead(fd, buf, (SceSize)len);
++	sceIoClose(fd);
++	if (got != (int)len)
++	{
++		free(buf);
++		return NULL;
++	}
++	*size = (int)len;
++	return buf;
+ }
+ 
+-vita2d_texture *load_GIF_file_downscaled(const char *filename, int level)
++static unsigned char *decode_gif_first_frame(const char *filename, int *w, int *h)
+ {
+-	struct GIFHandler vita_gif_handler;
+-	vita_gif_handler.chunk_size = 1 << 12;
+-	vita_gif_handler.fd_size = sizeof(SceUID);
+-	vita_gif_handler.init_f = open_vita_gif;
+-	vita_gif_handler.read_f = read_vita_gif;
+-	vita_gif_handler.term_f = close_vita_gif;
+-	struct GIFObject gif;
+-	vita2d_texture *texture = NULL;
+-	if (OpenGIF(&vita_gif_handler, &gif, filename) == GIF_OK)
++	int size = 0, comp = 0;
++	unsigned char *data = read_whole_file(filename, &size);
++	if (data == NULL) return NULL;
++	unsigned char *pixels = stbi_load_from_memory(data, size, w, h, &comp, 4);
++	free(data);
++	return pixels;
++}
++
++static int gif_scale(int width, int height, int level)
++{
++	float scaleWidth = (float)width / MAX_TEXTURE_SIZE;
++	float scaleHeight = (float)height / MAX_TEXTURE_SIZE;
++	float scale = scaleWidth > scaleHeight ? scaleWidth : scaleHeight;
++	scale = scale > level ? scale : level;
++	if (scale <= 1.f) return 1;
++	if (scale <= 2.f) return 2;
++	if (scale <= 4.f) return 4;
++	if (scale <= 8.f) return 8;
++	return 0;
++}
++
++static vita2d_texture *gif_texture_from(unsigned char *px, int w, int x, int y, int cw, int ch, int scale)
++{
++	if (cw / scale <= 0 || ch / scale <= 0) return NULL;
++	vita2d_texture *t = vita2d_create_empty_texture(cw / scale, ch / scale);
++	if (t == NULL) return NULL;
++	uint32_t *dst = (uint32_t*)vita2d_texture_get_datap(t);
++	size_t stride = vita2d_texture_get_stride(t) >> 2;
++	uint32_t *src = (uint32_t*)px;
++	for (int j = 0; j < ch / scale; ++j)
++		for (int i = 0; i < cw / scale; ++i)
++			dst[j * stride + i] = src[(size_t)(y + j * scale) * w + (x + i * scale)];
++	return t;
++}
++
++vita2d_texture *load_GIF_file_part(const char *filename, int x, int y, int width, int height)
++{
++	int w = 0, h = 0;
++	unsigned char *px = decode_gif_first_frame(filename, &w, &h);
++	if (px == NULL) return NULL;
++	vita2d_texture *t = NULL;
++	if (x >= 0 && y >= 0 && width > 0 && height > 0 && x + width <= w && y + height <= h)
+ 	{
+-		GIFStatus err = GetFrameGIF(&gif);
+-		float scaleWidth = (float)gif.width / MAX_TEXTURE_SIZE;
+-		float scaleHeight = (float)gif.height / MAX_TEXTURE_SIZE;
+-		float scale = scaleWidth > scaleHeight ? scaleWidth : scaleHeight;
+-		scale = scale > level ? scale : level;
+-		int scale_int = 1;
+-		if (scale <= 1.f)
+-		{
+-			scale_int = 1;
+-		}
+-		else if (scale <= 2.f)
+-		{
+-			scale_int = 2;
+-		}
+-		else if (scale <= 4.f)
+-		{
+-			scale_int = 4;
+-		}
+-		else if (scale <= 8.f)
+-		{
+-			scale_int = 8;
+-		}
+-		else
+-		{
+-			FreeGIF(&gif);
+-			return NULL;
+-		}
+-		if (err == GIF_OK)
+-		{
+-			texture = vita2d_create_empty_texture(gif.width / scale_int, gif.height / scale_int);
+-			uint32_t *datap = (unsigned int *)vita2d_texture_get_datap(texture);
+-			size_t stride = vita2d_texture_get_stride(texture) >> 2;
+-			for (size_t i = 0; i < gif.width / scale_int; ++i)
+-			{
+-				for (size_t j = 0; j < gif.height / scale_int; ++j)
+-				{
+-					datap[j * stride + i] = gif.frame[(j * scale_int) * gif.width + (i * scale_int)];
+-				}
+-			}
+-		}
+-		FreeGIF(&gif);
++		int scale = gif_scale(width, height, 1);
++		if (scale) t = gif_texture_from(px, w, x, y, width, height, scale);
+ 	}
+-	return texture;
++	stbi_image_free(px);
++	return t;
++}
++
++vita2d_texture *load_GIF_file_downscaled(const char *filename, int level)
++{
++	int w = 0, h = 0;
++	unsigned char *px = decode_gif_first_frame(filename, &w, &h);
++	if (px == NULL) return NULL;
++	vita2d_texture *t = NULL;
++	int scale = gif_scale(w, h, level);
++	if (scale) t = gif_texture_from(px, w, 0, 0, w, h, scale);
++	stbi_image_free(px);
++	return t;
+ }
+ 
+ void get_PNG_resolution(const char *filename, int *dest_width, int *dest_height)
+@@ -1071,6 +1051,18 @@ void get_GIF_resolution(const char *filename, int *dest_width, int *dest_height)
  
  void get_PIC_resolution(const char *filename, int *dest_width, int *dest_height)
  {
@@ -297,51 +799,63 @@ index a78a9a9..6a10708 100644
 +		get_WEBP_resolution(filename, dest_width, dest_height);
 +		return;
 +	}
++	if (is_AVIF_file(filename))
++	{
++		get_AVIF_resolution(filename, dest_width, dest_height);
++		return;
++	}
  	SceUID file = sceIoOpen(filename, SCE_O_RDONLY, 0777);
  	uint16_t magic;
  	sceIoRead(file, &magic, 2);
-@@ -1088,6 +1095,8 @@ void get_PIC_resolution(const char *filename, int *dest_width, int *dest_height)
+@@ -1088,6 +1080,10 @@ void get_PIC_resolution(const char *filename, int *dest_width, int *dest_height)
  
  vita2d_texture *load_PIC_file(const char *filename, int x, int y, int width, int height)
  {
 +	if (is_WEBP_file(filename))
 +		return load_WEBP_file_part(filename, x, y, width, height);
++	if (is_AVIF_file(filename))
++		return load_AVIF_file_part(filename, x, y, width, height);
  	SceUID file = sceIoOpen(filename, SCE_O_RDONLY, 0777);
  	uint16_t magic;
  	sceIoRead(file, &magic, 2);
-@@ -1105,6 +1114,8 @@ vita2d_texture *load_PIC_file(const char *filename, int x, int y, int width, int
+@@ -1105,6 +1101,10 @@ vita2d_texture *load_PIC_file(const char *filename, int x, int y, int width, int
  
  vita2d_texture *load_PIC_file_downscaled(const char *filename, int level)
  {
 +	if (is_WEBP_file(filename))
 +		return load_WEBP_file_downscaled(filename, level);
++	if (is_AVIF_file(filename))
++		return load_AVIF_file_downscaled(filename, level);
  	SceUID file = sceIoOpen(filename, SCE_O_RDONLY, 0777);
  	uint16_t magic;
  	sceIoRead(file, &magic, 2);
-@@ -1122,6 +1133,8 @@ vita2d_texture *load_PIC_file_downscaled(const char *filename, int level)
+@@ -1122,6 +1122,10 @@ vita2d_texture *load_PIC_file_downscaled(const char *filename, int level)
  
  pic_format get_PIC_format(const char *filename)
  {
 +	if (is_WEBP_file(filename))
 +		return PIC_FORMAT_WEBP;
++	if (is_AVIF_file(filename))
++		return PIC_FORMAT_AVIF;
  	SceUID file = sceIoOpen(filename, SCE_O_RDONLY, 0777);
  	uint16_t magic;
  	sceIoRead(file, &magic, 2);
 diff --git a/source/include/piclib.h b/source/include/piclib.h
-index e86e759..34afcf7 100644
+index e86e759..5cb3ed0 100644
 --- a/source/include/piclib.h
 +++ b/source/include/piclib.h
-@@ -10,7 +10,8 @@ typedef enum pic_format
+@@ -10,7 +10,9 @@ typedef enum pic_format
  	PIC_FORMAT_BMP = 1,
  	PIC_FORMAT_JPEG = 2,
  	PIC_FORMAT_GIF = 3,
 -	PIC_FORMAT_UNKNOWN = 4
 +	PIC_FORMAT_UNKNOWN = 4,
-+	PIC_FORMAT_WEBP = 5
++	PIC_FORMAT_WEBP = 5,
++	PIC_FORMAT_AVIF = 6
  } pic_format;
  
  struct gif_texture{
-@@ -25,6 +26,10 @@ vita2d_texture *load_PIC_file(const char *filename, int x, int y, int width, int
+@@ -25,6 +27,14 @@ vita2d_texture *load_PIC_file(const char *filename, int x, int y, int width, int
  vita2d_texture *load_PIC_file_downscaled(const char *filename, int level);
  void get_PIC_resolution(const char *filename, int *dest_width, int *dest_height);
  pic_format get_PIC_format(const char *filename);
@@ -350,6 +864,10 @@ index e86e759..34afcf7 100644
 +vita2d_texture *load_WEBP_file_downscaled(const char *filename, int level);
 +vita2d_texture *load_WEBP_file_part(const char *filename, int x, int y, int width, int height);
  struct gif_texture* load_GIF_file(const char *filename);
++int is_AVIF_file(const char *filename);
++void get_AVIF_resolution(const char *filename, int *dest_width, int *dest_height);
++vita2d_texture *load_AVIF_file_downscaled(const char *filename, int level);
++vita2d_texture *load_AVIF_file_part(const char *filename, int x, int y, int width, int height);
  
  #endif
 \ No newline at end of file
@@ -553,123 +1071,1568 @@ index 0000000..17cc927
 +	free(data);
 +	return texture;
 +}
+diff --git a/source/luaGraphics.cpp b/source/luaGraphics.cpp
+index 0922eba..12ad695 100644
+--- a/source/luaGraphics.cpp
++++ b/source/luaGraphics.cpp
+@@ -66,11 +66,18 @@ struct rescaler{
+ 
+ static bool isRescaling = false;
+ static rescaler scaler;
+-static char asyncPath[512];
++static char asyncPath[1024];
+ static int asyncParams[4];
+ static int asyncDownscaleLevel;
+ static volatile uint8_t asyncMode = IMGLOAD_END;
+ 
++// Otakio: image decoding has its own async lane (Graphics.getAsyncState/getAsyncResult), apart from the System one used
++// by downloads, requests and zips, so the next page can download while the current one decodes.
++static volatile int imgAsyncResult = 1;
++static volatile uint8_t imgTaskNum = 0;
++static unsigned char* imgAsyncStr = NULL;
++static uint32_t imgAsyncSize = 0;
++
+ #ifdef PARANOID
+ static bool draw_state = false;
+ #endif
+@@ -95,9 +102,9 @@ static int imgThread(unsigned int args, void* arg)
+ 	if (asyncMode == IMGLOAD_SIMPLE || asyncMode == IMGLOAD_PART) {
+ 		if (result == NULL)
+ 		{
+-			async_task_num--;
++			imgTaskNum--;
+ 			asyncMode = IMGLOAD_END;
+-			asyncResult = 1;
++			imgAsyncResult = 1;
+ 			sceKernelExitDeleteThread(0);
+ 			return 0;
+ 		}
+@@ -107,26 +114,26 @@ static int imgThread(unsigned int args, void* arg)
+ 		char* buffer = (char*)malloc(16);
+ 		memset(buffer, 0, 16);
+ 		sprintf(buffer, "%i", ret);
+-		asyncStrRes = (unsigned char*)buffer;
+-		asyncResSize = strlen(buffer);
++		imgAsyncStr = (unsigned char*)buffer;
++		imgAsyncSize = strlen(buffer);
+ 	} else if (asyncMode == IMGLOAD_GIF) {
+ 		if (result2 == NULL)
+ 		{
+-			async_task_num--;
++			imgTaskNum--;
+ 			asyncMode = IMGLOAD_END;
+-			asyncResult = 1;
++			imgAsyncResult = 1;
+ 			sceKernelExitDeleteThread(0);
+ 			return 0;
+ 		}
+ 		char* buffer = (char*)malloc(16);
+ 		memset(buffer, 0, 16);
+ 		sprintf(buffer, "%i", result2);
+-		asyncStrRes = (unsigned char*)buffer;
+-		asyncResSize = strlen(buffer);
++		imgAsyncStr = (unsigned char*)buffer;
++		imgAsyncSize = strlen(buffer);
+ 	}
+-	async_task_num--;
++	imgTaskNum--;
+ 	asyncMode = IMGLOAD_END;
+-	asyncResult = 1;
++	imgAsyncResult = 1;
+ 	sceKernelExitDeleteThread(0);
+ 	return 0;
+ }
+@@ -352,16 +359,18 @@ static int lua_loadimgasync(lua_State *L){
+ 	#endif
+ 	char* text = (char*)(luaL_checkstring(L, 1));
+ 	asyncDownscaleLevel = argc>=2 ? luaL_checkinteger(L, 2) : 1;
+-	sprintf(asyncPath, text);
+-	async_task_num++;
++	snprintf(asyncPath, sizeof(asyncPath), "%s", text);
++	imgTaskNum++;
+ 	asyncMode = IMGLOAD_SIMPLE;
+ 	SceUID thd = sceKernelCreateThread("Image loader Thread", &imgThread, 0x10000100, 0x100000, 0, 0, NULL);
+ 	if (thd < 0)
+ 	{
+-		asyncResult = -1;
++		imgTaskNum--;
++		asyncMode = IMGLOAD_END;
++		imgAsyncResult = -1;
+ 		return 0;
+ 	}
+-	asyncResult = 0;
++	imgAsyncResult = 0;
+ 	sceKernelStartThread(thd, 0, NULL);
+ 	return 0;
+ }
+@@ -372,20 +381,22 @@ static int lua_loadimgpartasync(lua_State *L){
+ 	if (argc != 5) return luaL_error(L, "wrong number of arguments");
+ 	#endif
+ 	char* text = (char*)(luaL_checkstring(L, 1));
+-	sprintf(asyncPath, text);
++	snprintf(asyncPath, sizeof(asyncPath), "%s", text);
+ 	asyncParams[0] = luaL_checknumber(L, 2);
+ 	asyncParams[1] = luaL_checknumber(L, 3);
+ 	asyncParams[2] = luaL_checknumber(L, 4);
+ 	asyncParams[3] = luaL_checknumber(L, 5);
+-	async_task_num++;
++	imgTaskNum++;
+ 	asyncMode = IMGLOAD_PART;
+ 	SceUID thd = sceKernelCreateThread("Image loader Thread", &imgThread, 0x10000100, 0x100000, 0, 0, NULL);
+ 	if (thd < 0)
+ 	{
+-		asyncResult = -1;
++		imgTaskNum--;
++		asyncMode = IMGLOAD_END;
++		imgAsyncResult = -1;
+ 		return 0;
+ 	}
+-	asyncResult = 0;
++	imgAsyncResult = 0;
+ 	sceKernelStartThread(thd, 0, NULL);
+ 	return 0;
+ }
+@@ -805,16 +816,18 @@ static int lua_loadgifasync(lua_State *L){
+ 	#endif
+ 	char* text = (char*)(luaL_checkstring(L, 1));
+ 	asyncDownscaleLevel = 1;
+-	sprintf(asyncPath, text);
+-	async_task_num++;
++	snprintf(asyncPath, sizeof(asyncPath), "%s", text);
++	imgTaskNum++;
+ 	asyncMode = IMGLOAD_GIF;
+ 	SceUID thd = sceKernelCreateThread("Image loader Thread", &imgThread, 0x10000100, 0x100000, 0, 0, NULL);
+ 	if (thd < 0)
+ 	{
+-		asyncResult = -1;
++		imgTaskNum--;
++		asyncMode = IMGLOAD_END;
++		imgAsyncResult = -1;
+ 		return 0;
+ 	}
+-	asyncResult = 0;
++	imgAsyncResult = 0;
+ 	sceKernelStartThread(thd, 0, NULL);
+ 	return 0;
+ }
+@@ -850,7 +863,60 @@ static int lua_returngif(lua_State *L){
+ }
+ 
+ //Register our Graphics Functions
++// Graphics.filterImage(img, mode): rewrites a texture's pixels in place, right after it is decoded and before it is
++// drawn: "gray" (luma, BT.601 weights) or "invert". Returns false for a texture format it does not handle.
++static int lua_filterimg(lua_State *L){
++	lpp_texture* text = (lpp_texture*)(luaL_checkinteger(L, 1));
++	const char* mode = luaL_checkstring(L, 2);
++	if (text == NULL || text->magic != 0xABADBEEF || text->text == NULL) return luaL_error(L, "attempt to access wrong memory block type.");
++	vita2d_texture* t = text->text;
++	if (vita2d_texture_get_format(t) != SCE_GXM_TEXTURE_FORMAT_U8U8U8U8_ABGR) {
++		lua_pushboolean(L, 0);
++		return 1;
++	}
++	bool gray = strcmp(mode, "gray") == 0;
++	bool invert = strcmp(mode, "invert") == 0;
++	if (!gray && !invert) return luaL_error(L, "unknown filter");
++	uint8_t* data = (uint8_t*)vita2d_texture_get_datap(t);
++	unsigned int w = vita2d_texture_get_width(t), h = vita2d_texture_get_height(t), stride = vita2d_texture_get_stride(t);
++	for (unsigned int y = 0; y < h; y++) {
++		uint8_t* p = data + (size_t)y * stride;
++		for (unsigned int x = 0; x < w; x++, p += 4) {
++			if (gray) {
++				uint8_t l = (uint8_t)((p[0] * 77 + p[1] * 150 + p[2] * 29) >> 8);
++				p[0] = p[1] = p[2] = l;
++			} else {
++				p[0] = 255 - p[0];
++				p[1] = 255 - p[1];
++				p[2] = 255 - p[2];
++			}
++		}
++	}
++	lua_pushboolean(L, 1);
++	return 1;
++}
++
++// Graphics.getAsyncState(): 0 while an image is being decoded, 1 when done, -1 when it could not start
++static int lua_imgasyncstate(lua_State *L){
++	lua_pushinteger(L, imgAsyncResult);
++	return 1;
++}
++
++// Graphics.getAsyncResult(): the decoded image (as System.getAsyncResult gave it), once
++static int lua_imgasyncres(lua_State *L){
++	if (imgAsyncStr != NULL){
++		lua_pushlstring(L, (const char*)imgAsyncStr, imgAsyncSize);
++		free(imgAsyncStr);
++		imgAsyncStr = NULL;
++		return 1;
++	}
++	return 0;
++}
++
+ static const luaL_Reg Graphics_functions[] = {
++  {"getAsyncState",       lua_imgasyncstate},
++  {"getAsyncResult",      lua_imgasyncres},
++  {"filterImage",         lua_filterimg},
+   {"initBlend",           lua_init},
+   {"termBlend",           lua_term},
+   {"debugPrint",          lua_print},
+diff --git a/source/luaHtml.cpp b/source/luaHtml.cpp
+new file mode 100644
+index 0000000..7651cc7
+--- /dev/null
++++ b/source/luaHtml.cpp
+@@ -0,0 +1,467 @@
++// Otakio: HtmlNative.parse(html, NodeMeta, unescape) builds the same tree as Html.parse in the app's html.lua (tolerant
++// tokenizer, implicit closes, raw text elements), in C. The Lua parser took 100-500 ms per listing page on the Vita and
++// had to give frames back while it ran; this one builds the whole tree in a few milliseconds.
++//
++// Tree layout (exactly what html.lua builds, selectors and the Node API stay in Lua):
++//   element: setmetatable({tag = "div", attrs = {...}, children = {...}, parent = <element>}, NodeMeta)
++//   text:    {t = "raw text", parent = <element>[, raw = true for script/style]}
++#include <string.h>
++#include <string>
++#include <vector>
++#include <new>
++extern "C" {
++#include <lua.h>
++#include <lauxlib.h>
++}
++
++namespace {
++
++inline bool isSpace(unsigned char c) { return c == ' ' || (c >= 9 && c <= 13); }
++inline bool isAlpha(unsigned char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); }
++inline bool isAlnum(unsigned char c) { return isAlpha(c) || (c >= '0' && c <= '9'); }
++inline unsigned char toLower(unsigned char c) { return (c >= 'A' && c <= 'Z') ? c + 32 : c; }
++
++bool inSet(const std::string &t, const char *const *set)
++{
++	for (int i = 0; set[i]; i++)
++		if (t == set[i]) return true;
++	return false;
++}
++
++const char *const VOID_TAGS[] = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param",
++	"source", "track", "wbr", NULL};
++const char *const RAW_TEXT[] = {"script", "style", "textarea", "title", NULL};
++const char *const CLOSES_P[] = {"address", "article", "aside", "blockquote", "div", "dl", "fieldset", "footer", "form",
++	"h1", "h2", "h3", "h4", "h5", "h6", "header", "hr", "main", "nav", "ol", "p", "pre", "section", "table", "ul", NULL};
++const char *const LIST_STOP[] = {"ul", "ol", NULL};
++const char *const TABLE_STOP[] = {"table", NULL};
++const char *const P_STOP[] = {"div", "li", "td", "th", "body", NULL};
++
++const int I_HTML = 1, I_META = 2, I_UNESCAPE = 3, I_STACK = 4, I_CHILDREN = 5;
++// interned field names, pushed once (lua_rawset with these is much cheaper than lua_setfield)
++const int K_TAG = 6, K_ATTRS = 7, K_CHILDREN = 8, K_PARENT = 9, K_T = 10, K_RAW = 11;
++
++// t[key] = value on top of the stack (popped); `t` is an absolute index or -2 (the table just under the value)
++inline void setKey(lua_State *L, int t, int key)
++{
++	if (t < 0) t = lua_gettop(L) + t + 1;
++	lua_pushvalue(L, key);
++	lua_insert(L, -2);
++	lua_rawset(L, t);
++}
++
++struct Parser {
++	lua_State *L;
++	const char *s;
++	size_t n;
++	std::vector<std::string> tags; // tags[i] = tag of the element at depth i + 1 (depth 1 = the document)
++	std::vector<int> counts;       // children count of the element at depth i + 1
++	size_t pos = 0;                // next byte to read
++	bool started = false;
++	std::string tag;
++
++	int depth() const { return (int)tags.size(); }
++
++	// value on top of the Lua stack -> appended to the children of the element at `d` (popped)
++	void appendTo(int d)
++	{
++		lua_rawgeti(L, I_CHILDREN, d);
++		lua_pushvalue(L, -2);
++		lua_rawseti(L, -2, ++counts[d - 1]);
++		lua_pop(L, 2);
++	}
++
++	void addText(size_t from, size_t len)
++	{
++		if (len == 0) return;
++		lua_createtable(L, 0, 2);
++		lua_pushlstring(L, s + from, len);
++		setKey(L, -2, K_T);
++		lua_rawgeti(L, I_STACK, depth());
++		setKey(L, -2, K_PARENT);
++		appendTo(depth());
++	}
++
++	bool closeUntil(const std::string &tag)
++	{
++		for (int i = depth(); i >= 2; i--) {
++			if (tags[i - 1] == tag) {
++				tags.resize(i - 1);
++				counts.resize(i - 1);
++				return true;
++			}
++		}
++		return false;
++	}
++
++	bool inStack(const char *tag, const char *const *stops)
++	{
++		for (int i = depth(); i >= 2; i--) {
++			const std::string &t = tags[i - 1];
++			if (t == tag) return true;
++			if (stops && inSet(t, stops)) return false;
++		}
++		return false;
++	}
++
++	// first '>' outside quoted attribute values, from p (just after the tag name); -1: none
++	long tagEnd(size_t p)
++	{
++		while (true) {
++			size_t q = p;
++			while (q < n && s[q] != '"' && s[q] != '\'' && s[q] != '>') q++;
++			if (q >= n) return -1;
++			char c = s[q];
++			if (c == '>') return (long)q;
++			// a quote opens a value only right after "=" (spaces allowed)
++			long b = (long)q - 1;
++			while (b >= 0 && (s[b] == ' ' || s[b] == '\t' || s[b] == '\n' || s[b] == '\r')) b--;
++			if (b < 0 || s[b] != '=') {
++				p = q + 1;
++			} else {
++				const char *close = (const char *)memchr(s + q + 1, c, n - q - 1);
++				p = close ? (size_t)(close - s) + 1 : q + 1;
++			}
++		}
++	}
++
++	// attributes of s[a, b) -> new table on top of the stack
++	void parseAttributes(size_t a, size_t b)
++	{
++		lua_newtable(L);
++		int attrs = lua_gettop(L);
++		size_t p = a;
++		std::string name;
++		while (p < b) {
++			while (p < b && (isSpace(s[p]) || s[p] == '/')) p++;
++			size_t ns = p;
++			while (p < b && !isSpace(s[p]) && s[p] != '=' && s[p] != '/' && s[p] != '>' && s[p] != '"' && s[p] != '\'') p++;
++			if (p == ns) break;
++			name.assign(s + ns, p - ns);
++			for (size_t i = 0; i < name.size(); i++) name[i] = (char)toLower((unsigned char)name[i]);
++			size_t q = p;
++			while (q < b && isSpace(s[q])) q++;
++			if (q < b && s[q] == '=') {
++				q++;
++				while (q < b && isSpace(s[q])) q++;
++				p = q;
++				size_t vs, ve;
++				if (p < b && (s[p] == '"' || s[p] == '\'')) {
++					const char *close = (const char *)memchr(s + p + 1, s[p], b - p - 1);
++					size_t c = close ? (size_t)(close - s) : b;
++					vs = p + 1;
++					ve = c;
++					p = c + 1;
++				} else {
++					vs = p;
++					while (p < b && !isSpace(s[p]) && s[p] != '>') p++;
++					ve = p;
++					if (p == vs) p = p + 1; // no value: Lua moved one character on
++				}
++				lua_pushlstring(L, name.data(), name.size());
++				lua_pushvalue(L, -1);
++				lua_rawget(L, attrs);
++				bool unset = lua_isnil(L, -1);
++				lua_pop(L, 1);
++				if (unset) {
++					if (memchr(s + vs, '&', ve > vs ? ve - vs : 0)) {
++						lua_pushvalue(L, I_UNESCAPE);
++						lua_pushlstring(L, s + vs, ve > vs ? ve - vs : 0);
++						lua_call(L, 1, 1);
++					} else {
++						lua_pushlstring(L, s + vs, ve > vs ? ve - vs : 0);
++					}
++					lua_rawset(L, attrs);
++				} else {
++					lua_pop(L, 1);
++				}
++			} else {
++				lua_pushlstring(L, name.data(), name.size());
++				lua_pushvalue(L, -1);
++				lua_rawget(L, attrs);
++				bool unset = lua_isnil(L, -1);
++				lua_pop(L, 1);
++				if (unset) {
++					lua_pushliteral(L, "");
++					lua_rawset(L, attrs);
++				} else {
++					lua_pop(L, 1);
++				}
++			}
++		}
++	}
++
++	// "</tag" + spaces + ">" from p; caseless also matches "</TAG >"; returns the start, `end` = index of '>'
++	long findClose(size_t p, const std::string &tag, bool caseless, size_t *end)
++	{
++		size_t tl = tag.size();
++		for (size_t i = p; i + 2 + tl < n + 1; i++) {
++			if (s[i] != '<' || s[i + 1] != '/') continue;
++			bool same = true;
++			for (size_t k = 0; k < tl; k++) {
++				unsigned char c = (unsigned char)s[i + 2 + k];
++				if ((caseless ? toLower(c) : c) != (unsigned char)tag[k]) {
++					same = false;
++					break;
++				}
++			}
++			if (!same) continue;
++			size_t j = i + 2 + tl;
++			while (j < n && isSpace(s[j])) j++;
++			if (j < n && s[j] == '>') {
++				*end = j;
++				return (long)i;
++			}
++		}
++		return -1;
++	}
++
++	// the document: element 1 of I_STACK
++	void begin()
++	{
++		lua_createtable(L, 0, 4);
++		lua_pushliteral(L, "#document");
++		setKey(L, -2, K_TAG);
++		lua_newtable(L);
++		setKey(L, -2, K_ATTRS);
++		lua_newtable(L);
++		lua_pushvalue(L, -1);
++		lua_rawseti(L, I_CHILDREN, 1);
++		setKey(L, -2, K_CHILDREN);
++		lua_pushvalue(L, I_META);
++		lua_setmetatable(L, -2);
++		lua_rawseti(L, I_STACK, 1);
++		tags.push_back("#document");
++		counts.push_back(0);
++		pos = 0;
++	}
++
++	// reads about `budget` bytes of markup; true when the whole page is read
++	bool step(size_t budget)
++	{
++		int doc = lua_gettop(L);
++		size_t stop = pos + budget < pos ? (size_t)-1 : pos + budget;
++		while (pos < n && pos < stop) {
++			lua_checkstack(L, 16);
++			const char *ltp = (const char *)memchr(s + pos, '<', n - pos);
++			if (!ltp) {
++				addText(pos, n - pos);
++				pos = n;
++				break;
++			}
++			size_t lt = (size_t)(ltp - s);
++			if (lt > pos) addText(pos, lt - pos);
++			unsigned char c = lt + 1 < n ? (unsigned char)s[lt + 1] : 0;
++			if (c == '!') {
++				if (lt + 3 < n && memcmp(s + lt, "<!--", 4) == 0) {
++					size_t ce = (size_t)-1;
++					for (size_t i = lt + 4; i + 2 < n; i++)
++						if (s[i] == '-' && s[i + 1] == '-' && s[i + 2] == '>') {
++							ce = i;
++							break;
++						}
++					pos = ce != (size_t)-1 ? ce + 3 : n;
++				} else {
++					const char *ce = lt + 2 <= n ? (const char *)memchr(s + lt + 2, '>', n - lt - 2) : NULL;
++					pos = ce ? (size_t)(ce - s) + 1 : n;
++				}
++			} else if (c == '/') {
++				size_t p = lt + 2;
++				while (p < n && isSpace(s[p])) p++;
++				size_t ns = p;
++				while (p < n && (isAlnum(s[p]) || s[p] == ':' || s[p] == '-')) p++;
++				const char *gt = p > ns ? (const char *)memchr(s + p, '>', n - p) : NULL;
++				if (gt) {
++					tag.assign(s + ns, p - ns);
++					for (size_t i = 0; i < tag.size(); i++) tag[i] = (char)toLower((unsigned char)tag[i]);
++					closeUntil(tag);
++					pos = (size_t)(gt - s) + 1;
++				} else {
++					addText(lt, 1);
++					pos = lt + 1;
++				}
++			} else {
++				long e = -1;
++				size_t te = lt + 1;
++				if (isAlpha(c)) {
++					te = lt + 2;
++					while (te < n && (isAlnum(s[te]) || s[te] == ':' || s[te] == '-')) te++;
++					e = tagEnd(te);
++				}
++				if (e < 0) {
++					addText(lt, 1);
++					pos = lt + 1;
++				} else {
++					tag.assign(s + lt + 1, te - lt - 1);
++					for (size_t i = 0; i < tag.size(); i++) tag[i] = (char)toLower((unsigned char)tag[i]);
++					pos = (size_t)e + 1;
++					bool selfClosing = (size_t)e > te && s[e - 1] == '/';
++					// implicit closes
++					if (tag == "li" && inStack("li", LIST_STOP)) {
++						closeUntil("li");
++					} else if ((tag == "td" || tag == "th") && (inStack("td", TABLE_STOP) || inStack("th", TABLE_STOP))) {
++						if (!closeUntil("td")) closeUntil("th");
++					} else if (tag == "tr" && inStack("tr", TABLE_STOP)) {
++						closeUntil("tr");
++					} else if (tag == "option" && tags.back() == "option") {
++						closeUntil("option");
++					} else if (inSet(tag, CLOSES_P) && inStack("p", P_STOP)) {
++						closeUntil("p");
++					}
++					// the element
++					lua_createtable(L, 0, 4);
++					int el = lua_gettop(L);
++					lua_pushlstring(L, tag.data(), tag.size());
++					setKey(L, el, K_TAG);
++					parseAttributes(te, (size_t)e);
++					setKey(L, el, K_ATTRS);
++					lua_newtable(L);
++					int children = lua_gettop(L);
++					lua_pushvalue(L, children);
++					setKey(L, el, K_CHILDREN);
++					lua_rawgeti(L, I_STACK, depth());
++					setKey(L, el, K_PARENT);
++					lua_pushvalue(L, I_META);
++					lua_setmetatable(L, el);
++					lua_pushvalue(L, el);
++					appendTo(depth());
++					if (inSet(tag, RAW_TEXT) && !selfClosing) {
++						size_t ce2 = 0;
++						long cs = findClose(pos, tag, false, &ce2);
++						if (cs < 0) cs = findClose(pos, tag, true, &ce2);
++						size_t rawEnd = cs < 0 ? n : (size_t)cs;
++						if (rawEnd > pos) {
++							lua_createtable(L, 0, 3);
++							lua_pushlstring(L, s + pos, rawEnd - pos);
++							setKey(L, -2, K_T);
++							lua_pushvalue(L, el);
++							setKey(L, -2, K_PARENT);
++							if (tag == "script" || tag == "style") {
++								lua_pushboolean(L, 1);
++								setKey(L, -2, K_RAW);
++							}
++							lua_rawseti(L, children, 1);
++						}
++						pos = cs < 0 ? n : ce2 + 1;
++					} else if (!(inSet(tag, VOID_TAGS) || selfClosing)) {
++						tags.push_back(tag);
++						counts.push_back(0);
++						lua_pushvalue(L, el);
++						lua_rawseti(L, I_STACK, depth());
++						lua_pushvalue(L, children);
++						lua_rawseti(L, I_CHILDREN, depth());
++					}
++					lua_settop(L, doc);
++				}
++			}
++		}
++		lua_settop(L, doc);
++		return pos >= n;
++	}
++};
++
++const char *PARSER_META = "HtmlNativeParser";
++
++// keeps on the stack, at I_HTML..K_RAW: html, meta, unescape, element stack, children stack, field names
++void pushState(lua_State *L, int env)
++{
++	for (int i = 1; i <= 5; i++) lua_rawgeti(L, env, i);
++	lua_pushliteral(L, "tag");
++	lua_pushliteral(L, "attrs");
++	lua_pushliteral(L, "children");
++	lua_pushliteral(L, "parent");
++	lua_pushliteral(L, "t");
++	lua_pushliteral(L, "raw");
++}
++
++// HtmlNative.new(html, NodeMeta, unescape) -> parser; parser:step([bytes]) -> the document once it is all read, else nil.
++// Steps of ~32 KB let a coroutine give the frame back between them, as html.lua's parser did.
++int lua_newparser(lua_State *L)
++{
++	luaL_checktype(L, 2, LUA_TTABLE);
++	luaL_checktype(L, 3, LUA_TFUNCTION);
++	lua_settop(L, 3);
++	void *mem = lua_newuserdata(L, sizeof(Parser));
++	new (mem) Parser();
++	luaL_getmetatable(L, PARSER_META);
++	lua_setmetatable(L, 4);
++	lua_createtable(L, 5, 0);
++	if (lua_type(L, 1) == LUA_TSTRING) lua_pushvalue(L, 1); else lua_pushliteral(L, "");
++	lua_rawseti(L, 5, 1);
++	lua_pushvalue(L, 2);
++	lua_rawseti(L, 5, 2);
++	lua_pushvalue(L, 3);
++	lua_rawseti(L, 5, 3);
++	lua_newtable(L);
++	lua_rawseti(L, 5, 4);
++	lua_newtable(L);
++	lua_rawseti(L, 5, 5);
++	lua_setfenv(L, 4);
++	return 1;
++}
++
++int lua_parserstep(lua_State *L)
++{
++	Parser *p = (Parser *)luaL_checkudata(L, 1, PARSER_META);
++	lua_Integer budget = luaL_optinteger(L, 2, 0x3FFFFFFF);
++	if (budget < 1) budget = 1;
++	lua_settop(L, 1);
++	lua_getfenv(L, 1);
++	lua_checkstack(L, 32);
++	pushState(L, 2);
++	// html, meta, unescape, element stack, children stack and the names at I_HTML..K_RAW (the caller keeps the parser)
++	lua_remove(L, 1);
++	lua_remove(L, 1);
++	p->L = L;
++	p->s = lua_tolstring(L, I_HTML, &p->n);
++	if (!p->started) {
++		p->begin();
++		p->started = true;
++	}
++	if (!p->step((size_t)budget)) return 0;
++	lua_rawgeti(L, I_STACK, 1);
++	return 1;
++}
++
++int lua_parsergc(lua_State *L)
++{
++	Parser *p = (Parser *)luaL_checkudata(L, 1, PARSER_META);
++	p->~Parser();
++	return 0;
++}
++
++// HtmlNative.parse(html, NodeMeta, unescape): the whole page at once
++int lua_parsehtml(lua_State *L)
++{
++	lua_settop(L, 3);
++	lua_pushcfunction(L, lua_newparser);
++	lua_insert(L, 1);
++	lua_call(L, 3, 1);
++	lua_pushcfunction(L, lua_parserstep);
++	lua_pushvalue(L, 1);
++	lua_call(L, 1, 1);
++	return 1;
++}
++
++const luaL_Reg HtmlNative_functions[] = {
++	{"new", lua_newparser},
++	{"parse", lua_parsehtml},
++	{0, 0}
++};
++
++} // namespace
++
++void luaHtml_init(lua_State *L)
++{
++	luaL_newmetatable(L, PARSER_META);
++	lua_pushcfunction(L, lua_parsergc);
++	lua_setfield(L, -2, "__gc");
++	lua_newtable(L);
++	lua_pushcfunction(L, lua_parserstep);
++	lua_setfield(L, -2, "step");
++	lua_setfield(L, -2, "__index");
++	lua_pop(L, 1);
++	lua_newtable(L);
++	luaL_setfuncs(L, HtmlNative_functions, 0);
++	lua_setglobal(L, "HtmlNative");
++}
 diff --git a/source/luaNetwork.cpp b/source/luaNetwork.cpp
-index 0d3f230..3881c2a 100644
+index 0d3f230..bc0fbaa 100644
 --- a/source/luaNetwork.cpp
 +++ b/source/luaNetwork.cpp
-@@ -190,7 +190,7 @@ static int downloadThread(unsigned int args, void* arg)
- 	curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, asyncUseragent);
- 	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYHOST, 0L);
- 	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, 0L);
--	curl_easy_setopt(curl_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
-+	curl_easy_setopt(curl_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_0);
- 	curl_easy_setopt(curl_handle, CURLOPT_CONNECTTIMEOUT, 10L);
- 	curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
- 	curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, header_cb);
-@@ -203,7 +203,7 @@ static int downloadThread(unsigned int args, void* arg)
- 	switch (asyncMode)
- 	{
- 		case FILE_DOWNLOAD:
--			file = sceIoOpen(asyncDest, SCE_O_WRONLY | SCE_O_CREAT, 0777);
-+			file = sceIoOpen(asyncDest, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
- 			if (!file)
- 			{
- 				asyncMode = DOWNLOAD_END;
-@@ -223,8 +223,8 @@ static int downloadThread(unsigned int args, void* arg)
+@@ -103,173 +103,355 @@ static struct hostent *gethostbyname(const char *name)
+ 	return &ent;
+ }
+ 
+-static size_t write_cb(void *ptr, size_t size, size_t nmemb, void *stream)
++// ---------------------------------------------------------------------------------------------------------------------
++// Otakio request core
++// Every request (sync or async, string or file) goes through one setup: arguments are copied as plain strings (never
++// used as printf formats), the transfer is compressed (gzip/deflate), DNS answers, TLS sessions, open connections and
++// cookies are shared between requests, and the outcome (HTTP status, final URL, content type, curl error) is kept for
++// Network.getLastResponse().
++// ---------------------------------------------------------------------------------------------------------------------
++
++#define NET_BUFFER_SIZE (64 * 1024)
++#define OTAKIO_ENGINE_VERSION 2
++
++static CURLSH *curl_share = NULL;
++static CURL *sync_handle = NULL;
++static SceUID share_locks[CURL_LOCK_DATA_LAST];
++
++static void share_lock(CURL *handle, curl_lock_data data, curl_lock_access access, void *userptr)
+ {
+-	SceUID *fd = (SceUID*)stream;
+-	downloaded_bytes += size * nmemb;
+-	return sceIoWrite(*fd , ptr , size * nmemb);
++	if (data >= 0 && data < CURL_LOCK_DATA_LAST && share_locks[data] > 0)
++		sceKernelLockMutex(share_locks[data], 1, NULL);
+ }
+ 
+-static size_t write_str(void *ptr, size_t size, size_t nmemb, NetString *str)
++static void share_unlock(CURL *handle, curl_lock_data data, void *userptr)
+ {
+-	size_t dadd = size * nmemb;
+-	downloaded_bytes += dadd;
+-	str->concat(ptr, dadd);
+-    return dadd;
++	if (data >= 0 && data < CURL_LOCK_DATA_LAST && share_locks[data] > 0)
++		sceKernelUnlockMutex(share_locks[data], 1);
+ }
+ 
+-#define FILE_DOWNLOAD   0
+-#define STRING_DOWNLOAD 1
+-#define DOWNLOAD_END    2
+-static volatile uint8_t asyncMode = DOWNLOAD_END;
+-static char asyncUrl[512];
+-static char asyncDest[256];
+-static char asyncUseragent[256];
+-static char asyncPostdata[2048];
+-static char content_length[32];
+-static char asyncCookie[512];
+-static char asyncHeader1[512];
+-static char asyncHeader2[512];
+-static char asyncHeader3[512];
+-static char asyncHeader4[512];
+-static char asyncProxy[128];
+-static char asyncProxyAuth[128];
+-static uint8_t asyncMethod;
+-static uint8_t asyncContentType;
+-static int asyncPostsize;
+-static long asyncConTime = 10L;
+-static const uint8_t JSON = 0;
+-static const uint8_t XWWW = 1;
+-static bool stopAsyncDownload = false;
++static void share_init()
++{
++	if (curl_share != NULL) return;
++	for (int i = 0; i < CURL_LOCK_DATA_LAST; i++)
++		share_locks[i] = sceKernelCreateMutex("curl share", 0, 0, NULL);
++	curl_share = curl_share_init();
++	curl_share_setopt(curl_share, CURLSHOPT_LOCKFUNC, share_lock);
++	curl_share_setopt(curl_share, CURLSHOPT_UNLOCKFUNC, share_unlock);
++	curl_share_setopt(curl_share, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
++	curl_share_setopt(curl_share, CURLSHOPT_SHARE, CURL_LOCK_DATA_SSL_SESSION);
++	curl_share_setopt(curl_share, CURLSHOPT_SHARE, CURL_LOCK_DATA_CONNECT);
++	curl_share_setopt(curl_share, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
++}
+ 
++static void share_term()
++{
++	if (curl_share == NULL) return;
++	curl_share_cleanup(curl_share);
++	curl_share = NULL;
++	for (int i = 0; i < CURL_LOCK_DATA_LAST; i++)
++	{
++		if (share_locks[i] > 0) sceKernelDeleteMutex(share_locks[i]);
++		share_locks[i] = 0;
++	}
++}
+ 
+-static size_t header_cb(char *buffer, size_t size, size_t nitems, void *userdata)
++typedef struct
+ {
+-	if (total_bytes == 0xFFFFFFFF) {
+-		char *ptr = strcasestr(buffer, "Content-Length");
+-		if (ptr != NULL) { 
+-			sscanf(ptr, "Content-Length: %llu", &total_bytes);
+-		}
++	char *url;
++	char *dest;
++	char *useragent;
++	char *postdata;
++	size_t postsize;
++	char *cookie;
++	char *headers[4];
++	char *proxy;
++	char *proxyAuth;
++	int method;
++	int contentType;
++	long lowSpeedTime;
++} NetRequest;
++
++typedef struct
++{
++	long status;
++	int code;
++	char url[1024];
++	char contentType[128];
++	char error[CURL_ERROR_SIZE];
++	double seconds;
++	curl_off_t bytes;
++	bool decoded; // the body came compressed and was inflated
++} NetResponse;
++
++static NetResponse lastAsync;
++static NetResponse lastSync;
++
++static const char *DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
++
++static char *dupStr(const char *s)
++{
++	return strdup(s != NULL ? s : "");
++}
++
++// The app doubles every '%' of a link: the old engine copied links with sprintf(dst, link), which turned "%%" back
++// into "%". Kept so links built for either engine work.
++static char *dupUrl(const char *s)
++{
++	if (s == NULL) return strdup("");
++	size_t n = strlen(s);
++	char *out = (char*)malloc(n + 1);
++	size_t j = 0;
++	for (size_t i = 0; i < n; i++)
++	{
++		out[j++] = s[i];
++		if (s[i] == '%' && s[i + 1] == '%') i++;
  	}
- 	struct curl_slist *headerchunk = NULL;
- 	headerchunk = curl_slist_append(headerchunk, "Accept: */*");
+-	return nitems * size;
++	out[j] = 0;
++	return out;
+ }
+ 
+-int progress_callback(void *clientp,   double dltotal,   double dlnow,   double ultotal,   double ulnow)
++static void freeRequest(NetRequest *r)
+ {
+-	return stopAsyncDownload ? CURLE_ABORTED_BY_CALLBACK : CURLE_OK;
++	free(r->url);
++	free(r->dest);
++	free(r->useragent);
++	free(r->postdata);
++	free(r->cookie);
++	for (int i = 0; i < 4; i++) free(r->headers[i]);
++	free(r->proxy);
++	free(r->proxyAuth);
++	memset(r, 0, sizeof(NetRequest));
+ }
+ 
+-static int downloadThread(unsigned int args, void* arg)
++// Lua arguments: url, [dest,] useragent, method, postdata, contentType, cookie, header1..4, proxy, proxyAuth
++static void readRequest(lua_State *L, NetRequest *r, bool withDest, int argc)
+ {
+-	int file = 0;
+-	curl_easy_reset(curl_handle);
+-	curl_easy_setopt(curl_handle, CURLOPT_URL, asyncUrl);
+-	curl_easy_setopt(curl_handle, CURLOPT_COOKIE, asyncCookie);
+-	if (strlen(asyncProxy) > 2)
+-		curl_easy_setopt(curl_handle, CURLOPT_PROXY, asyncProxy);
+-	if (strlen(asyncProxyAuth) > 2)
+-		curl_easy_setopt(curl_handle, CURLOPT_PROXYUSERPWD, asyncProxyAuth);
+-	switch (asyncMethod)
++	int i = 1;
++	memset(r, 0, sizeof(NetRequest));
++	r->url = dupUrl(luaL_checkstring(L, i++));
++	if (withDest) r->dest = dupStr(luaL_checkstring(L, i++));
++	r->useragent = dupStr(argc >= i ? luaL_checkstring(L, i) : DEFAULT_UA); i++;
++	r->method = argc >= i ? luaL_checkinteger(L, i) : SCE_HTTP_METHOD_GET; i++;
++	if (argc >= i)
++	{
++		size_t len = 0;
++		const char *data = luaL_checklstring(L, i, &len);
++		r->postdata = (char*)malloc(len + 1);
++		memcpy(r->postdata, data, len);
++		r->postdata[len] = 0;
++		r->postsize = len;
++	}
++	i++;
++	r->contentType = argc >= i ? luaL_checkinteger(L, i) : 1; i++;
++	r->cookie = dupStr(argc >= i ? luaL_checkstring(L, i) : ""); i++;
++	for (int h = 0; h < 4; h++, i++) r->headers[h] = dupStr(argc >= i ? luaL_checkstring(L, i) : "");
++	r->proxy = dupStr(argc >= i ? luaL_checkstring(L, i) : ""); i++;
++	r->proxyAuth = dupStr(argc >= i ? luaL_checkstring(L, i) : "");
++	r->lowSpeedTime = 10L;
++}
++
++static volatile bool stopAsyncDownload = false;
++static volatile bool asyncProgress = false;
++
++static int xferinfo_cb(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow)
++{
++	if (clientp != NULL)
++	{
++		// bytes on the wire (compressed when the body is): the same unit as Content-Length
++		downloaded_bytes = dlnow;
++		if (dltotal > 0) total_bytes = dltotal;
++		return stopAsyncDownload ? 1 : 0;
++	}
++	return 0;
++}
++
++static size_t write_file(void *ptr, size_t size, size_t nmemb, void *stream)
++{
++	SceUID *fd = (SceUID*)stream;
++	int written = sceIoWrite(*fd, ptr, size * nmemb);
++	return written < 0 ? 0 : (size_t)written;
++}
++
++typedef struct
++{
++	unsigned char *ptr;
++	size_t length;
++	size_t capacity;
++} NetBuffer;
++
++static size_t write_buffer(void *ptr, size_t size, size_t nmemb, void *stream)
++{
++	NetBuffer *b = (NetBuffer*)stream;
++	size_t add = size * nmemb;
++	if (b->length + add + 1 > b->capacity)
++	{
++		size_t cap = b->capacity ? b->capacity : 16384;
++		while (cap < b->length + add + 1) cap *= 2;
++		unsigned char *grown = (unsigned char*)realloc(b->ptr, cap);
++		if (grown == NULL) return 0;
++		b->ptr = grown;
++		b->capacity = cap;
++	}
++	memcpy(b->ptr + b->length, ptr, add);
++	b->length += add;
++	b->ptr[b->length] = 0;
++	return add;
++}
++
++static struct curl_slist *setupRequest(CURL *h, NetRequest *r, bool compressed, bool progress, char *errbuf)
++{
++	curl_easy_reset(h);
++	curl_easy_setopt(h, CURLOPT_SHARE, curl_share);
++	curl_easy_setopt(h, CURLOPT_URL, r->url);
++	curl_easy_setopt(h, CURLOPT_USERAGENT, r->useragent);
++	// the cookie engine: cookies a site sets are sent back to it (also across redirects), like a browser session
++	curl_easy_setopt(h, CURLOPT_COOKIEFILE, "");
++	if (r->cookie[0]) curl_easy_setopt(h, CURLOPT_COOKIE, r->cookie);
++	if (strlen(r->proxy) > 2) curl_easy_setopt(h, CURLOPT_PROXY, r->proxy);
++	if (strlen(r->proxyAuth) > 2) curl_easy_setopt(h, CURLOPT_PROXYUSERPWD, r->proxyAuth);
++	switch (r->method)
+ 	{
+-	case SCE_HTTP_METHOD_GET:
+-		curl_easy_setopt(curl_handle, CURLOPT_HTTPGET, 1L);
+-		break;
+ 	case SCE_HTTP_METHOD_POST:
+-		curl_easy_setopt(curl_handle, CURLOPT_POST, 1L);
+-		if (asyncPostdata != NULL){
+-			curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, asyncPostdata);
+-			curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDSIZE, asyncPostsize * 1L);
+-		}
++		curl_easy_setopt(h, CURLOPT_POST, 1L);
++		curl_easy_setopt(h, CURLOPT_POSTFIELDSIZE, (long)r->postsize);
++		curl_easy_setopt(h, CURLOPT_POSTFIELDS, r->postdata ? r->postdata : "");
+ 		break;
+ 	case SCE_HTTP_METHOD_HEAD:
+-		curl_easy_setopt(curl_handle, CURLOPT_NOBODY, 1L);
++		curl_easy_setopt(h, CURLOPT_NOBODY, 1L);
+ 		break;
+ 	default:
++		curl_easy_setopt(h, CURLOPT_HTTPGET, 1L);
+ 		break;
+ 	}
+-	curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, asyncUseragent);
+-	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYHOST, 0L);
+-	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, 0L);
+-	curl_easy_setopt(curl_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
+-	curl_easy_setopt(curl_handle, CURLOPT_CONNECTTIMEOUT, 10L);
+-	curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
+-	curl_easy_setopt(curl_handle, CURLOPT_HEADERFUNCTION, header_cb);
+-	curl_easy_setopt(curl_handle, CURLOPT_LOW_SPEED_TIME, asyncConTime);
+-	curl_easy_setopt(curl_handle, CURLOPT_LOW_SPEED_LIMIT, 1L);
+-	curl_easy_setopt(curl_handle, CURLOPT_NOPROGRESS, 0L);
+-	curl_easy_setopt(curl_handle, CURLOPT_PROGRESSFUNCTION, progress_callback);
+-
+-	NetString *buffer;
+-	switch (asyncMode)
++	curl_easy_setopt(h, CURLOPT_SSL_VERIFYHOST, 0L);
++	curl_easy_setopt(h, CURLOPT_SSL_VERIFYPEER, 0L);
++	curl_easy_setopt(h, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_0);
++	curl_easy_setopt(h, CURLOPT_CONNECTTIMEOUT, 10L);
++	curl_easy_setopt(h, CURLOPT_FOLLOWLOCATION, 1L);
++	curl_easy_setopt(h, CURLOPT_MAXREDIRS, 10L);
++	curl_easy_setopt(h, CURLOPT_LOW_SPEED_TIME, r->lowSpeedTime);
++	curl_easy_setopt(h, CURLOPT_LOW_SPEED_LIMIT, 1L);
++	if (compressed) curl_easy_setopt(h, CURLOPT_ACCEPT_ENCODING, "");
++	curl_easy_setopt(h, CURLOPT_BUFFERSIZE, (long)NET_BUFFER_SIZE);
++	curl_easy_setopt(h, CURLOPT_TCP_KEEPALIVE, 1L);
++	curl_easy_setopt(h, CURLOPT_TCP_KEEPIDLE, 30L);
++	curl_easy_setopt(h, CURLOPT_TCP_KEEPINTVL, 15L);
++	curl_easy_setopt(h, CURLOPT_DNS_CACHE_TIMEOUT, 600L);
++	errbuf[0] = 0;
++	curl_easy_setopt(h, CURLOPT_ERRORBUFFER, errbuf);
++	curl_easy_setopt(h, CURLOPT_NOPROGRESS, progress ? 0L : 1L);
++	if (progress)
+ 	{
+-		case FILE_DOWNLOAD:
+-			file = sceIoOpen(asyncDest, SCE_O_WRONLY | SCE_O_CREAT, 0777);
+-			if (!file)
+-			{
+-				asyncMode = DOWNLOAD_END;
+-				async_task_num--;
+-				asyncResult = 1;
+-				sceKernelExitDeleteThread(0);
+-				return 0;
+-			}
+-			curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_cb);
+-			curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &file);
+-			break;
+-		case STRING_DOWNLOAD:
+-			buffer = new NetString();
+-			curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_str);
+-			curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, buffer);
+-			break;
++		curl_easy_setopt(h, CURLOPT_XFERINFOFUNCTION, xferinfo_cb);
++		curl_easy_setopt(h, CURLOPT_XFERINFODATA, (void*)1);
+ 	}
+-	struct curl_slist *headerchunk = NULL;
+-	headerchunk = curl_slist_append(headerchunk, "Accept: */*");
 -	switch (asyncContentType)
 -	{	
-+	if (asyncMethod == SCE_HTTP_METHOD_POST) switch (asyncContentType)
-+	{
- 	case JSON:
- 		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/json");
- 		break;
-@@ -232,9 +232,8 @@ static int downloadThread(unsigned int args, void* arg)
- 		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/x-www-form-urlencoded");
- 		break;
- 	}
+-	case JSON:
+-		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/json");
+-		break;
+-	case XWWW:
+-		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/x-www-form-urlencoded");
+-		break;
+-	}
 -	headerchunk = curl_slist_append(headerchunk, "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36");
- 	sprintf(content_length, "Content-Length: %i", asyncMethod == SCE_HTTP_METHOD_POST && asyncPostdata != NULL ? asyncPostsize : 0);
+-	sprintf(content_length, "Content-Length: %i", asyncMethod == SCE_HTTP_METHOD_POST && asyncPostdata != NULL ? asyncPostsize : 0);
 -	headerchunk = curl_slist_append(headerchunk, content_length);
-+	if (strstr(content_length, ": 0") == NULL) headerchunk = curl_slist_append(headerchunk, content_length);
- 	headerchunk = curl_slist_append(headerchunk, asyncHeader1);
- 	headerchunk = curl_slist_append(headerchunk, asyncHeader2);
- 	headerchunk = curl_slist_append(headerchunk, asyncHeader3);
-@@ -259,7 +258,7 @@ static int downloadThread(unsigned int args, void* arg)
+-	headerchunk = curl_slist_append(headerchunk, asyncHeader1);
+-	headerchunk = curl_slist_append(headerchunk, asyncHeader2);
+-	headerchunk = curl_slist_append(headerchunk, asyncHeader3);
+-	headerchunk = curl_slist_append(headerchunk, asyncHeader4);
+-	curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, headerchunk);
+-	int res = curl_easy_perform(curl_handle);
+-	curl_slist_free_all(headerchunk);
+-	if (file > 0)
++	struct curl_slist *headers = NULL;
++	headers = curl_slist_append(headers, "Accept: */*");
++	if (r->method == SCE_HTTP_METHOD_POST)
++		headers = curl_slist_append(headers, r->contentType == 0 ? "Content-Type: application/json" : "Content-Type: application/x-www-form-urlencoded");
++	for (int i = 0; i < 4; i++)
++		if (r->headers[i] && r->headers[i][0]) headers = curl_slist_append(headers, r->headers[i]);
++	curl_easy_setopt(h, CURLOPT_HTTPHEADER, headers);
++	return headers;
++}
++
++static void keepResponse(CURL *h, int res, const char *errbuf, NetResponse *out, bool decoded)
++{
++	memset(out, 0, sizeof(NetResponse));
++	out->code = res;
++	curl_easy_getinfo(h, CURLINFO_RESPONSE_CODE, &out->status);
++	char *s = NULL;
++	if (curl_easy_getinfo(h, CURLINFO_EFFECTIVE_URL, &s) == CURLE_OK && s) strncpy(out->url, s, sizeof(out->url) - 1);
++	s = NULL;
++	if (curl_easy_getinfo(h, CURLINFO_CONTENT_TYPE, &s) == CURLE_OK && s) strncpy(out->contentType, s, sizeof(out->contentType) - 1);
++	curl_easy_getinfo(h, CURLINFO_TOTAL_TIME, &out->seconds);
++	curl_easy_getinfo(h, CURLINFO_SIZE_DOWNLOAD_T, &out->bytes);
++	if (res != CURLE_OK)
++		strncpy(out->error, errbuf[0] ? errbuf : curl_easy_strerror((CURLcode)res), sizeof(out->error) - 1);
++	out->decoded = decoded;
++}
++
++// Runs a request into a file (dest) or a buffer. A body the server compressed wrongly is asked again uncompressed.
++static int performRequest(CURL *h, NetRequest *r, NetBuffer *buffer, bool progress, NetResponse *out)
++{
++	static char errbuf_async[CURL_ERROR_SIZE];
++	static char errbuf_sync[CURL_ERROR_SIZE];
++	char *errbuf = progress ? errbuf_async : errbuf_sync;
++	int res = CURLE_OK;
++	for (int attempt = 0; attempt < 2; attempt++)
+ 	{
+-		sceIoClose(file);
+-		if (res != CURLE_OK)
+-			sceIoRemove(asyncDest);
++		bool compressed = attempt == 0;
++		struct curl_slist *headers = setupRequest(h, r, compressed, progress, errbuf);
++		SceUID fd = -1;
++		if (r->dest)
++		{
++			fd = sceIoOpen(r->dest, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
++			if (fd < 0)
++			{
++				curl_slist_free_all(headers);
++				memset(out, 0, sizeof(NetResponse));
++				out->code = CURLE_WRITE_ERROR;
++				strncpy(out->error, "can't open the destination file", sizeof(out->error) - 1);
++				return CURLE_WRITE_ERROR;
++			}
++			curl_easy_setopt(h, CURLOPT_WRITEFUNCTION, write_file);
++			curl_easy_setopt(h, CURLOPT_WRITEDATA, &fd);
++		}
++		else
++		{
++			buffer->length = 0;
++			curl_easy_setopt(h, CURLOPT_WRITEFUNCTION, write_buffer);
++			curl_easy_setopt(h, CURLOPT_WRITEDATA, buffer);
++		}
++		res = curl_easy_perform(h);
++		curl_slist_free_all(headers);
++		if (fd >= 0)
++		{
++			sceIoClose(fd);
++			if (res != CURLE_OK) sceIoRemove(r->dest);
++		}
++		keepResponse(h, res, errbuf, out, compressed);
++		if (res != CURLE_BAD_CONTENT_ENCODING || stopAsyncDownload) break;
+ 	}
++	return res;
++}
++
++#define FILE_DOWNLOAD   0
++#define STRING_DOWNLOAD 1
++#define DOWNLOAD_END    2
++static volatile uint8_t asyncMode = DOWNLOAD_END;
++static NetRequest asyncReq;
++static long asyncConTime = 10L;
++static const uint8_t JSON = 0;
++static const uint8_t XWWW = 1;
++
++static int downloadThread(unsigned int args, void* arg)
++{
++	NetBuffer buffer = {NULL, 0, 0};
++	asyncReq.lowSpeedTime = asyncConTime;
++	int res = performRequest(curl_handle, &asyncReq, asyncMode == STRING_DOWNLOAD ? &buffer : NULL, true, &lastAsync);
+ 	if (asyncMode == STRING_DOWNLOAD)
+ 	{
+-		if (res != CURLE_OK)
++		if (res != CURLE_OK || buffer.ptr == NULL)
+ 		{
+-			delete buffer->ptr;
++			free(buffer.ptr);
+ 			asyncStrRes = NULL;
+ 			asyncResSize = 0;
+ 		}
  		else
  		{
- 			asyncStrRes = buffer->ptr;
+-			asyncStrRes = buffer->ptr;
 -			asyncResSize = buffer->length;
-+			asyncResSize = buffer->length - 1; // length counts the trailing NUL
++			asyncStrRes = buffer.ptr;
++			asyncResSize = buffer.length;
  		}
- 		delete buffer;
+-		delete buffer;
  	}
-@@ -642,7 +641,7 @@ static int lua_download(lua_State *L){
- 	curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, useragent);
- 	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYHOST, 0L);
- 	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, 0L);
++	freeRequest(&asyncReq);
+ 	asyncMode = DOWNLOAD_END;
+ 	async_task_num--;
+ 	asyncResult = 1;
+ 	sceKernelExitDeleteThread(0);
+ 	return 0;
+ }
+-
+ static int lua_initFTP(lua_State *L) {
+ 	int argc = lua_gettop(L);
+ 	#ifndef SKIP_ERROR_HANDLING
+@@ -344,7 +526,9 @@ static int lua_init(lua_State *L) {
+ 	}
+ 	sceNetCtlInit();
+ 	sceHttpInit(1*1024*1024);
++	share_init();
+ 	curl_handle = curl_easy_init();
++	sync_handle = curl_easy_init();
+ 	isNet = 1;
+ 	return 0;
+ }
+@@ -381,6 +565,10 @@ static int lua_term(lua_State *L) {
+ 	if (!isNet) return luaL_error(L, "Network is not inited");
+ 	#endif
+ 	curl_easy_cleanup(curl_handle);
++	curl_easy_cleanup(sync_handle);
++	curl_handle = NULL;
++	sync_handle = NULL;
++	share_term();
+ 	sceHttpTerm();
+ 	sceNetCtlTerm();
+ 	sceNetTerm();
+@@ -597,272 +785,96 @@ static int lua_connect(lua_State *L)
+ static int lua_download(lua_State *L){
+ 	int argc = lua_gettop(L);
+ 	#ifndef SKIP_ERROR_HANDLING
+-	if (argc < 2 || argc > 12) return luaL_error(L, "wrong number of arguments");
+-	if (asyncMode != DOWNLOAD_END) return luaL_error(L, "cannot download file when async download is active");
++	if (argc < 2 || argc > 13) return luaL_error(L, "wrong number of arguments");
+ 	if (!isNet) return luaL_error(L, "Network is not inited");
+ 	#endif
+-	const char* url = luaL_checkstring(L,1);
+-	const char* file = luaL_checkstring(L,2);
+-	const char* useragent = (argc >= 3) ? luaL_checkstring(L,3) : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36";
+-	uint8_t method = (argc >= 4) ? luaL_checkinteger(L,4) : SCE_HTTP_METHOD_GET;
+-	const char* postdata = (argc >= 5) ? luaL_checkstring(L,5) : NULL;
+-	uint8_t contentType = (argc >= 6) ? luaL_checkinteger(L,6) : XWWW;
+-	const char* cookie = (argc >= 7) ? luaL_checkstring(L,7) : NULL;
+-	int postsize = (argc >= 5) ? strlen(postdata) : 0;
+-	const char* header1 = (argc >= 8) ? luaL_checkstring(L,8) : NULL;
+-	const char* header2 = (argc >= 9) ? luaL_checkstring(L,9) : NULL;
+-	const char* header3 = (argc >= 10) ? luaL_checkstring(L,10) : NULL;
+-	const char* header4 = (argc >= 11) ? luaL_checkstring(L,11) : NULL;
+-	const char* proxy = (argc >= 12) ? luaL_checkstring(L,12) : NULL;
+-	const char* proxyAuth = (argc >= 13) ? luaL_checkstring(L,13) : NULL;
+-	curl_easy_reset(curl_handle);
+-	curl_easy_setopt(curl_handle, CURLOPT_URL, url);
+-	curl_easy_setopt(curl_handle, CURLOPT_COOKIE, cookie);
+-	if (proxy != NULL && strlen(proxy) > 2)
+-		curl_easy_setopt(curl_handle, CURLOPT_PROXY, proxy);
+-	if (proxyAuth != NULL && strlen(proxyAuth) > 2)
+-		curl_easy_setopt(curl_handle, CURLOPT_PROXYUSERPWD, proxyAuth);
+-	switch (method){
+-	case SCE_HTTP_METHOD_GET:
+-		curl_easy_setopt(curl_handle, CURLOPT_HTTPGET, 1L);
+-		break;
+-	case SCE_HTTP_METHOD_POST:
+-		curl_easy_setopt(curl_handle, CURLOPT_POST, 1L);
+-		if (postdata != NULL){
+-			curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, postdata);
+-			curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDSIZE, postsize * 1L);
+-		}
+-		break;
+-	case SCE_HTTP_METHOD_HEAD:
+-		curl_easy_setopt(curl_handle, CURLOPT_NOBODY, 1L);
+-		break;
+-	default:
+-		break;
+-	}
+-	curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, useragent);
+-	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYHOST, 0L);
+-	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, 0L);
 -	curl_easy_setopt(curl_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
-+	curl_easy_setopt(curl_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_0);
- 	curl_easy_setopt(curl_handle, CURLOPT_CONNECTTIMEOUT, 10L);
- 	curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
- 	curl_easy_setopt(curl_handle, CURLOPT_LOW_SPEED_TIME, 10L);
-@@ -653,8 +652,8 @@ static int lua_download(lua_State *L){
- 	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &fh);
- 	struct curl_slist *headerchunk = NULL;
- 	headerchunk = curl_slist_append(headerchunk, "Accept: */*");
+-	curl_easy_setopt(curl_handle, CURLOPT_CONNECTTIMEOUT, 10L);
+-	curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
+-	curl_easy_setopt(curl_handle, CURLOPT_LOW_SPEED_TIME, 10L);
+-	curl_easy_setopt(curl_handle, CURLOPT_LOW_SPEED_LIMIT, 1L);
+-	curl_easy_setopt(curl_handle, CURLOPT_NOPROGRESS, 1L);
+-	curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_cb);	
+-	SceUID fh = sceIoOpen(file, SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0777);
+-	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &fh);
+-	struct curl_slist *headerchunk = NULL;
+-	headerchunk = curl_slist_append(headerchunk, "Accept: */*");
 -	switch (contentType)
 -	{	
-+	if (method == SCE_HTTP_METHOD_POST) switch (contentType)
-+	{
- 	case JSON:
- 		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/json");
- 		break;
-@@ -662,10 +661,9 @@ static int lua_download(lua_State *L){
- 		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/x-www-form-urlencoded");
- 		break;
- 	}
+-	case JSON:
+-		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/json");
+-		break;
+-	case XWWW:
+-		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/x-www-form-urlencoded");
+-		break;
+-	}
 -	headerchunk = curl_slist_append(headerchunk, "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36");
- 	char content_length[32];
- 	sprintf(content_length, "Content-Length: %i", method == SCE_HTTP_METHOD_POST && postdata != NULL ? asyncPostsize : 0);
+-	char content_length[32];
+-	sprintf(content_length, "Content-Length: %i", method == SCE_HTTP_METHOD_POST && postdata != NULL ? asyncPostsize : 0);
 -	headerchunk = curl_slist_append(headerchunk, content_length);
-+	if (strstr(content_length, ": 0") == NULL) headerchunk = curl_slist_append(headerchunk, content_length);
- 	if (header1)
- 		headerchunk = curl_slist_append(headerchunk, header1);
- 	if (header2)
-@@ -778,7 +776,7 @@ static int lua_string(lua_State *L){
- 	curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, useragent);
- 	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYHOST, 0L);
- 	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, 0L);
+-	if (header1)
+-		headerchunk = curl_slist_append(headerchunk, header1);
+-	if (header2)
+-		headerchunk = curl_slist_append(headerchunk, header2);
+-	if (header3)
+-		headerchunk = curl_slist_append(headerchunk, header3);
+-	if (header4)
+-		headerchunk = curl_slist_append(headerchunk, header4);
+-	curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, headerchunk);
+-	curl_easy_perform(curl_handle);
+-	curl_slist_free_all(headerchunk);
+-	sceIoClose(fh);
++	NetRequest r;
++	readRequest(L, &r, true, argc);
++	performRequest(sync_handle, &r, NULL, false, &lastSync);
++	freeRequest(&r);
+ 	return 0;
+ }
+ 
+-static int lua_downloadasync(lua_State *L){
++static int startAsync(lua_State *L, bool file)
++{
+ 	int argc = lua_gettop(L);
+ 	#ifndef SKIP_ERROR_HANDLING
+-	if (argc < 2 || argc > 13) return luaL_error(L, "wrong number of arguments");
++	if (argc < 1 || argc > 13) return luaL_error(L, "wrong number of arguments");
+ 	if (async_task_num == ASYNC_TASKS_MAX) return luaL_error(L, "cannot start more async tasks.");
+ 	if (!isNet) return luaL_error(L, "Network is not inited");
+ 	#endif
+-	const char* url = luaL_checkstring(L,1);
+-	const char* file = luaL_checkstring(L,2);
+-	const char* useragent = (argc >= 3) ? luaL_checkstring(L,3) : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36";
+-	asyncMethod = (argc >= 4) ? luaL_checkinteger(L,4) : SCE_HTTP_METHOD_GET;
+-	const char* postdata = (argc >= 5) ? luaL_checkstring(L,5) : NULL;
+-	asyncPostsize = (argc >= 5) ? strlen(postdata) : 0;
+-	asyncContentType = (argc >= 6) ? luaL_checkinteger(L,6) : XWWW;
+-	const char* cookie = (argc >= 7) ? luaL_checkstring(L,7) : "";
+-	const char* header1 = (argc >= 8) ? luaL_checkstring(L,8) : "";
+-	const char* header2 = (argc >= 9) ? luaL_checkstring(L,9) : "";
+-	const char* header3 = (argc >= 10) ? luaL_checkstring(L,10) : "";
+-	const char* header4 = (argc >= 11) ? luaL_checkstring(L,11) : "";
+-	const char* proxy = (argc >= 12) ? luaL_checkstring(L,12) : "";
+-	const char* proxyAuth = (argc >= 13) ? luaL_checkstring(L,13) : "";
+-	sprintf(asyncCookie, cookie);
+-	sprintf(asyncUrl, url);
+-	sprintf(asyncDest, file);
+-	sprintf(asyncUseragent, useragent);
+-	sprintf(asyncHeader1, header1);
+-	sprintf(asyncHeader2, header2);
+-	sprintf(asyncHeader3, header3);
+-	sprintf(asyncHeader4, header4);
+-	sprintf(asyncProxy, proxy);
+-	sprintf(asyncProxyAuth, proxyAuth);
+-	if (postdata != NULL) sprintf(asyncPostdata, postdata);
+-	else asyncPostdata[0] = 0;
++	freeRequest(&asyncReq);
++	readRequest(L, &asyncReq, file, argc);
+ 	async_task_num++;
+-	asyncMode = FILE_DOWNLOAD;
++	asyncMode = file ? FILE_DOWNLOAD : STRING_DOWNLOAD;
++	total_bytes = 0xFFFFFFFF;
++	downloaded_bytes = 0;
++	stopAsyncDownload = false;
+ 	SceUID thd = sceKernelCreateThread("Net Downloader Thread", &downloadThread, 0x10000100, 0x100000, 0, 0, NULL);
+ 	if (thd < 0)
+ 	{
++		freeRequest(&asyncReq);
++		async_task_num--;
++		asyncMode = DOWNLOAD_END;
+ 		asyncResult = -1;
+ 		return 0;
+ 	}
+-	total_bytes = 0xFFFFFFFF;
+-	downloaded_bytes = 0;
+ 	asyncResult = 0;
+-	stopAsyncDownload = false;
+ 	sceKernelStartThread(thd, 0, NULL);
+ 	return 0;
+ }
+ 
++static int lua_downloadasync(lua_State *L){
++	return startAsync(L, true);
++}
++
+ static int lua_string(lua_State *L){
+ 	int argc = lua_gettop(L);
+ 	#ifndef SKIP_ERROR_HANDLING
+ 	if (argc < 1 || argc > 12) return luaL_error(L, "wrong number of arguments");
+-	if (asyncMode != DOWNLOAD_END) return luaL_error(L, "cannot download file when async download is active");
+ 	if (!isNet) return luaL_error(L, "Network is not inited");
+ 	#endif
+-	const char* url = luaL_checkstring(L,1);
+-	const char* useragent = (argc >= 2) ? luaL_checkstring(L,2) : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36";
+-	uint8_t method = (argc >= 3) ? luaL_checkinteger(L,3) : SCE_HTTP_METHOD_GET;
+-	const char* postdata = (argc >= 4) ? luaL_checkstring(L,4) : NULL;
+-	uint8_t contentType = (argc >= 5) ? luaL_checkinteger(L,5) : XWWW;
+-	const char* cookie = (argc >= 6) ? luaL_checkstring(L,6) : NULL;
+-	int postsize = (argc >= 4) ? strlen(postdata) : 0;
+-	const char* header1 = (argc >= 7) ? luaL_checkstring(L,7) : NULL;
+-	const char* header2 = (argc >= 8) ? luaL_checkstring(L,8) : NULL;
+-	const char* header3 = (argc >= 9) ? luaL_checkstring(L,9) : NULL;
+-	const char* header4 = (argc >= 10) ? luaL_checkstring(L,10) : NULL;
+-	const char* proxy = (argc >= 11) ? luaL_checkstring(L,11) : NULL;
+-	const char* proxyAuth = (argc >= 12) ? luaL_checkstring(L,12) : NULL;
+-	curl_easy_reset(curl_handle);
+-	curl_easy_setopt(curl_handle, CURLOPT_URL, url);
+-	curl_easy_setopt(curl_handle, CURLOPT_COOKIE, cookie);
+-	if (proxy != NULL && strlen(proxy) > 2)
+-		curl_easy_setopt(curl_handle, CURLOPT_PROXY, proxy);
+-	if (proxyAuth != NULL && strlen(proxyAuth) > 2)
+-		curl_easy_setopt(curl_handle, CURLOPT_PROXYUSERPWD, proxyAuth);
+-	switch (method)
+-	{
+-	case SCE_HTTP_METHOD_GET:
+-		curl_easy_setopt(curl_handle, CURLOPT_HTTPGET, 1L);
+-		break;
+-	case SCE_HTTP_METHOD_POST:
+-		curl_easy_setopt(curl_handle, CURLOPT_POST, 1L);
+-		if (postdata != NULL){
+-			curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDS, postdata);
+-			curl_easy_setopt(curl_handle, CURLOPT_POSTFIELDSIZE, postsize * 1L);
+-		}
+-		break;
+-	case SCE_HTTP_METHOD_HEAD:
+-		curl_easy_setopt(curl_handle, CURLOPT_NOBODY, 1L);
+-		break;
+-	default:
+-		break;
+-	}
+-	curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, useragent);
+-	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYHOST, 0L);
+-	curl_easy_setopt(curl_handle, CURLOPT_SSL_VERIFYPEER, 0L);
 -	curl_easy_setopt(curl_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
-+	curl_easy_setopt(curl_handle, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_0);
- 	curl_easy_setopt(curl_handle, CURLOPT_CONNECTTIMEOUT, 10L);
- 	curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
- 	curl_easy_setopt(curl_handle, CURLOPT_LOW_SPEED_TIME, 10L);
-@@ -789,8 +787,8 @@ static int lua_string(lua_State *L){
- 	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, buffer);
- 	struct curl_slist *headerchunk = NULL;
- 	headerchunk = curl_slist_append(headerchunk, "Accept: */*");
+-	curl_easy_setopt(curl_handle, CURLOPT_CONNECTTIMEOUT, 10L);
+-	curl_easy_setopt(curl_handle, CURLOPT_FOLLOWLOCATION, 1L);
+-	curl_easy_setopt(curl_handle, CURLOPT_LOW_SPEED_TIME, 10L);
+-	curl_easy_setopt(curl_handle, CURLOPT_LOW_SPEED_LIMIT, 1L);
+-	curl_easy_setopt(curl_handle, CURLOPT_NOPROGRESS, 1L);
+-	NetString *buffer = new NetString();
+-	curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_str);
+-	curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, buffer);
+-	struct curl_slist *headerchunk = NULL;
+-	headerchunk = curl_slist_append(headerchunk, "Accept: */*");
 -	switch (contentType)
 -	{	
-+	if (method == SCE_HTTP_METHOD_POST) switch (contentType)
-+	{
- 	case JSON:
- 		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/json");
- 		break;
-@@ -798,10 +796,9 @@ static int lua_string(lua_State *L){
- 		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/x-www-form-urlencoded");
- 		break;
- 	}
+-	case JSON:
+-		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/json");
+-		break;
+-	case XWWW:
+-		headerchunk = curl_slist_append(headerchunk, "Content-Type: application/x-www-form-urlencoded");
+-		break;
+-	}
 -	headerchunk = curl_slist_append(headerchunk, "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36");
- 	char content_length[32];
- 	sprintf(content_length, "Content-Length: %i", method == SCE_HTTP_METHOD_POST && postdata != NULL ? asyncPostsize : 0);
+-	char content_length[32];
+-	sprintf(content_length, "Content-Length: %i", method == SCE_HTTP_METHOD_POST && postdata != NULL ? asyncPostsize : 0);
 -	headerchunk = curl_slist_append(headerchunk, content_length);
-+	if (strstr(content_length, ": 0") == NULL) headerchunk = curl_slist_append(headerchunk, content_length);
- 	if (header1)
- 		headerchunk = curl_slist_append(headerchunk, header1);
- 	if (header2)
+-	if (header1)
+-		headerchunk = curl_slist_append(headerchunk, header1);
+-	if (header2)
+-		headerchunk = curl_slist_append(headerchunk, header2);
+-	if (header3)
+-		headerchunk = curl_slist_append(headerchunk, header3);
+-	if (header4)
+-		headerchunk = curl_slist_append(headerchunk, header4);
+-	curl_easy_setopt(curl_handle, CURLOPT_HTTPHEADER, headerchunk);
+-	curl_easy_perform(curl_handle);
+-	curl_slist_free_all(headerchunk);
+-	lua_pushstring(L,(const char*)buffer->ptr);
+-	free(buffer->ptr);
+-	delete buffer;
++	NetRequest r;
++	readRequest(L, &r, false, argc);
++	NetBuffer buffer = {NULL, 0, 0};
++	performRequest(sync_handle, &r, &buffer, false, &lastSync);
++	freeRequest(&r);
++	if (buffer.ptr) lua_pushlstring(L, (const char*)buffer.ptr, buffer.length);
++	else lua_pushstring(L, "");
++	free(buffer.ptr);
+ 	return 1;
+ }
+ 
+ static int lua_stringasync(lua_State *L){
+-	int argc = lua_gettop(L);
+-	#ifndef SKIP_ERROR_HANDLING
+-	if (argc < 1 || argc > 13) return luaL_error(L, "wrong number of arguments");
+-	if (async_task_num == ASYNC_TASKS_MAX) return luaL_error(L, "cannot start more async tasks.");
+-	if (!isNet) return luaL_error(L, "Network is not inited");
+-	#endif
+-	const char* url = luaL_checkstring(L,1);
+-	const char* useragent = (argc >= 2) ? luaL_checkstring(L,2) : "lpp-vita app";
+-	asyncMethod = (argc >= 3) ? luaL_checkinteger(L,3) : SCE_HTTP_METHOD_GET;
+-	const char* postdata = (argc >= 4) ? luaL_checkstring(L,4) : NULL;
+-	asyncPostsize = (argc >= 4) ? strlen(postdata) : 0;
+-	asyncContentType = (argc >= 5) ? luaL_checkinteger(L,5) : XWWW;
+-	const char* cookie = (argc >= 6) ? luaL_checkstring(L,6) : "";
+-	const char* header1 = (argc >= 7) ? luaL_checkstring(L,7) : "";
+-	const char* header2 = (argc >= 8) ? luaL_checkstring(L,8) : "";
+-	const char* header3 = (argc >= 9) ? luaL_checkstring(L,9) : "";
+-	const char* header4 = (argc >= 10) ? luaL_checkstring(L,10) : "";
+-	const char* proxy = (argc >= 12) ? luaL_checkstring(L,12) : "";
+-	const char* proxyAuth = (argc >= 13) ? luaL_checkstring(L,13) : "";
+-	sprintf(asyncCookie, cookie);
+-	sprintf(asyncUrl, url);
+-	sprintf(asyncUseragent, useragent);
+-	sprintf(asyncHeader1, header1);
+-	sprintf(asyncHeader2, header2);
+-	sprintf(asyncHeader3, header3);
+-	sprintf(asyncHeader4, header4);
+-	sprintf(asyncProxy, proxy);
+-	sprintf(asyncProxyAuth, proxyAuth);
+-	if (postdata != NULL) sprintf(asyncPostdata, postdata);
+-	else asyncPostdata[0] = 0;
+-	async_task_num++;
+-	asyncMode = STRING_DOWNLOAD;
+-	SceUID thd = sceKernelCreateThread("Net Downloader Thread", &downloadThread, 0x10000100, 0x100000, 0, 0, NULL);
+-	if (thd < 0)
++	return startAsync(L, false);
++}
++
++// Network.getLastResponse([sync]): what the last finished async request (or the last sync one) got
++// -> {status = 200, code = 0, url = final URL, contentType = "...", error = "...", seconds = 0.4, bytes = 1234, compressed = true}
++static int lua_lastresponse(lua_State *L)
++{
++	NetResponse *r = lua_toboolean(L, 1) ? &lastSync : &lastAsync;
++	lua_newtable(L);
++	lua_pushinteger(L, r->status); lua_setfield(L, -2, "status");
++	lua_pushinteger(L, r->code); lua_setfield(L, -2, "code");
++	lua_pushstring(L, r->url); lua_setfield(L, -2, "url");
++	lua_pushstring(L, r->contentType); lua_setfield(L, -2, "contentType");
++	lua_pushstring(L, r->error); lua_setfield(L, -2, "error");
++	lua_pushnumber(L, r->seconds); lua_setfield(L, -2, "seconds");
++	lua_pushnumber(L, (double)r->bytes); lua_setfield(L, -2, "bytes");
++	lua_pushboolean(L, r->decoded); lua_setfield(L, -2, "compressed");
++	return 1;
++}
++
++// Network.clearCookies(): forgets every cookie the sites set during this session
++static int lua_clearcookies(lua_State *L)
++{
++	if (isNet && sync_handle)
+ 	{
+-		asyncResult = -1;
+-		return 0;
++		curl_easy_setopt(sync_handle, CURLOPT_SHARE, curl_share);
++		curl_easy_setopt(sync_handle, CURLOPT_COOKIEFILE, "");
++		curl_easy_setopt(sync_handle, CURLOPT_COOKIELIST, "ALL");
+ 	}
+-	total_bytes = 0xFFFFFFFF;
+-	downloaded_bytes = 0;
+-	asyncResult = 0;
+-	stopAsyncDownload = false;
+-	sceKernelStartThread(thd, 0, NULL);
+ 	return 0;
+ }
+ 
+@@ -934,6 +946,8 @@ static const luaL_Reg Network_functions[] = {
+   {"setConnectionTime",   lua_setcontime},
+   {"getConnectionTime",   lua_getcontime},
+   {"stopCurrentDownload", lua_stopdownload},
++  {"getLastResponse",     lua_lastresponse},
++  {"clearCookies",        lua_clearcookies},
+   {0, 0}
+ };
+ 
+@@ -948,7 +962,10 @@ static const luaL_Reg Socket_functions[] = {
+   {0, 0}
+ };
+ 
++void luaHtml_init(lua_State *L);
++
+ void luaNetwork_init(lua_State *L) {
++	luaHtml_init(L);
+ 	uint8_t GET_METHOD = SCE_HTTP_METHOD_GET;
+ 	uint8_t POST_METHOD = SCE_HTTP_METHOD_POST;
+ 	uint8_t HEAD_METHOD = SCE_HTTP_METHOD_HEAD;
+@@ -964,6 +981,10 @@ void luaNetwork_init(lua_State *L) {
+ 	if (isNet)
+ 	{
+ 		curl_easy_cleanup(curl_handle);
++		curl_easy_cleanup(sync_handle);
++		curl_handle = NULL;
++		sync_handle = NULL;
++		share_term();
+ 		sceHttpTerm();
+ 		sceNetCtlTerm();
+ 		sceNetTerm();
+@@ -987,6 +1008,19 @@ void luaNetwork_init(lua_State *L) {
+ 	lua_newtable(L);
+ 	luaL_setfuncs(L, Network_functions, 0);
+ 	lua_setglobal(L, "Network");
++	// OTAKIO_ENGINE: what this engine can do, for scripts that must also run on older engines
++	lua_newtable(L);
++	lua_pushinteger(L, OTAKIO_ENGINE_VERSION); lua_setfield(L, -2, "version");
++	lua_pushboolean(L, 1); lua_setfield(L, -2, "gzip");
++	lua_pushboolean(L, 1); lua_setfield(L, -2, "cookies");
++	lua_pushboolean(L, 1); lua_setfield(L, -2, "response");
++	lua_pushboolean(L, 1); lua_setfield(L, -2, "plainArgs");
++	lua_pushboolean(L, 1); lua_setfield(L, -2, "gif");
++	lua_pushboolean(L, 1); lua_setfield(L, -2, "avif");
++	lua_pushboolean(L, 1); lua_setfield(L, -2, "imageLane");
++	lua_pushboolean(L, 1); lua_setfield(L, -2, "htmlNative");
++	lua_pushboolean(L, 1); lua_setfield(L, -2, "filters");
++	lua_setglobal(L, "OTAKIO_ENGINE");
+ 	lua_newtable(L);
+ 	luaL_setfuncs(L, Socket_functions, 0);
+ 	lua_setglobal(L, "Socket");
 diff --git a/source/luaPlayer.cpp b/source/luaPlayer.cpp
 index ef53513..a9e910f 100644
 --- a/source/luaPlayer.cpp
@@ -693,15 +2656,90 @@ index ef53513..a9e910f 100644
  const char *runScript(const char* script, bool isStringBuffer)
  {
 diff --git a/source/luaSystem.cpp b/source/luaSystem.cpp
-index 95cf902..5f82e7b 100644
+index 95cf902..d63bcb2 100644
 --- a/source/luaSystem.cpp
 +++ b/source/luaSystem.cpp
-@@ -1296,12 +1296,28 @@ static int lua_getpicformat(lua_State *L){
+@@ -63,8 +63,8 @@ bool messageStarted = false;
+ static char messageText[512];
+ 
+ static Zip* asyncHandle = NULL;
+-static char asyncDest[256];
+-static char asyncName[256];
++static char asyncDest[1024];
++static char asyncName[1024];
+ static char asyncPass[64];
+ static volatile uint8_t asyncMode = EXTRACT_END;
+ volatile int asyncResult = 1;
+@@ -287,8 +287,8 @@ static int lua_movefileasync(lua_State *L){
+ 	const char* src = luaL_checkstring(L, 1);
+ 	const char* dst = luaL_checkstring(L, 2);
+ 	int flags = (argc>=3) ? luaL_checkinteger(L, 3) : 0;
+-	sprintf(asyncName, src);
+-	sprintf(asyncDest, dst);
++	snprintf(asyncName, sizeof(asyncName), "%s", src);
++	snprintf(asyncDest, sizeof(asyncDest), "%s", dst);
+ 	asyncMode = flags;
+ 	movePath(src, dst, flags);
+ 	async_task_num++;
+@@ -873,12 +873,14 @@ static int lua_ZipExtractAsync(lua_State *L) {
+ 	const char* Password = (argc == 3) ? luaL_checkstring(L, 3) : NULL;
+ 	sceIoMkdir(DirTe, 0777);
+ 	asyncHandle = ZipOpen(FileToExtract);
+-	#ifndef SKIP_ERROR_HANDLING
+-	if (asyncHandle == NULL) luaL_error(L, "error opening ZIP file.");
+-	#endif
++	// a missing or broken zip ends the task as failed (the release build skipped this check and extracted from NULL)
++	if (asyncHandle == NULL) {
++		asyncResult = -1;
++		return 0;
++	}
+ 	asyncMode = FULL_EXTRACT;
+-	sprintf(asyncDest, DirTe);
+-	if (Password != NULL) sprintf(asyncPass, Password);
++	snprintf(asyncDest, sizeof(asyncDest), "%s", DirTe);
++	if (Password != NULL) snprintf(asyncPass, sizeof(asyncPass), "%s", Password);
+ 	else asyncPass[0] = 0;
+ 	async_task_num++;
+ 	SceUID thd = sceKernelCreateThread("Zip Extract Thread", &zipThread, 0x10000100, 0x100000, 0, 0, NULL);
+@@ -929,13 +931,15 @@ static int lua_getfilefromzipasync(lua_State *L){
+ 	const char* Dest = luaL_checkstring(L, 3);
+ 	const char* Password = (argc == 4) ? luaL_checkstring(L, 4) : NULL;
+ 	asyncHandle = ZipOpen(FileToExtract);
+-	#ifndef SKIP_ERROR_HANDLING
+-	if (asyncHandle == NULL) luaL_error(L, "error opening ZIP file.");
+-	#endif
++	// a missing or broken zip ends the task as failed (the release build skipped this check and extracted from NULL)
++	if (asyncHandle == NULL) {
++		asyncResult = -1;
++		return 0;
++	}
+ 	asyncMode = FILE_EXTRACT;
+-	sprintf(asyncDest, Dest);
+-	sprintf(asyncName, FileToExtract2);
+-	if (Password != NULL) sprintf(asyncPass, Password);
++	snprintf(asyncDest, sizeof(asyncDest), "%s", Dest);
++	snprintf(asyncName, sizeof(asyncName), "%s", FileToExtract2);
++	if (Password != NULL) snprintf(asyncPass, sizeof(asyncPass), "%s", Password);
+ 	else asyncPass[0] = 0;
+ 	async_task_num++;
+ 	SceUID thd = sceKernelCreateThread("Zip Extract Thread", &zipThread, 0x10000100, 0x100000, 0, 0, NULL);
+@@ -1096,7 +1100,7 @@ static int lua_setmsg(lua_State *L){
+ 	#ifndef SKIP_ERROR_HANDLING
+ 	if (buttons > 4 || buttons < 0) return luaL_error(L, "invalid buttons type argument.");
+ 	#endif
+-	sprintf(messageText, text);
++	snprintf(messageText, sizeof(messageText), "%s", text);
+ 	SceMsgDialogParam param;
+ 	sceMsgDialogParamInit(&param);
+ 	if (progressbar){
+@@ -1296,12 +1300,30 @@ static int lua_getpicformat(lua_State *L){
  	} else if (format == PIC_FORMAT_GIF) {
  		lua_pushstring(L, "gif");
  		return 1;
 +	} else if (format == PIC_FORMAT_WEBP) {
 +		lua_pushstring(L, "webp");
++	} else if (format == PIC_FORMAT_AVIF) {
++		lua_pushstring(L, "avif");
 +		return 1;
  	} else {
  		return 0;
@@ -725,7 +2763,7 @@ index 95cf902..5f82e7b 100644
  static const luaL_Reg System_functions[] = {
    {"statFile",                  lua_statfile},
    {"statOpenedFile",            lua_statfilehandle},
-@@ -1358,6 +1374,7 @@ static const luaL_Reg System_functions[] = {
+@@ -1358,6 +1380,7 @@ static const luaL_Reg System_functions[] = {
    {"extractFromZip",            lua_getfilefromzip},
    {"extractFromZipAsync",       lua_getfilefromzipasync},
    {"takeScreenshot",            lua_screenshot},

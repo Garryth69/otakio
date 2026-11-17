@@ -543,6 +543,10 @@ SettingsFunctions = {
 	end,
 	ClearAllCache = function()
 		Cache.clear("all")
+		-- engine 2 keeps the cookies sites set during the session: clearing all the cache forgets them too
+		if Network.clearCookies then
+			pcall(Network.clearCookies)
+		end
 		Notifications.push(Language[settings.Language].NOTIFICATIONS.CACHE_CLEARED)
 	end,
 	ClearChapters = function()

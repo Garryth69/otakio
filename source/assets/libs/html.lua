@@ -135,6 +135,20 @@ end
 ---@return table document
 function Html.parse(html, baseUrl)
 	html = html or ""
+	-- engine 2: the same tree built in C (HtmlNative, see the engine's luaHtml.cpp), in steps of 32 KB of markup so a
+	-- coroutine gives the frame back between them, like the Lua parser below
+	if HtmlNative and HtmlNative.new then
+		local parser = HtmlNative.new(html, Node, unescape)
+		local canYieldNative = co_running() ~= nil
+		local doc = parser:step(canYieldNative and 32768 or nil)
+		while not doc do
+			co_yield(false)
+			doc = parser:step(32768)
+		end
+		doc.baseUrl = baseUrl or ""
+		doc.isDocument = true
+		return doc
+	end
 	local doc = newElement("#document", {}, nil)
 	doc.baseUrl = baseUrl or ""
 	doc.isDocument = true

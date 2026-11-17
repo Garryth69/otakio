@@ -2,6 +2,32 @@
 
 All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the GitHub release with that tag.
 
+## Unreleased
+
+### Added
+- **New engine (network):** pages, lists and searches arrive compressed (5-10x less data); connections, TLS
+  sessions and DNS answers are reused between requests, so a site is reached without a new handshake; cookies a
+  site sets are sent back to it during the session (some sources only list chapters to a visitor that has one).
+  *Clear all cache* also forgets them.
+- **Pages download while the previous one decodes:** images have their own lane in the engine, so the reader no
+  longer waits for one to finish before asking for the next.
+- **AVIF and GIF without the proxy:** AVIF pages and covers are decoded on the Vita itself, and GIFs show their first
+  frame (the old GIF decoder could close the app).
+- **Grayscale and inverted pages** (reader settings > Pixels).
+- **Faster lists:** the HTML of listings and chapters is read by the engine (in C) instead of Lua, still a piece at a
+  time so the screen keeps moving.
+- **Text appears faster:** the interface fonts are read from the memory card through a cache, instead of several card
+  reads for every new character (they were the slowest part of start-up and caused a long stutter right after it).
+- **Clearer log:** every 30 s, requests per site (count, average time, size, compression, failures); a request that
+  fails or comes back empty is logged with its address and HTTP status. Images that a site refuses (404, 403) are
+  not asked again three times.
+
+### Fixed
+- **POST requests with `%` in their body** (most searches sent as a form) reached the site mangled; very long
+  addresses (over 512 characters, common behind the image proxy) overwrote engine memory, a likely cause of rare
+  crashes.
+- A broken zip no longer closes the app when it is opened.
+
 ## 1.1.4
 
 ### Added

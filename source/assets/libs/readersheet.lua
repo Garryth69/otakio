@@ -3,7 +3,8 @@
 ---ReaderLook: background color, brightness and a color filter applied while drawing pages. The engine has no shaders,
 ---so the filter is done with what vita2d offers for free: "Multiply" tints the page textures as they are drawn (same
 ---draw call, no extra cost) and "Default" lays one translucent full-screen rectangle over them. Brightness below 100%
----is part of the tint. Grayscale and inverted colors would need an engine shader and are not offered.
+---is part of the tint. Grayscale and inverted colors ("Pixels") are written into the page textures by the engine
+---(Graphics.filterImage, engine 2) right after each page is decoded, so they cost nothing while drawing.
 ---
 ---ReaderSheet: side panel opened from the reader's menu icon (or Triangle): this manga's layout, colors (with live
 ---preview: the page stays visible on the left), reader options and page actions. Up/Down move, Left/Right change,
@@ -15,6 +16,7 @@ local DEFAULT = {
 	Background = "Theme", -- Theme | Black | Gray | White
 	Brightness = 0, -- -75..0 (percent darker)
 	Filter = false,
+	Pixels = "Normal", -- Normal | Gray | Invert (engine 2)
 	Preset = "Warm", -- Custom | Sepia | Paper | Warm | Night
 	Mode = "Default", -- Default (overlay) | Multiply
 	R = 255, G = 150, B = 60, A = 25, -- A: 0..100 (percent)
@@ -30,6 +32,7 @@ local PRESETS = {
 local PRESET_ORDER = {"Custom", "Sepia", "Paper", "Warm", "Night"}
 local BACKGROUNDS = {"Theme", "Black", "Gray", "White"}
 local MODES = {"Default", "Multiply"}
+local PIXELS = {"Normal", "Gray", "Invert"}
 
 local function clamp(v, lo, hi)
 	v = tonumber(v) or lo
@@ -58,6 +61,7 @@ function ReaderLook.get()
 		t.Background = oneOf(t.Background, BACKGROUNDS, DEFAULT.Background)
 		t.Brightness = clamp(t.Brightness or 0, -75, 0)
 		t.Filter = t.Filter == true
+		t.Pixels = oneOf(t.Pixels, PIXELS, DEFAULT.Pixels)
 		t.Preset = oneOf(t.Preset, PRESET_ORDER, DEFAULT.Preset)
 		t.Mode = oneOf(t.Mode, MODES, DEFAULT.Mode)
 		for _, k in ipairs({"R", "G", "B"}) do
@@ -120,6 +124,15 @@ end
 ---Color of the translucent layer over the pages (nil: none)
 function ReaderLook.overlay()
 	return (cache or build()).overlay
+end
+
+---"gray" | "invert" | nil: what Graphics.filterImage does to each reader page as it is decoded
+function ReaderLook.pixelFilter()
+	if not (Graphics and Graphics.filterImage) then
+		return nil
+	end
+	local p = ReaderLook.get().Pixels
+	return p == "Gray" and "gray" or (p == "Invert" and "invert" or nil)
 end
 
 function ReaderLook.showPageNumber()
@@ -207,6 +220,15 @@ local function buildRows()
 		change = function(dir) setLook("Background", cycle(BACKGROUNDS, ReaderLook.get().Background, dir)) end})
 	add({kind = "slider", label = O("RS_BRIGHTNESS"), min = -75, max = 0, step = 5, get = function() return ReaderLook.get().Brightness end,
 		set = function(v) setLook("Brightness", v) end, text = function(v) return (100 + v) .. "%" end})
+	if Graphics.filterImage then
+		add({kind = "cycle", label = O("RS_PIXELS"), value = function() return O("RS_PIXELS_" .. ReaderLook.get().Pixels:upper()) end,
+			change = function(dir)
+				setLook("Pixels", cycle(PIXELS, ReaderLook.get().Pixels, dir))
+				if Reader and Reader.redecodePages then
+					Reader.redecodePages()
+				end
+			end})
+	end
 	add({kind = "toggle", label = O("RS_FILTER"), get = function() return ReaderLook.get().Filter end,
 		set = function(v) setLook("Filter", v) end, rebuild = true})
 	if look.Filter then
@@ -223,9 +245,12 @@ local function buildRows()
 			set = function(v) setFilterValue("A", v) end, text = function(v) return v .. "%" end})
 	end
 	add({kind = "action", label = O("RS_RESET"), run = function()
-		local keep = ReaderLook.get().PageNumber
+		local keep, pixels = ReaderLook.get().PageNumber, ReaderLook.get().Pixels
 		Settings.ReaderLook = {PageNumber = keep}
 		ReaderLook.changed()
+		if pixels ~= "Normal" and Reader and Reader.redecodePages then
+			Reader.redecodePages()
+		end
 		dirty = true
 	end, rebuild = true})
 	add({kind = "header", label = O("RS_READER")})

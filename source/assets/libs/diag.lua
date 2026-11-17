@@ -272,6 +272,49 @@ local function readyReport()
 	ready = {n = 0, sum = 0, max = 0, instant = 0}
 end
 
+local hosts = {} -- host -> {n, ms, bytes, gz, errors}
+---Network: one finished request (engine 2+ reports time, bytes on the wire and compression)
+function Diag.request(host, ms, bytes, compressed, failed)
+	if not host then
+		return
+	end
+	local h = hosts[host]
+	if not h then
+		h = {n = 0, ms = 0, bytes = 0, gz = 0, errors = 0}
+		hosts[host] = h
+	end
+	h.n = h.n + 1
+	h.ms = h.ms + (ms or 0)
+	h.bytes = h.bytes + (bytes or 0)
+	if compressed then
+		h.gz = h.gz + 1
+	end
+	if failed then
+		h.errors = h.errors + 1
+	end
+end
+
+local function netReport()
+	local list = {}
+	for host, h in pairs(hosts) do
+		list[#list + 1] = {host = host, h = h}
+	end
+	if #list == 0 then
+		return
+	end
+	table.sort(list, function(a, b)
+		return a.h.n > b.h.n
+	end)
+	local parts = {}
+	for i = 1, math.min(#list, 5) do
+		local e, h = list[i], list[i].h
+		parts[#parts + 1] = string.format("%s %d req avg %d ms %d KB%s%s", e.host, h.n, h.ms / h.n, h.bytes / 1024,
+			h.gz > 0 and (" gzip " .. h.gz) or "", h.errors > 0 and (" failed " .. h.errors) or "")
+	end
+	log("net: " .. table.concat(parts, "; ") .. (#list > 5 and (" (+" .. (#list - 5) .. " sites)") or ""))
+	hosts = {}
+end
+
 local lastRam, lastGpu, lastCheck = nil, nil, 0
 ---Called every frame: every 30 s logs the slow frames, and memory when it moved by 8 MB or more
 function Diag.update()
@@ -282,6 +325,7 @@ function Diag.update()
 	lastCheck = now
 	hitchReport()
 	readyReport()
+	netReport()
 	local ram, gpu, lua = memoryLine()
 	if not ram or not gpu then
 		return
