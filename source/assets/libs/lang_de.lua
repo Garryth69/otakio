@@ -24,6 +24,7 @@ Language.German = {
 	NSFW = {[true] = "Anzeigen", [false] = "Ausblenden"},
 	YORN = {[true] = "Ja", [false] = "Nein"},
 	PAGINGCONTROLS = {DPAD = "Steuerkreuz", LR = "L- und R-Taste"},
+	WEBTOONLR = {PAGE = "Seite umblättern", SCROLL = "Scrollen"},
 	PANEL = {
 		BACK = "Zurück", CANCEL = "Abbrechen", CHANGE_SECTION = "Bereich", DELETE = "Löschen", IMPORT = "Importieren", MODE = "Modus",
 		READ = "Lesen", SEARCH = "Suchen", SELECT = "Auswählen", UPDATE = "Aktualisieren"
@@ -59,7 +60,7 @@ Language.German = {
 		ClearAllCache = "Gesamten Cache leeren", ClearChapters = "Alle heruntergeladenen Kapitel löschen", ResetAllSettings = "Alle Einstellungen zurücksetzen",
 		SkipFontLoading = "Schriften nicht vorladen", ChapterSorting = "Kapitelreihenfolge", SilentDownloads = "Download-Benachrichtigungen ausblenden",
 		SkipCacheChapterChecking = "Cache-Prüfung beim Start überspringen", LoadSummary = "Zusammenfassung anzeigen", ShowFPS = "FPS-Anzeige einblenden", UIFontSize = "Textgröße der Oberfläche",
-		ShowVersion = "Version", CheckAppUpdate = "Nach App-Updates suchen", AppAutoUpdate = "Beim Start nach App-Updates suchen", SwapXO = "Bestätigungstaste", ChangingPageButtons = "Tasten zum Umblättern",
+		ShowVersion = "Version", CheckAppUpdate = "Nach App-Updates suchen", AppAutoUpdate = "Beim Start nach App-Updates suchen", SwapXO = "Bestätigungstaste", ChangingPageButtons = "Tasten zum Umblättern", WebtoonLR = "Blättertasten im Webtoon-Modus",
 		LeftStickDeadZone = "Totzone linker Stick", LeftStickSensitivity = "Empfindlichkeit linker Stick",
 		RightStickDeadZone = "Totzone rechter Stick", RightStickSensitivity = "Empfindlichkeit rechter Stick",
 		EU = "X (westlich)", JP = "O (japanisch)", InputValue = "Wert eingeben", NoConnection = "Keine Verbindung",
@@ -69,7 +70,7 @@ Language.German = {
 	SETTINGS_DESCRIPTION = {
 		Library = "Sortierung, Filter, Kategorien, Updates", Catalogs = "Sprache, Inhalte für Erwachsene",
 		ExtensionsSettings = "Repositorys, automatische Updates", Reader = "Richtung, Ausrichtung, Zoom",
-		Network = "Timeout, Bildkonvertierung, Proxy", Data = "Backup, Cache, Speicherort", Other = "Schriften, Kapitelreihenfolge, Benachrichtigungen",
+		Network = "Timeout, Bildkonvertierung, Proxy", Data = "Backup, Cache, Speicherort", Other = "Schriften, Benachrichtigungen, Details",
 		Controls = "Tasten und Analogsticks", About = "Version und Mitwirkende",
 		AutoDownloadNew = "Nach einer Aktualisierung der Bibliothek", PreloadPages = "Nächste Seiten werden im Hintergrund geladen",
 		Incognito = "Speichert weder Verlauf noch Fortschritt", SaveImageFormat = "Für „Bild speichern“ im Leser. Das Umwandeln in ein anderes Format dauert einige Sekunden", UIFontSize = "Größerer Text in Listen, Menüs und Beschreibungen (Titel bleiben gleich)", ImageProxy = "Nur für Formate, die die Vita nicht öffnen kann (AVIF, JXL, GIF)",
@@ -106,7 +107,7 @@ Language.German = {
 		LIBRARY_OPTIONS = "Bibliotheksoptionen", SORT_BY = "Sortieren nach", FILTER = "Filter",
 		SORT_NAMES = {["Date added"] = "Hinzugefügt am", ["A-Z"] = "A → Z", ["Z-A"] = "Z → A", Unread = "Ungelesene", ["Last read"] = "Zuletzt gelesen", ["Latest chapter"] = "Neuestes Kapitel"},
 		FILTER_NAMES = {All = "Alle", Unread = "Ungelesen", Downloaded = "Heruntergeladen", Completed = "Fertig gelesen"},
-		EDIT_CATEGORIES = "Kategorien bearbeiten", SET_CATEGORIES = "Kategorien festlegen", N_CATEGORIES = "%d Kategorien", ADD_CATEGORY = "Kategorie hinzufügen",
+		EDIT_CATEGORIES = "Kategorien bearbeiten", SET_CATEGORIES = "Kategorien festlegen", N_CATEGORIES = "%d Kategorien", N_CATEGORY = "%d Kategorie", ADD_CATEGORY = "Kategorie hinzufügen",
 		CATEGORY_NAME = "Name der Kategorie", RENAME = "Umbenennen", MOVE_UP = "Nach oben", MOVE_DOWN = "Nach unten", DELETE = "Löschen",
 		DELETE_CATEGORY_Q = "Diese Kategorie löschen?", REFRESH_LIBRARY = "Bibliothek aktualisieren", REFRESHING = "Aktualisiere %d/%d",
 		CATEGORY = "Kategorie", OPTIONS = "Optionen", CONTINUE_READING = "Weiterlesen", IN_LIBRARY = "In der Bibliothek", ADD_REMOVE = "Bibliothek +/-",
@@ -137,7 +138,7 @@ Language.German = {
 		SEARCH_EXTENSIONS = "Erweiterungen suchen", ALL_LANGUAGES = "Alle Sprachen", TAB = "Tab", REPOSITORIES = "Repositorys",
 		REFRESH_REPOS = "Repositorys aktualisieren", UPDATE_ALL = "Alle aktualisieren", ADD_REPO = "Repository hinzufügen", REPO_URL = "GitHub Benutzer/Repo oder index.json-URL",
 		REPO_EXISTS = "Repository bereits hinzugefügt", REMOVE_REPO_Q = "%s entfernen?", REPO_BUILTIN = "Integriert · online", REPO_OFFLINE = "Integriert · Offline-Kopie",
-		REPO_MIHON = "Mihon-Repo · %d von %d Quellen funktionieren in Otakio", REPO_NEEDS_UPDATE = "%s benötigt ein neueres Otakio", N_REPOS = "%d Repositorys",
+		REPO_MIHON = "Mihon-Repo · %d von %d Quellen funktionieren in Otakio", REPO_NEEDS_UPDATE = "%s benötigt ein neueres Otakio", N_REPOS = "%d Repositorys", N_REPO = "%d Repository",
 		LANG_EN = "Englisch", LANG_PT = "Portugiesisch", LANG_ES = "Spanisch", LANG_FR = "Französisch", LANG_DE = "Deutsch", LANG_IT = "Italienisch",
 		LANG_RU = "Russisch", LANG_JA = "Japanisch", LANG_ZH = "Chinesisch",
 		LANG_MULTI = "Mehrsprachig", LANG_OTHER = "Andere",

@@ -24,6 +24,7 @@ Language.PortugueseBR = {
 	NSFW = {[true] = "Mostrar", [false] = "Ocultar"},
 	YORN = {[true] = "Sim", [false] = "Não"},
 	PAGINGCONTROLS = {DPAD = "Direcional", LR = "Botões L e R"},
+	WEBTOONLR = {PAGE = "Virar página", SCROLL = "Rolar"},
 	PANEL = {
 		BACK = "Voltar", CANCEL = "Cancelar", CHANGE_SECTION = "Seção", DELETE = "Apagar", IMPORT = "Importar", MODE = "Modo",
 		READ = "Ler", SEARCH = "Buscar", SELECT = "Selecionar", UPDATE = "Atualizar"
@@ -59,7 +60,7 @@ Language.PortugueseBR = {
 		ClearAllCache = "Limpar todo o cache", ClearChapters = "Apagar todos os capítulos baixados", ResetAllSettings = "Redefinir todos os ajustes",
 		SkipFontLoading = "Pular pré-carregamento de fontes", ChapterSorting = "Ordem dos capítulos", SilentDownloads = "Ocultar notificações de download",
 		SkipCacheChapterChecking = "Pular verificação do cache ao iniciar", LoadSummary = "Mostrar sinopse", ShowFPS = "Mostrar contador de FPS", UIFontSize = "Tamanho do texto da interface",
-		ShowVersion = "Versão", CheckAppUpdate = "Verificar atualização do app", AppAutoUpdate = "Procurar atualização do app ao iniciar", SwapXO = "Botão de confirmar", ChangingPageButtons = "Botões para virar a página",
+		ShowVersion = "Versão", CheckAppUpdate = "Verificar atualização do app", AppAutoUpdate = "Procurar atualização do app ao iniciar", SwapXO = "Botão de confirmar", ChangingPageButtons = "Botões para virar a página", WebtoonLR = "Botões de página no modo webtoon",
 		LeftStickDeadZone = "Zona morta do analógico esquerdo", LeftStickSensitivity = "Sensibilidade do analógico esquerdo",
 		RightStickDeadZone = "Zona morta do analógico direito", RightStickSensitivity = "Sensibilidade do analógico direito",
 		EU = "X (ocidental)", JP = "O (japonês)", InputValue = "Digite um valor", NoConnection = "Sem conexão",
@@ -69,7 +70,7 @@ Language.PortugueseBR = {
 	SETTINGS_DESCRIPTION = {
 		Library = "Ordenação, filtros, categorias, atualizações", Catalogs = "Idioma, conteúdo adulto",
 		ExtensionsSettings = "Repositórios, atualização automática", Reader = "Sentido, orientação, zoom",
-		Network = "Tempo limite, conversão de imagens, proxy", Data = "Backup, cache, armazenamento", Other = "Fontes, ordem dos capítulos, notificações",
+		Network = "Tempo limite, conversão de imagens, proxy", Data = "Backup, cache, armazenamento", Other = "Fontes, notificações, detalhes",
 		Controls = "Botões e analógicos", About = "Versão e créditos",
 		AutoDownloadNew = "Depois de atualizar a biblioteca", PreloadPages = "As próximas páginas baixam em segundo plano",
 		Incognito = "Não salva histórico nem progresso", SaveImageFormat = "Para o “Salvar imagem” do leitor. Converter para outro formato leva alguns segundos", UIFontSize = "Texto maior em listas, menus e descrições (os títulos mantêm o tamanho)", ImageProxy = "Só para formatos que o Vita não abre (AVIF, JXL, GIF)",
@@ -106,7 +107,7 @@ Language.PortugueseBR = {
 		LIBRARY_OPTIONS = "Opções da biblioteca", SORT_BY = "Ordenar por", FILTER = "Filtro",
 		SORT_NAMES = {["Date added"] = "Data de adição", ["A-Z"] = "A → Z", ["Z-A"] = "Z → A", Unread = "Não lidos", ["Last read"] = "Lido por último", ["Latest chapter"] = "Capítulo mais recente"},
 		FILTER_NAMES = {All = "Todos", Unread = "Não lidos", Downloaded = "Baixados", Completed = "Lidos até o fim"},
-		EDIT_CATEGORIES = "Editar categorias", SET_CATEGORIES = "Definir categorias", N_CATEGORIES = "%d categorias", ADD_CATEGORY = "Adicionar categoria",
+		EDIT_CATEGORIES = "Editar categorias", SET_CATEGORIES = "Definir categorias", N_CATEGORIES = "%d categorias", N_CATEGORY = "%d categoria", ADD_CATEGORY = "Adicionar categoria",
 		CATEGORY_NAME = "Nome da categoria", RENAME = "Renomear", MOVE_UP = "Mover para cima", MOVE_DOWN = "Mover para baixo", DELETE = "Apagar",
 		DELETE_CATEGORY_Q = "Apagar esta categoria?", REFRESH_LIBRARY = "Atualizar biblioteca", REFRESHING = "Atualizando %d/%d",
 		CATEGORY = "Categoria", OPTIONS = "Opções", CONTINUE_READING = "Continuar", IN_LIBRARY = "Na biblioteca", ADD_REMOVE = "Biblioteca +/-",
@@ -137,7 +138,7 @@ Language.PortugueseBR = {
 		SEARCH_EXTENSIONS = "Buscar extensões", ALL_LANGUAGES = "Todos os idiomas", TAB = "Aba", REPOSITORIES = "Repositórios",
 		REFRESH_REPOS = "Atualizar repositórios", UPDATE_ALL = "Atualizar tudo", ADD_REPO = "Adicionar repositório", REPO_URL = "usuario/repositorio do GitHub ou URL do index.json",
 		REPO_EXISTS = "Repositório já adicionado", REMOVE_REPO_Q = "Remover %s?", REPO_BUILTIN = "Embutido · online", REPO_OFFLINE = "Embutido · cópia offline",
-		REPO_MIHON = "Repo Mihon · %d de %d fontes funcionam no Otakio", REPO_NEEDS_UPDATE = "%s precisa de um Otakio mais novo", N_REPOS = "%d repositórios",
+		REPO_MIHON = "Repo Mihon · %d de %d fontes funcionam no Otakio", REPO_NEEDS_UPDATE = "%s precisa de um Otakio mais novo", N_REPOS = "%d repositórios", N_REPO = "%d repositório",
 		LANG_EN = "Inglês", LANG_PT = "Português", LANG_ES = "Espanhol", LANG_FR = "Francês", LANG_DE = "Alemão", LANG_IT = "Italiano",
 		LANG_RU = "Russo", LANG_JA = "Japonês", LANG_ZH = "Chinês",
 		LANG_MULTI = "Vários idiomas", LANG_OTHER = "Outros",

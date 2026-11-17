@@ -62,6 +62,10 @@ function Selector:new(dUp, dDown, dLeft, dRight, capFunction)
 	function p:resetSelected()
 		itemSelected = 0
 	end
+	---Puts the cursor on item `i` (0 = no cursor)
+	function p:setSelected(i)
+		itemSelected = i or 0
+	end
 	function p:xaction(foo)
 		onCrossFunction = foo
 	end

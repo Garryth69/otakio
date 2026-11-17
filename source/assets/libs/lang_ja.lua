@@ -24,6 +24,7 @@ Language.Japanese = {
 	NSFW = {[true] = "表示", [false] = "非表示"},
 	YORN = {[true] = "はい", [false] = "いいえ"},
 	PAGINGCONTROLS = {DPAD = "方向キー", LR = "L・Rボタン"},
+	WEBTOONLR = {PAGE = "ページ送り", SCROLL = "スクロール"},
 	PANEL = {
 		BACK = "戻る", CANCEL = "キャンセル", CHANGE_SECTION = "セクション", DELETE = "削除", IMPORT = "インポート", MODE = "モード",
 		READ = "読む", SEARCH = "検索", SELECT = "選択", UPDATE = "更新"
@@ -59,7 +60,7 @@ Language.Japanese = {
 		ClearAllCache = "すべてのキャッシュを消去", ClearChapters = "ダウンロード済みの話をすべて削除", ResetAllSettings = "すべての設定をリセット",
 		SkipFontLoading = "フォントの先読みを省略", ChapterSorting = "話の並び順", SilentDownloads = "ダウンロード通知を隠す",
 		SkipCacheChapterChecking = "起動時のキャッシュ確認を省略", LoadSummary = "あらすじを表示", ShowFPS = "FPSを表示", UIFontSize = "インターフェースの文字サイズ",
-		ShowVersion = "バージョン", CheckAppUpdate = "アプリの更新を確認", AppAutoUpdate = "起動時にアプリの更新を確認", SwapXO = "決定ボタン", ChangingPageButtons = "ページ送りボタン",
+		ShowVersion = "バージョン", CheckAppUpdate = "アプリの更新を確認", AppAutoUpdate = "起動時にアプリの更新を確認", SwapXO = "決定ボタン", ChangingPageButtons = "ページ送りボタン", WebtoonLR = "縦読みモードのページ送りボタン",
 		LeftStickDeadZone = "左スティックのデッドゾーン", LeftStickSensitivity = "左スティックの感度",
 		RightStickDeadZone = "右スティックのデッドゾーン", RightStickSensitivity = "右スティックの感度",
 		EU = "×（海外式）", JP = "○（日本式）", InputValue = "値を入力", NoConnection = "接続なし",
@@ -69,7 +70,7 @@ Language.Japanese = {
 	SETTINGS_DESCRIPTION = {
 		Library = "並べ替え、絞り込み、カテゴリー、更新", Catalogs = "言語、成人向けコンテンツ",
 		ExtensionsSettings = "リポジトリ、自動更新", Reader = "方向、向き、ズーム",
-		Network = "タイムアウト、画像変換、プロキシ", Data = "バックアップ、キャッシュ、保存先", Other = "フォント、話の並び順、通知",
+		Network = "タイムアウト、画像変換、プロキシ", Data = "バックアップ、キャッシュ、保存先", Other = "フォント、通知、詳細",
 		Controls = "ボタンとアナログスティック", About = "バージョンとクレジット",
 		AutoDownloadNew = "ライブラリ更新のあとに", PreloadPages = "次のページを裏でダウンロード",
 		Incognito = "履歴と進捗を保存しません", SaveImageFormat = "リーダーの「画像を保存」用。別の形式への変換には数秒かかります", UIFontSize = "リスト・メニュー・説明の文字を大きくします（タイトルはそのまま）", ImageProxy = "Vitaで開けない形式のみ（AVIF、JXL、GIF）",
@@ -106,7 +107,7 @@ Language.Japanese = {
 		LIBRARY_OPTIONS = "ライブラリのオプション", SORT_BY = "並べ替え", FILTER = "絞り込み",
 		SORT_NAMES = {["Date added"] = "追加日", ["A-Z"] = "A → Z", ["Z-A"] = "Z → A", Unread = "未読数", ["Last read"] = "最後に読んだ日", ["Latest chapter"] = "最新話"},
 		FILTER_NAMES = {All = "すべて", Unread = "未読", Downloaded = "ダウンロード済み", Completed = "読了"},
-		EDIT_CATEGORIES = "カテゴリーを編集", SET_CATEGORIES = "カテゴリーを設定", N_CATEGORIES = "%d個のカテゴリー", ADD_CATEGORY = "カテゴリーを追加",
+		EDIT_CATEGORIES = "カテゴリーを編集", SET_CATEGORIES = "カテゴリーを設定", N_CATEGORIES = "%d個のカテゴリー", N_CATEGORY = "%d個のカテゴリー", ADD_CATEGORY = "カテゴリーを追加",
 		CATEGORY_NAME = "カテゴリー名", RENAME = "名前を変更", MOVE_UP = "上へ", MOVE_DOWN = "下へ", DELETE = "削除",
 		DELETE_CATEGORY_Q = "このカテゴリーを削除しますか？", REFRESH_LIBRARY = "ライブラリを更新", REFRESHING = "更新中 %d/%d",
 		CATEGORY = "カテゴリー", OPTIONS = "オプション", CONTINUE_READING = "続きを読む", IN_LIBRARY = "ライブラリ内", ADD_REMOVE = "ライブラリ +/-",
@@ -137,7 +138,7 @@ Language.Japanese = {
 		SEARCH_EXTENSIONS = "拡張機能を検索", ALL_LANGUAGES = "すべての言語", TAB = "タブ", REPOSITORIES = "リポジトリ",
 		REFRESH_REPOS = "リポジトリを更新", UPDATE_ALL = "すべてアップデート", ADD_REPO = "リポジトリを追加", REPO_URL = "GitHubのユーザー/リポジトリ、またはindex.jsonのURL",
 		REPO_EXISTS = "このリポジトリは追加済みです", REMOVE_REPO_Q = "%s を削除しますか？", REPO_BUILTIN = "内蔵 · オンライン", REPO_OFFLINE = "内蔵 · オフラインコピー",
-		REPO_MIHON = "Mihonリポジトリ · %d / %d 件のソースがOtakioで動作", REPO_NEEDS_UPDATE = "%s には新しいOtakioが必要です", N_REPOS = "%d個のリポジトリ",
+		REPO_MIHON = "Mihonリポジトリ · %d / %d 件のソースがOtakioで動作", REPO_NEEDS_UPDATE = "%s には新しいOtakioが必要です", N_REPOS = "%d個のリポジトリ", N_REPO = "%d個のリポジトリ",
 		LANG_EN = "英語", LANG_PT = "ポルトガル語", LANG_ES = "スペイン語", LANG_FR = "フランス語", LANG_DE = "ドイツ語", LANG_IT = "イタリア語",
 		LANG_RU = "ロシア語", LANG_JA = "日本語", LANG_ZH = "中国語",
 		LANG_MULTI = "多言語", LANG_OTHER = "その他",

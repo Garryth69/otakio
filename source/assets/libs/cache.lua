@@ -217,10 +217,6 @@ function Cache.getLatestBookmark(manga)
 	return bookmarks[mangaKey] and bookmarks[mangaKey].LatestBookmark
 end
 
-function Cache.getBookmarkKey(chapter)
-	return chapter.Link:gsub("%p", "")
-end
-
 ---@param manga table
 ---Saves all bookmarks related to given `manga`
 function Cache.saveBookmarks(manga)
@@ -255,15 +251,6 @@ end
 function Cache.BookmarksLoaded(manga)
 	local mangaKey = getKey(manga)
 	return bookmarks[mangaKey] ~= nil
-end
-
----@param manga table
----Clears bookmarks for given `manga`
-function Cache.clearBookmarks(manga)
-	local mangaKey = getKey(manga)
-	bookmarks[mangaKey] = {}
-	Cache.saveBookmarks(manga)
-	bumpHistory()
 end
 
 ---@param manga table
@@ -375,13 +362,6 @@ function Cache.loadHistory()
 	bumpHistory()
 	Cache.saveHistory()
 	is_history_updated = true
-end
-
----@param manga table
----@return boolean
----Gives is manga in history
-function Cache.inHistory(manga)
-	return history[getKey(manga)] ~= nil
 end
 
 ---@param manga table
@@ -585,6 +565,8 @@ end
 ---Clears cache in specific `mode`
 function Cache.clear(mode)
 	mode = mode or "notlibrary"
+	-- a chapter list still waiting for its background write would bring a cleared folder back
+	Cache.flushChapters()
 	if mode == "notlibrary" then
 		local d = listDirectory("ux0:data/otakio/cache") or {}
 		for i = 1, #d do

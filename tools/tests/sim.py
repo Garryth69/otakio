@@ -130,12 +130,12 @@ SCENARIOS = {
     "about": ["R", "R", "R", "R", "R", "R", "R", ("wait", 20)] + ["DOWN"] * 11 + ["CROSS", ("wait", 60)],
     # online: add a manga from an installed source, More > Data > create backup, clear library, restore it
     "backup": [("wait", 150), "R", "R", "R", ("wait", 20), "DOWN", "CROSS", ("wait", 500), "DOWN", "START", ("wait", 30), "RIGHT",
-               "START", ("wait", 30), "CIRCLE", ("wait", 20), "R", "R", "R", "R", ("wait", 20)] + ["DOWN"] * 8 +
+               "START", ("wait", 30), "CIRCLE", ("wait", 20), "R", "R", "R", "R", ("wait", 20)] + ["DOWN"] * 9 +  # More > Data
               ["CROSS", ("wait", 20), "DOWN", "CROSS", ("wait", 60), "DOWN", "DOWN", "DOWN", "CROSS", ("wait", 30),
                "UP", "UP", "CROSS", ("wait", 20), "CROSS", ("wait", 20), "UP", "CROSS", ("wait", 200),
                "CIRCLE", "L", "L", "L", "L", "L", "L", "L", ("wait", 60)],
     # clean install with only a .otk in ux0:data/otakio/backups: More > Data > Restore backup, back to the Library
-    "restore": ["R", "R", "R", "R", "R", "R", "R", ("wait", 20)] + ["DOWN"] * 8 +
+    "restore": ["R", "R", "R", "R", "R", "R", "R", ("wait", 20)] + ["DOWN"] * 9 +
                ["CROSS", ("wait", 20), "DOWN", "DOWN", "CROSS", ("wait", 20), "CROSS", ("wait", 20), "UP", "CROSS", ("wait", 400),
                 "CIRCLE", "L", "L", "L", "L", "L", "L", "L", ("wait", 120)],
     # needs a prepared ux0:data/otakio/import (--tmp): import 4 items with Square, open the Library, read the first manga
@@ -143,6 +143,13 @@ SCENARIOS = {
                "DOWN", "DOWN", "DOWN", "SQUARE", ("wait", 60), "DOWN", "DOWN", "DOWN", "DOWN", "SQUARE", ("wait", 120),
                "L", "L", "L", "L", "L", "L", ("wait", 60)],
     # after 'import' (same --tmp): open the 2nd imported manga, read its first chapter and turn a page
+    # after 'import', in webtoon mode: R twice then L (with --set ReaderDirection="WEBTOON": a page each, by default)
+    "webtoonlr": [("wait", 30), "DOWN", "RIGHT", "CROSS", ("wait", 120), "DOWN", "CROSS", ("wait", 240), "R", ("wait", 90), "R",
+                  ("wait", 90), "L", ("wait", 90)],
+    # More and its sections in order: Library, Browse, Extensions, Reader, Controls (UI audit of where each option sits)
+    "settingstree": ["R", "R", "R", "R", "R", "R", "R", ("wait", 30), "DOWN", "DOWN", "DOWN", "CROSS", ("wait", 30), "CIRCLE", "DOWN",
+                     "CROSS", ("wait", 30), "CIRCLE", "DOWN", "CROSS", ("wait", 30), "CIRCLE", "DOWN", "CROSS", ("wait", 30),
+                     "CIRCLE", "DOWN", "CROSS", ("wait", 30), "CIRCLE", ("wait", 20)],
     "importread": [("wait", 30), "DOWN", "RIGHT", "CROSS", ("wait", 120), "DOWN", "CROSS", ("wait", 200), "RIGHT", ("wait", 100)],
     # needs a library (--tmp): Triangle refreshes it online, then the Updates tab shows what was found
     "refresh": [("wait", 60), "TRIANGLE", ("wait", 900), "R", ("wait", 60)],
@@ -339,6 +346,9 @@ def main():
     ap.add_argument("--install", default="", help="comma separated extension ids to install on first frame")
     ap.add_argument("--keyboard", default="one piece")
     ap.add_argument("--shots", default="", help="comma separated frame numbers to screenshot")
+    ap.add_argument("--shots-every", type=int, default=0, help="also screenshot every N frames (UI audit)")
+    ap.add_argument("--theme", default="", help="start with this theme (Otakio, AMOLED, Dark, Sakura, Light, Ocean, Matcha, Crimson)")
+    ap.add_argument("--set", default="", help='more starting settings, as Lua fields: ReaderDirection = "WEBTOON", WebtoonLR = "SCROLL"')
     ap.add_argument("--outdir", default=os.path.join(ROOT, "tools", "tests", "screens"))
     ap.add_argument("--tmp", default=None)
     ap.add_argument("--seed-library", type=int, default=0, help="start with N manga in the Library, each with a real JPEG cover")
@@ -351,6 +361,11 @@ def main():
     if not args.setup:
         os.makedirs(os.path.join(tmp, "ux0", "data", "otakio"), exist_ok=True)
         open(os.path.join(tmp, "ux0", "data", "otakio", ".setup_done"), "w").write("sim")
+    if args.theme or args.set:
+        os.makedirs(os.path.join(tmp, "ux0", "data", "otakio"), exist_ok=True)
+        fields = [f for f in ('Theme = "%s"' % args.theme if args.theme else "", args.set) if f]
+        with open(os.path.join(tmp, "ux0", "data", "otakio", "settings.ini"), "w") as fh:
+            fh.write("Settings = {%s}" % ", ".join(fields))
     if args.skip_starter:
         os.makedirs(os.path.join(tmp, "ux0", "data", "otakio"), exist_ok=True)
         open(os.path.join(tmp, "ux0", "data", "otakio", ".firstrun_v2"), "w").write("sim")
@@ -406,9 +421,12 @@ def main():
             MOCKSTATS["s"] += _t3.perf_counter() - t
     sim.imageSize = _image_size
     sim.onImageLoad = lambda img_id, path: render.snapshot(img_id, path) if args.shots and os.path.isfile(path) else None
-    if args.shots:
+    if args.shots or args.shots_every:
+        args.shots = args.shots or "0"
         os.makedirs(args.outdir, exist_ok=True)
         frames_wanted = [int(x) for x in args.shots.split(",") if x.strip()]
+        if args.shots_every:
+            frames_wanted += list(range(args.shots_every, 20000, args.shots_every))
         sim.capture = L.table_from({f: True for f in frames_wanted})
 
         def on_capture(frame, ops):
@@ -672,6 +690,8 @@ def main():
     if args.online:
         print("   network:", NETSTATS)
     print(f"scenario '{args.scenario}' OK: {sim.frame} frames, {sim.draws} rect draws")
+    for path, kind, what in render.ISSUES:
+        print("   UI %s %s: %s" % (kind, os.path.basename(path), what))
     worst = sorted([tuple(w.values()) for w in sim.worst.values()], key=lambda w: -w[0])[:6]
     NL = chr(10) + " " * 6
     if worst:

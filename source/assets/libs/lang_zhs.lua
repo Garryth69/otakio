@@ -24,6 +24,7 @@ Language.ChineseSimplified = {
 	NSFW = {[true] = "显示", [false] = "隐藏"},
 	YORN = {[true] = "是", [false] = "否"},
 	PAGINGCONTROLS = {DPAD = "方向键", LR = "L 和 R 键"},
+	WEBTOONLR = {PAGE = "翻页", SCROLL = "滚动"},
 	PANEL = {
 		BACK = "返回", CANCEL = "取消", CHANGE_SECTION = "分区", DELETE = "删除", IMPORT = "导入", MODE = "模式",
 		READ = "阅读", SEARCH = "搜索", SELECT = "选择", UPDATE = "刷新"
@@ -59,7 +60,7 @@ Language.ChineseSimplified = {
 		ClearAllCache = "清除全部缓存", ClearChapters = "删除所有已下载章节", ResetAllSettings = "重置所有设置",
 		SkipFontLoading = "跳过字体预加载", ChapterSorting = "章节顺序", SilentDownloads = "隐藏下载通知",
 		SkipCacheChapterChecking = "启动时跳过缓存检查", LoadSummary = "显示漫画简介", ShowFPS = "显示 FPS", UIFontSize = "界面文字大小",
-		ShowVersion = "版本", CheckAppUpdate = "检查应用更新", AppAutoUpdate = "启动时检查应用更新", SwapXO = "确认键", ChangingPageButtons = "翻页按键",
+		ShowVersion = "版本", CheckAppUpdate = "检查应用更新", AppAutoUpdate = "启动时检查应用更新", SwapXO = "确认键", ChangingPageButtons = "翻页按键", WebtoonLR = "条漫模式下的翻页键",
 		LeftStickDeadZone = "左摇杆死区", LeftStickSensitivity = "左摇杆灵敏度",
 		RightStickDeadZone = "右摇杆死区", RightStickSensitivity = "右摇杆灵敏度",
 		EU = "X（欧美）", JP = "O（日式）", InputValue = "输入数值", NoConnection = "无网络连接",
@@ -69,7 +70,7 @@ Language.ChineseSimplified = {
 	SETTINGS_DESCRIPTION = {
 		Library = "排序、筛选、分类、更新", Catalogs = "语言、成人内容",
 		ExtensionsSettings = "仓库、自动更新", Reader = "方向、屏幕方向、缩放",
-		Network = "超时、图片转换、代理", Data = "备份、缓存、存储", Other = "字体、章节顺序、通知",
+		Network = "超时、图片转换、代理", Data = "备份、缓存、存储", Other = "字体、通知、详情",
 		Controls = "按键和摇杆", About = "版本和致谢",
 		AutoDownloadNew = "在书架更新之后", PreloadPages = "在后台下载后面的页面",
 		Incognito = "不保存历史和进度", SaveImageFormat = "用于阅读器中的“保存图片”。转换为其他格式需要几秒钟", UIFontSize = "放大列表、菜单和简介中的文字（标题大小不变）", ImageProxy = "仅用于 Vita 无法打开的格式（AVIF、JXL、GIF）",
@@ -106,7 +107,7 @@ Language.ChineseSimplified = {
 		LIBRARY_OPTIONS = "书架选项", SORT_BY = "排序", FILTER = "筛选",
 		SORT_NAMES = {["Date added"] = "加入日期", ["A-Z"] = "A → Z", ["Z-A"] = "Z → A", Unread = "未读数", ["Last read"] = "最近阅读", ["Latest chapter"] = "最新章节"},
 		FILTER_NAMES = {All = "全部", Unread = "未读", Downloaded = "已下载", Completed = "已读完"},
-		EDIT_CATEGORIES = "编辑分类", SET_CATEGORIES = "设置分类", N_CATEGORIES = "%d 个分类", ADD_CATEGORY = "添加分类",
+		EDIT_CATEGORIES = "编辑分类", SET_CATEGORIES = "设置分类", N_CATEGORIES = "%d 个分类", N_CATEGORY = "%d 个分类", ADD_CATEGORY = "添加分类",
 		CATEGORY_NAME = "分类名称", RENAME = "重命名", MOVE_UP = "上移", MOVE_DOWN = "下移", DELETE = "删除",
 		DELETE_CATEGORY_Q = "删除这个分类？", REFRESH_LIBRARY = "更新书架", REFRESHING = "正在更新 %d/%d",
 		CATEGORY = "分类", OPTIONS = "选项", CONTINUE_READING = "继续阅读", IN_LIBRARY = "已在书架", ADD_REMOVE = "书架 +/-",
@@ -137,7 +138,7 @@ Language.ChineseSimplified = {
 		SEARCH_EXTENSIONS = "搜索扩展", ALL_LANGUAGES = "所有语言", TAB = "标签", REPOSITORIES = "仓库",
 		REFRESH_REPOS = "刷新仓库", UPDATE_ALL = "全部更新", ADD_REPO = "添加仓库", REPO_URL = "GitHub 用户/仓库 或 index.json 网址",
 		REPO_EXISTS = "仓库已添加", REMOVE_REPO_Q = "移除 %s？", REPO_BUILTIN = "内置 · 在线", REPO_OFFLINE = "内置 · 离线副本",
-		REPO_MIHON = "Mihon 仓库 · %d / %d 个来源可在 Otakio 中使用", REPO_NEEDS_UPDATE = "%s 需要更新版本的 Otakio", N_REPOS = "%d 个仓库",
+		REPO_MIHON = "Mihon 仓库 · %d / %d 个来源可在 Otakio 中使用", REPO_NEEDS_UPDATE = "%s 需要更新版本的 Otakio", N_REPOS = "%d 个仓库", N_REPO = "%d 个仓库",
 		LANG_EN = "英语", LANG_PT = "葡萄牙语", LANG_ES = "西班牙语", LANG_FR = "法语", LANG_DE = "德语", LANG_IT = "意大利语",
 		LANG_RU = "俄语", LANG_JA = "日语", LANG_ZH = "中文",
 		LANG_MULTI = "多语言", LANG_OTHER = "其他",

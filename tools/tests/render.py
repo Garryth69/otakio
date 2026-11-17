@@ -88,6 +88,43 @@ def tint(im, color):
     return out
 
 
+# problems found while rendering (tools/tests/ui_audit.py reads them): text leaving the screen, text that can hardly
+# be read on what is behind it
+ISSUES = []
+
+
+def _lum(c):
+    def ch(v):
+        v = v / 255.0
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    return 0.2126 * ch(c[0]) + 0.7152 * ch(c[1]) + 0.0722 * ch(c[2])
+
+
+def _contrast(a, b):
+    la, lb = _lum(a), _lum(b)
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+def _check_text(canvas, path, size, bold, x, y, text, col):
+    if not text.strip() or col[3] < 200:
+        return
+    try:
+        w = text_width(size, bool(bold), text)
+    except Exception:
+        return
+    if x + w > 962 or x < -2:
+        ISSUES.append((path, "offscreen", "%r x=%d w=%d" % (text[:40], x, w)))
+    # what is behind the text: the most common color in its box
+    box = (max(0, int(x)), max(0, int(y)), min(960, int(x + w)), min(544, int(y + size)))
+    if box[2] - box[0] < 4 or box[3] - box[1] < 4:
+        return
+    region = canvas.crop(box).convert("RGB").resize((16, 4))
+    bg = max(region.getcolors(64) or [(0, (0, 0, 0))])[1]
+    ratio = _contrast(col, bg)
+    if ratio < 2.2:
+        ISSUES.append((path, "contrast", "%r %.1f:1 text=%s bg=%s" % (text[:40], ratio, col[:3], bg)))
+
+
 def render(ops, path):
     canvas = Image.new("RGBA", (960, 544), (0, 0, 0, 255))
 
@@ -149,6 +186,7 @@ def render(ops, path):
         elif kind == "text":
             size, bold, x, y, text, c = op[1:7]
             col = rgba(c)
+            _check_text(canvas, path, size, bold, x, y, text, col)
             f = font(size, bool(bold))
             try:
                 blend(lambda d, o: d.text((x, y), text, font=f, fill=col))

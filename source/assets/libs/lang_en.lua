@@ -24,6 +24,7 @@ Language.English = {
 	NSFW = {[true] = "Show", [false] = "Hide"},
 	YORN = {[true] = "Yes", [false] = "No"},
 	PAGINGCONTROLS = {DPAD = "D-pad", LR = "L and R buttons"},
+	WEBTOONLR = {PAGE = "Turn page", SCROLL = "Scroll"},
 	PANEL = {
 		BACK = "Back", CANCEL = "Cancel", CHANGE_SECTION = "Section", DELETE = "Delete", IMPORT = "Import", MODE = "Mode",
 		READ = "Read", SEARCH = "Search", SELECT = "Select", UPDATE = "Refresh"
@@ -59,7 +60,7 @@ Language.English = {
 		ClearAllCache = "Clear all cache", ClearChapters = "Delete all downloaded chapters", ResetAllSettings = "Reset all settings",
 		SkipFontLoading = "Skip font preloading", ChapterSorting = "Chapter order", SilentDownloads = "Hide download notifications",
 		SkipCacheChapterChecking = "Skip cache check at startup", LoadSummary = "Show manga summary", ShowFPS = "Show FPS counter", UIFontSize = "Interface text size",
-		ShowVersion = "Version", CheckAppUpdate = "Check for app updates", AppAutoUpdate = "Check for app updates at startup", SwapXO = "Confirm button", ChangingPageButtons = "Page turn buttons",
+		ShowVersion = "Version", CheckAppUpdate = "Check for app updates", AppAutoUpdate = "Check for app updates at startup", SwapXO = "Confirm button", ChangingPageButtons = "Page turn buttons", WebtoonLR = "Page buttons in webtoon mode",
 		LeftStickDeadZone = "Left stick dead zone", LeftStickSensitivity = "Left stick sensitivity",
 		RightStickDeadZone = "Right stick dead zone", RightStickSensitivity = "Right stick sensitivity",
 		EU = "X (Western)", JP = "O (Japanese)", InputValue = "Enter a value", NoConnection = "No connection",
@@ -69,7 +70,7 @@ Language.English = {
 	SETTINGS_DESCRIPTION = {
 		Library = "Sorting, filters, categories, updates", Catalogs = "Language, adult content",
 		ExtensionsSettings = "Repositories, automatic updates", Reader = "Direction, orientation, zoom",
-		Network = "Timeout, image conversion, proxy", Data = "Backup, cache, storage", Other = "Fonts, chapter order, notifications",
+		Network = "Timeout, image conversion, proxy", Data = "Backup, cache, storage", Other = "Fonts, notifications, details",
 		Controls = "Buttons and analog sticks", About = "Version and credits",
 		AutoDownloadNew = "After a library refresh", PreloadPages = "Next pages download in the background",
 		Incognito = "Doesn't save history or progress", SaveImageFormat = "For “Save image” in the reader. Converting to another format takes a few seconds", UIFontSize = "Larger text in lists, menus and descriptions (titles keep their size)", ImageProxy = "Only for formats the Vita can't open (AVIF, JXL, GIF)",
@@ -106,7 +107,7 @@ Language.English = {
 		LIBRARY_OPTIONS = "Library options", SORT_BY = "Sort by", FILTER = "Filter",
 		SORT_NAMES = {["Date added"] = "Date added", ["A-Z"] = "A → Z", ["Z-A"] = "Z → A", Unread = "Unread count", ["Last read"] = "Last read", ["Latest chapter"] = "Latest chapter"},
 		FILTER_NAMES = {All = "All", Unread = "Unread", Downloaded = "Downloaded", Completed = "Finished"},
-		EDIT_CATEGORIES = "Edit categories", SET_CATEGORIES = "Set categories", N_CATEGORIES = "%d categories", ADD_CATEGORY = "Add category",
+		EDIT_CATEGORIES = "Edit categories", SET_CATEGORIES = "Set categories", N_CATEGORIES = "%d categories", N_CATEGORY = "%d category", ADD_CATEGORY = "Add category",
 		CATEGORY_NAME = "Category name", RENAME = "Rename", MOVE_UP = "Move up", MOVE_DOWN = "Move down", DELETE = "Delete",
 		DELETE_CATEGORY_Q = "Delete this category?", REFRESH_LIBRARY = "Refresh library", REFRESHING = "Updating %d/%d",
 		CATEGORY = "Category", OPTIONS = "Options", CONTINUE_READING = "Continue", IN_LIBRARY = "In library", ADD_REMOVE = "Library +/-",
@@ -137,7 +138,7 @@ Language.English = {
 		SEARCH_EXTENSIONS = "Search extensions", ALL_LANGUAGES = "All languages", TAB = "Tab", REPOSITORIES = "Repositories",
 		REFRESH_REPOS = "Refresh repositories", UPDATE_ALL = "Update all", ADD_REPO = "Add repository", REPO_URL = "GitHub user/repo or index.json URL",
 		REPO_EXISTS = "Repository already added", REMOVE_REPO_Q = "Remove %s?", REPO_BUILTIN = "Built-in · online", REPO_OFFLINE = "Built-in · offline copy",
-		REPO_MIHON = "Mihon repo · %d of %d sources work in Otakio", REPO_NEEDS_UPDATE = "%s needs a newer Otakio", N_REPOS = "%d repositories",
+		REPO_MIHON = "Mihon repo · %d of %d sources work in Otakio", REPO_NEEDS_UPDATE = "%s needs a newer Otakio", N_REPOS = "%d repositories", N_REPO = "%d repository",
 		LANG_EN = "English", LANG_PT = "Portuguese", LANG_ES = "Spanish", LANG_FR = "French", LANG_DE = "German", LANG_IT = "Italian",
 		LANG_RU = "Russian", LANG_JA = "Japanese", LANG_ZH = "Chinese",
 		LANG_MULTI = "Multi-language", LANG_OTHER = "Other",

@@ -15,10 +15,6 @@ function UI.tick()
 	UI.time = Timer.getTime(GlobalTimer)
 end
 
-function UI.lerp(a, b, t)
-	return a + (b - a) * t
-end
-
 ---Frame-rate independent exponential approach (speed ~ 0.2 = snappy)
 function UI.approach(current, target, speed)
 	local d = target - current

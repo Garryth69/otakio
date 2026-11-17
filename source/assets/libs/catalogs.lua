@@ -288,10 +288,6 @@ function Catalogs.openParser(parser)
 	end
 end
 
-function Catalogs.getCurrentParser()
-	return currentParser
-end
-
 local function selectSetting(index)
 	local item = Settings.list()[index]
 	if item and Settings.isTab(item) then
@@ -575,7 +571,7 @@ function Catalogs.libraryOptions()
 	Dialog.menu(L().LIBRARY_OPTIONS, {
 		{label = L().SORT_BY, sub = L().SORT_NAMES[Settings.LibrarySorting] or Settings.LibrarySorting, value = "sort"},
 		{label = L().FILTER, sub = L().FILTER_NAMES[Settings.LibraryFilter or "All"] or Settings.LibraryFilter, value = "filter"},
-		{label = L().EDIT_CATEGORIES, sub = string.format(L().N_CATEGORIES, #Database.getCategories()), value = "categories"},
+		{label = L().EDIT_CATEGORIES, sub = string.format(#Database.getCategories() == 1 and L().N_CATEGORY or L().N_CATEGORIES, #Database.getCategories()), value = "categories"},
 		{label = L().REFRESH_LIBRARY, value = "refresh"}
 	}, function(item)
 		if item.value == "sort" then
@@ -680,9 +676,18 @@ function Catalogs.input(oldpad, pad, oldtouch, touch)
 		end
 	elseif status == "SETTINGS" then
 		if pressed(pad, oldpad, SCE_CTRL_CIRCLE) then
+			-- back in the parent list, the cursor stays on the section just left (scrolled into view)
+			local left = Settings.getTab()
 			Settings.back()
 			settingSelector:resetSelected()
 			slider.Y = 0
+			for i, item in ipairs(Settings.list()) do
+				if item == left then
+					settingSelector:setSelected(i)
+					slider.Y = max(0, (i - 3) * ROW_H)
+					break
+				end
+			end
 		end
 	elseif status == "IMPORT" then
 		if pressed(pad, oldpad, SCE_CTRL_CIRCLE) then
@@ -1048,6 +1053,8 @@ local function settingInfo(task)
 		return tostring(Settings.RightStickSensitivity)
 	elseif task == "ChangingPageButtons" then
 		return LS.PAGINGCONTROLS[Settings.ChangingPageButtons]
+	elseif task == "WebtoonLR" then
+		return (LS.WEBTOONLR or Language.English.WEBTOONLR)[Settings.WebtoonLR or "PAGE"]
 	elseif task == "ShowVersion" then
 		return Config.VERSION_NAME
 	elseif task == "CheckAppUpdate" then
@@ -1068,9 +1075,11 @@ local function settingInfo(task)
 	elseif task == "PreloadPages" then
 		return tostring(Settings.PreloadPages or 3)
 	elseif task == "ExtensionRepos" then
-		return string.format(L().N_REPOS, #Extensions.getRepos())
+		local n = #Extensions.getRepos()
+		return string.format(n == 1 and L().N_REPO or L().N_REPOS, n)
 	elseif task == "EditCategories" then
-		return string.format(L().N_CATEGORIES, #Database.getCategories())
+		local n = #Database.getCategories()
+		return string.format(n == 1 and L().N_CATEGORY or L().N_CATEGORIES, n)
 	elseif task == "ClearChapters" then
 		if chaptersFolderSize == nil then
 			chaptersFolderSize = 0

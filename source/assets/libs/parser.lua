@@ -65,17 +65,6 @@ function DisableParsersOfExtension(extensionID)
 	is_parsers_list_updated = true
 end
 
----@return integer
-function CountParsers()
-	local n = 0
-	for _, v in pairs(parserTable) do
-		if not v.Disabled then
-			n = n + 1
-		end
-	end
-	return n
-end
-
 ---@param ID integer
 ---@return Parser
 ---Gives Parser Object by `ID`
@@ -346,25 +335,5 @@ end
 
 ---Sets update flag to `true`, for regenerating parsers list
 function ChangeNSFW()
-	is_parsers_list_updated = true
-end
-
----Deletes all parsers and their files
-function ClearParsers()
-	if doesDirExist("ux0:data/otakio/parsers") then
-		local list = listDirectory("ux0:/data/otakio/parsers") or {}
-		for i = 1, #list do
-			local v = list[i]
-			if not v.directory then
-				deleteFile("ux0:data/otakio/parsers/" .. v.name)
-			end
-		end
-	end
-	--[[
-    parserTable = {}
-    cachedList = {}]]
-	for _, v in pairs(parserTable) do
-		v.Disabled = true
-	end
 	is_parsers_list_updated = true
 end

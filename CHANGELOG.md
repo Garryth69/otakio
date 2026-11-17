@@ -14,6 +14,8 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - **AVIF and GIF without the proxy:** AVIF pages and covers are decoded on the Vita itself, and GIFs show their first
   frame (the old GIF decoder could close the app).
 - **Grayscale and inverted pages** (reader settings > Pixels).
+- **Page buttons in webtoon mode** (Settings > Controls): they now jump to the next or previous page, like in the other
+  reading modes; *Scroll* keeps the old behavior (a screen at a time).
 - **Faster lists:** the HTML of listings and chapters is read by the engine (in C) instead of Lua, still a piece at a
   time so the screen keeps moving.
 - **Text appears faster:** the interface fonts are read from the memory card through a cache, instead of several card
@@ -32,11 +34,19 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - **Extensions say where a source stops**, next to its status: *site blocks apps*, *list doesn't load*, *no
   chapters*, *chapters without pages* or *images blocked* (from the daily check of every source).
 
+### Changed
+- **Settings are easier to find:** *Controls* sits right after *Reader*, *Chapter order* moved to *Library*, and the
+  active source languages are set in one place (*Browse*). Going back from a section keeps the cursor on it.
+- "1 repository" / "1 category" instead of the plural.
+
 ### Fixed
 - **POST requests with `%` in their body** (most searches sent as a form) reached the site mangled; very long
   addresses (over 512 characters, common behind the image proxy) overwrote engine memory, a likely cause of rare
   crashes.
 - A broken zip no longer closes the app when it is opened.
+- Chapter lists still waiting to be written are saved before the cache is cleared, NOBORU data is imported or the app
+  restarts to install an update (they could be lost, or bring a cleared folder back).
+- Removed unused code (13 functions, including a busy-wait that could freeze the app) and 2 unused images.
 - **Madara sites with their own card design** (Aqua Manga, Cocomic...) list their series again: when none of the
   known card layouts is found, any link to a series page with a cover next to it is a result (menus, sliders and
   sidebars left out); readers that number their page images are read too.

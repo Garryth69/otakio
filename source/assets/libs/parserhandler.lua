@@ -418,11 +418,6 @@ function ParserManager.setBackground(Table)
 	end
 end
 
----Refreshes extension repositories (kept for API compatibility with NOBORU)
-function ParserManager.updateParserList()
-	Extensions.refresh(true)
-end
-
 ---Clears ParserManager tasks
 function ParserManager.clear()
 	order = {}

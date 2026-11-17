@@ -55,7 +55,7 @@ jobs:
 
       - name: Simulated Vita (offline scenarios)
         run: |
-          for s in tour extensions settings lang about extlang opensrc idleclock dlviews downloads themepick alltabs                    importempty browselang readerselect; do
+          for s in tour extensions settings lang about extlang opensrc idleclock dlviews downloads themepick alltabs                    importempty browselang readerselect settingstree; do
             echo "::group::$s"
             python tools/tests/sim.py "$s"
             echo "::endgroup::"
@@ -77,6 +77,8 @@ jobs:
             python tools/tests/sim.py "$s" --tmp "$T" --keep
             echo "::endgroup::"
           done
+          # webtoon mode: the page buttons jump a page at a time (default)
+          python tools/tests/sim.py webtoonlr --tmp "$T" --keep --set 'ReaderDirection = "WEBTOON"'
           # the imported titles reached the library and "Save image" wrote a file
           test -s "$T/ux0/data/otakio/save.dat"
           ls "$T/ux0/data/otakio/pictures/" | grep -q .

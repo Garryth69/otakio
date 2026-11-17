@@ -868,11 +868,6 @@ function ChapterSaver.load()
 	end
 end
 
-function ChapterSaver.setKey(key)
-	allKeys[key] = true
-	ChapterSaver.save()
-end
-
 ---Clears all saved chapters
 function ChapterSaver.clear()
 	is_notify_needed = false

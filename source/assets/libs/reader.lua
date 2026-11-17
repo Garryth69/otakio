@@ -1005,10 +1005,20 @@ local function webtoonInput(oldPad, pad, oldTouch, touch, oldTouch2, touch2)
 				wt.x = wt.x - 20
 			end
 		end
+		-- L/R: the next/previous page (default) or a screen of scrolling (Settings > Controls)
+		local byPage = Settings.WebtoonLR ~= "SCROLL"
 		if Controls.check(pad, SCE_CTRL_RIGHTPAGE) and not Controls.check(oldPad, SCE_CTRL_RIGHTPAGE) then
-			wtStep(1)
+			if byPage then
+				wtTurn("LEFT")
+			else
+				wtStep(1)
+			end
 		elseif Controls.check(pad, SCE_CTRL_LEFTPAGE) and not Controls.check(oldPad, SCE_CTRL_LEFTPAGE) then
-			wtStep(-1)
+			if byPage then
+				wtTurn("RIGHT")
+			else
+				wtStep(-1)
+			end
 		end
 		local dz = 1
 		if Controls.check(pad, SCE_CTRL_TRIANGLE) then

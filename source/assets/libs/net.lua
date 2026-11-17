@@ -159,8 +159,6 @@ local function img2bytes(width, height, dScale)
 	return bit32.band(width + 7, bit32.bnot(7)) * height * 4 / (dScale * dScale) + 1024
 end
 
--- tall pages up to this size load at full resolution (in 4096 px slices); bigger ones load at half resolution
-local TALL_FULL_MAX = 48 * 1024 * 1024
 local MAX_TEXTURE_SIDE = 4096
 
 -- milliseconds a stage may keep the async slot before it is stopped (network) or reported (decode)
@@ -939,13 +937,6 @@ end
 function Threads.netActionUnSafe(foo)
 	netInit() -- and the stack stays up (see netInit)
 	return foo()
-end
-
----Waits for the async slot, then runs `foo` with the network stack up (only for one-off, short calls)
-function Threads.netActionSafe(foo)
-	repeat
-	until getAsyncState() ~= 0
-	return Threads.netActionUnSafe(foo)
 end
 
 ---Wi-Fi state, cached for a second: checking it may (re)initialize the whole network stack

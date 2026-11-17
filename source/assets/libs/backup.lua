@@ -197,6 +197,8 @@ function Backup.importNoboru()
 		return
 	end
 	Dialog.confirm(L().IMPORT_NOBORU_Q, L().IMPORT_NOBORU_DESC, function()
+		-- pending chapter lists are written first, so they can't overwrite the imported ones afterwards
+		Cache.flushChapters()
 		local parsers = Extensions.importNoboruParsers()
 		local lib = FS.loadTable(root .. "save.dat") or {}
 		local added = 0

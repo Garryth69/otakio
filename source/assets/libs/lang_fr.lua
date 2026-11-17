@@ -24,6 +24,7 @@ Language.French = {
 	NSFW = {[true] = "Afficher", [false] = "Masquer"},
 	YORN = {[true] = "Oui", [false] = "Non"},
 	PAGINGCONTROLS = {DPAD = "Croix directionnelle", LR = "Boutons L et R"},
+	WEBTOONLR = {PAGE = "Tourner la page", SCROLL = "Défiler"},
 	PANEL = {
 		BACK = "Retour", CANCEL = "Annuler", CHANGE_SECTION = "Section", DELETE = "Supprimer", IMPORT = "Importer", MODE = "Mode",
 		READ = "Lire", SEARCH = "Rechercher", SELECT = "Choisir", UPDATE = "Actualiser"
@@ -59,7 +60,7 @@ Language.French = {
 		ClearAllCache = "Vider tout le cache", ClearChapters = "Supprimer tous les chapitres téléchargés", ResetAllSettings = "Réinitialiser tous les réglages",
 		SkipFontLoading = "Ne pas précharger les polices", ChapterSorting = "Ordre des chapitres", SilentDownloads = "Masquer les notifications de téléchargement",
 		SkipCacheChapterChecking = "Ne pas vérifier le cache au démarrage", LoadSummary = "Afficher le résumé", ShowFPS = "Afficher le compteur d'IPS", UIFontSize = "Taille du texte de l'interface",
-		ShowVersion = "Version", CheckAppUpdate = "Rechercher une mise à jour", AppAutoUpdate = "Rechercher une mise à jour au démarrage", SwapXO = "Bouton de validation", ChangingPageButtons = "Boutons pour tourner la page",
+		ShowVersion = "Version", CheckAppUpdate = "Rechercher une mise à jour", AppAutoUpdate = "Rechercher une mise à jour au démarrage", SwapXO = "Bouton de validation", ChangingPageButtons = "Boutons pour tourner la page", WebtoonLR = "Boutons de page en mode webtoon",
 		LeftStickDeadZone = "Zone morte du stick gauche", LeftStickSensitivity = "Sensibilité du stick gauche",
 		RightStickDeadZone = "Zone morte du stick droit", RightStickSensitivity = "Sensibilité du stick droit",
 		EU = "X (occidental)", JP = "O (japonais)", InputValue = "Saisissez une valeur", NoConnection = "Pas de connexion",
@@ -69,7 +70,7 @@ Language.French = {
 	SETTINGS_DESCRIPTION = {
 		Library = "Tri, filtres, catégories, mises à jour", Catalogs = "Langue, contenu pour adultes",
 		ExtensionsSettings = "Dépôts, mises à jour automatiques", Reader = "Sens, orientation, zoom",
-		Network = "Délai, conversion des images, proxy", Data = "Sauvegarde, cache, stockage", Other = "Polices, ordre des chapitres, notifications",
+		Network = "Délai, conversion des images, proxy", Data = "Sauvegarde, cache, stockage", Other = "Polices, notifications, détails",
 		Controls = "Boutons et sticks", About = "Version et crédits",
 		AutoDownloadNew = "Après une actualisation de la bibliothèque", PreloadPages = "Les pages suivantes se téléchargent en arrière-plan",
 		Incognito = "N'enregistre ni l'historique ni la progression", SaveImageFormat = "Pour « Enregistrer l'image » du lecteur. La conversion vers un autre format prend quelques secondes", UIFontSize = "Texte plus grand dans les listes, menus et descriptions (les titres ne changent pas)", ImageProxy = "Seulement pour les formats que la Vita ne lit pas (AVIF, JXL, GIF)",
@@ -106,7 +107,7 @@ Language.French = {
 		LIBRARY_OPTIONS = "Options de la bibliothèque", SORT_BY = "Trier par", FILTER = "Filtre",
 		SORT_NAMES = {["Date added"] = "Date d'ajout", ["A-Z"] = "A → Z", ["Z-A"] = "Z → A", Unread = "Non lus", ["Last read"] = "Dernière lecture", ["Latest chapter"] = "Dernier chapitre"},
 		FILTER_NAMES = {All = "Tous", Unread = "Non lus", Downloaded = "Téléchargés", Completed = "Lus en entier"},
-		EDIT_CATEGORIES = "Modifier les catégories", SET_CATEGORIES = "Choisir les catégories", N_CATEGORIES = "%d catégories", ADD_CATEGORY = "Ajouter une catégorie",
+		EDIT_CATEGORIES = "Modifier les catégories", SET_CATEGORIES = "Choisir les catégories", N_CATEGORIES = "%d catégories", N_CATEGORY = "%d catégorie", ADD_CATEGORY = "Ajouter une catégorie",
 		CATEGORY_NAME = "Nom de la catégorie", RENAME = "Renommer", MOVE_UP = "Monter", MOVE_DOWN = "Descendre", DELETE = "Supprimer",
 		DELETE_CATEGORY_Q = "Supprimer cette catégorie ?", REFRESH_LIBRARY = "Actualiser la bibliothèque", REFRESHING = "Mise à jour %d/%d",
 		CATEGORY = "Catégorie", OPTIONS = "Options", CONTINUE_READING = "Continuer", IN_LIBRARY = "Dans la bibliothèque", ADD_REMOVE = "Bibliothèque +/-",
@@ -137,7 +138,7 @@ Language.French = {
 		SEARCH_EXTENSIONS = "Rechercher des extensions", ALL_LANGUAGES = "Toutes les langues", TAB = "Onglet", REPOSITORIES = "Dépôts",
 		REFRESH_REPOS = "Actualiser les dépôts", UPDATE_ALL = "Tout mettre à jour", ADD_REPO = "Ajouter un dépôt", REPO_URL = "utilisateur/dépôt GitHub ou URL de l'index.json",
 		REPO_EXISTS = "Dépôt déjà ajouté", REMOVE_REPO_Q = "Retirer %s ?", REPO_BUILTIN = "Intégré · en ligne", REPO_OFFLINE = "Intégré · copie hors ligne",
-		REPO_MIHON = "Dépôt Mihon · %d sources sur %d fonctionnent dans Otakio", REPO_NEEDS_UPDATE = "%s nécessite un Otakio plus récent", N_REPOS = "%d dépôts",
+		REPO_MIHON = "Dépôt Mihon · %d sources sur %d fonctionnent dans Otakio", REPO_NEEDS_UPDATE = "%s nécessite un Otakio plus récent", N_REPOS = "%d dépôts", N_REPO = "%d dépôt",
 		LANG_EN = "Anglais", LANG_PT = "Portugais", LANG_ES = "Espagnol", LANG_FR = "Français", LANG_DE = "Allemand", LANG_IT = "Italien",
 		LANG_RU = "Russe", LANG_JA = "Japonais", LANG_ZH = "Chinois",
 		LANG_MULTI = "Multilingue", LANG_OTHER = "Autres",

@@ -24,6 +24,7 @@ Language.Russian = {
 	NSFW = {[true] = "Показывать", [false] = "Скрывать"},
 	YORN = {[true] = "Да", [false] = "Нет"},
 	PAGINGCONTROLS = {DPAD = "Крестовина", LR = "Кнопки L и R"},
+	WEBTOONLR = {PAGE = "Листать страницы", SCROLL = "Прокрутка"},
 	PANEL = {
 		BACK = "Назад", CANCEL = "Отмена", CHANGE_SECTION = "Раздел", DELETE = "Удалить", IMPORT = "Импорт", MODE = "Режим",
 		READ = "Читать", SEARCH = "Поиск", SELECT = "Выбрать", UPDATE = "Обновить"
@@ -59,7 +60,7 @@ Language.Russian = {
 		ClearAllCache = "Очистить весь кэш", ClearChapters = "Удалить все скачанные главы", ResetAllSettings = "Сбросить все настройки",
 		SkipFontLoading = "Пропустить предзагрузку шрифтов", ChapterSorting = "Порядок глав", SilentDownloads = "Скрыть уведомления о загрузках",
 		SkipCacheChapterChecking = "Пропустить проверку кэша при запуске", LoadSummary = "Показывать описание манги", ShowFPS = "Показывать FPS", UIFontSize = "Размер текста интерфейса",
-		ShowVersion = "Версия", CheckAppUpdate = "Проверить обновления приложения", AppAutoUpdate = "Проверять обновления при запуске", SwapXO = "Кнопка подтверждения", ChangingPageButtons = "Кнопки перелистывания",
+		ShowVersion = "Версия", CheckAppUpdate = "Проверить обновления приложения", AppAutoUpdate = "Проверять обновления при запуске", SwapXO = "Кнопка подтверждения", ChangingPageButtons = "Кнопки перелистывания", WebtoonLR = "Кнопки страниц в режиме вебтуна",
 		LeftStickDeadZone = "Мёртвая зона левого стика", LeftStickSensitivity = "Чувствительность левого стика",
 		RightStickDeadZone = "Мёртвая зона правого стика", RightStickSensitivity = "Чувствительность правого стика",
 		EU = "X (западная)", JP = "O (японская)", InputValue = "Введите значение", NoConnection = "Нет соединения",
@@ -69,7 +70,7 @@ Language.Russian = {
 	SETTINGS_DESCRIPTION = {
 		Library = "Сортировка, фильтры, категории, обновления", Catalogs = "Язык, контент 18+",
 		ExtensionsSettings = "Репозитории, автообновление", Reader = "Направление, ориентация, масштаб",
-		Network = "Тайм-аут, конвертация изображений, прокси", Data = "Резервные копии, кэш, хранилище", Other = "Шрифты, порядок глав, уведомления",
+		Network = "Тайм-аут, конвертация изображений, прокси", Data = "Резервные копии, кэш, хранилище", Other = "Шрифты, уведомления, детали",
 		Controls = "Кнопки и стики", About = "Версия и авторы",
 		AutoDownloadNew = "После обновления библиотеки", PreloadPages = "Следующие страницы скачиваются в фоне",
 		Incognito = "Не сохраняет историю и прогресс", SaveImageFormat = "Для «Сохранить изображение» в читалке. Преобразование в другой формат занимает несколько секунд", UIFontSize = "Крупнее текст в списках, меню и описаниях (заголовки не меняются)", ImageProxy = "Только для форматов, которые Vita не открывает (AVIF, JXL, GIF)",
@@ -106,7 +107,7 @@ Language.Russian = {
 		LIBRARY_OPTIONS = "Параметры библиотеки", SORT_BY = "Сортировка", FILTER = "Фильтр",
 		SORT_NAMES = {["Date added"] = "Дата добавления", ["A-Z"] = "А → Я", ["Z-A"] = "Я → А", Unread = "Непрочитанные", ["Last read"] = "Последнее чтение", ["Latest chapter"] = "Новая глава"},
 		FILTER_NAMES = {All = "Все", Unread = "Непрочитанные", Downloaded = "Скачанные", Completed = "Прочитанные"},
-		EDIT_CATEGORIES = "Изменить категории", SET_CATEGORIES = "Назначить категории", N_CATEGORIES = "Категорий: %d", ADD_CATEGORY = "Добавить категорию",
+		EDIT_CATEGORIES = "Изменить категории", SET_CATEGORIES = "Назначить категории", N_CATEGORIES = "Категорий: %d", N_CATEGORY = "Категорий: %d", ADD_CATEGORY = "Добавить категорию",
 		CATEGORY_NAME = "Название категории", RENAME = "Переименовать", MOVE_UP = "Выше", MOVE_DOWN = "Ниже", DELETE = "Удалить",
 		DELETE_CATEGORY_Q = "Удалить эту категорию?", REFRESH_LIBRARY = "Обновить библиотеку", REFRESHING = "Обновление %d/%d",
 		CATEGORY = "Категория", OPTIONS = "Параметры", CONTINUE_READING = "Продолжить", IN_LIBRARY = "В библиотеке", ADD_REMOVE = "Библиотека +/-",
@@ -137,7 +138,7 @@ Language.Russian = {
 		SEARCH_EXTENSIONS = "Поиск расширений", ALL_LANGUAGES = "Все языки", TAB = "Вкладка", REPOSITORIES = "Репозитории",
 		REFRESH_REPOS = "Обновить репозитории", UPDATE_ALL = "Обновить все", ADD_REPO = "Добавить репозиторий", REPO_URL = "GitHub пользователь/репозиторий или URL index.json",
 		REPO_EXISTS = "Репозиторий уже добавлен", REMOVE_REPO_Q = "Удалить %s?", REPO_BUILTIN = "Встроенный · онлайн", REPO_OFFLINE = "Встроенный · офлайн-копия",
-		REPO_MIHON = "Репозиторий Mihon · в Otakio работают %d из %d источников", REPO_NEEDS_UPDATE = "%s требует более новую версию Otakio", N_REPOS = "Репозиториев: %d",
+		REPO_MIHON = "Репозиторий Mihon · в Otakio работают %d из %d источников", REPO_NEEDS_UPDATE = "%s требует более новую версию Otakio", N_REPOS = "Репозиториев: %d", N_REPO = "Репозиториев: %d",
 		LANG_EN = "Английский", LANG_PT = "Португальский", LANG_ES = "Испанский", LANG_FR = "Французский", LANG_DE = "Немецкий", LANG_IT = "Итальянский",
 		LANG_RU = "Русский", LANG_JA = "Японский", LANG_ZH = "Китайский",
 		LANG_MULTI = "Многоязычные", LANG_OTHER = "Другие",

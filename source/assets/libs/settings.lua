@@ -16,6 +16,8 @@ Settings = {
 	ChapterSorting = "1->N",
 	RefreshLibAtStart = false,
 	ChangingPageButtons = "LR",
+	-- L/R in the webtoon (vertical scroll) reader: "PAGE" jumps to the next/previous page, "SCROLL" scrolls a screen
+	WebtoonLR = "PAGE",
 	LeftStickDeadZone = 30,
 	LeftStickSensitivity = 1,
 	RightStickDeadZone = 30,
@@ -70,15 +72,7 @@ local doesFileExist = System.doesFileExist
 local doesDirExist = System.doesDirExist
 local createDirectory = System.createDirectory
 
-local is_app_updating = false
 
----@return boolean
----Gives true if app is updating
-function settings.isAppUpdating()
-	return is_app_updating
-end
-
-local copyFile = CopyFile
 
 ---Sets colors from Themes[Settings.Theme] to their values
 local function setTheme(name)
@@ -113,14 +107,15 @@ local settingsListTree = {
 	"Catalogs",
 	"ExtensionsSettings",
 	"Reader",
+	"Controls",
 	"Network",
 	"Data",
 	"Other",
-	"Controls",
 	"About",
 	Library = {
 		"LibrarySorting",
 		"LibraryFilter",
+		"ChapterSorting",
 		"EditCategories",
 		"RefreshLibAtStart",
 		"AutoDownloadNew"
@@ -132,7 +127,6 @@ local settingsListTree = {
 		"PreferredCatalogLanguage"
 	},
 	ExtensionsSettings = {
-		"SourceLanguages",
 		"ExtensionRepos",
 		"CheckExtUpdatesAtStart",
 		"AutoUpdateExtensions",
@@ -167,7 +161,6 @@ local settingsListTree = {
 	},
 	Other = {
 		"SkipFontLoading",
-		"ChapterSorting",
 		"SilentDownloads",
 		"SkipCacheChapterChecking",
 		"LoadSummary",
@@ -182,6 +175,7 @@ local settingsListTree = {
 	Controls = {
 		"SwapXO",
 		"ChangingPageButtons",
+		"WebtoonLR",
 		"LeftStickDeadZone",
 		"LeftStickSensitivity",
 		"RightStickDeadZone",
@@ -271,6 +265,7 @@ function settings.load()
 				setSetting(new, "ChapterSorting", { "1->N", "N->1" })
 				setSetting(new, "RefreshLibAtStart", { true, false })
 				setSetting(new, "ChangingPageButtons", { "DPAD", "LR" })
+				setSetting(new, "WebtoonLR", { "PAGE", "SCROLL" })
 				setSetting(new, "LeftStickDeadZone", DeadZoneValues)
 				setSetting(new, "LeftStickSensitivity", SensitivityValues)
 				setSetting(new, "RightStickDeadZone", DeadZoneValues)
@@ -629,6 +624,9 @@ SettingsFunctions = {
 	end,
 	RefreshLibAtStart = function()
 		settings.RefreshLibAtStart = table.next(settings.RefreshLibAtStart, { true, false })
+	end,
+	WebtoonLR = function()
+		settings.WebtoonLR = table.next(settings.WebtoonLR, { "PAGE", "SCROLL" })
 	end,
 	ChangingPageButtons = function()
 		settings.ChangingPageButtons = table.next(settings.ChangingPageButtons, { "DPAD", "LR" })

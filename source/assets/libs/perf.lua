@@ -50,11 +50,6 @@ do
 		end
 	end
 
-	---@return boolean true while running at the fast clocks
-	function Perf.isFast()
-		return current == FAST
-	end
-
 	apply(FAST) -- start-up is all work
 end
 

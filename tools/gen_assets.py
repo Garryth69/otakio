@@ -282,7 +282,6 @@ def main():
         fn()
     # splash logo keeps NOBORU's 666x172 slot so index.lua math stays valid
     logo(666, 172, os.path.join(IMAGES, "logo.png"), mark=150)
-    mascot_mark(56).save(os.path.join(IMAGES, "mark.png"))
     livearea()
     print("assets generated")
 

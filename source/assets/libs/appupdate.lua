@@ -280,6 +280,10 @@ local function install()
 	FS.write(UPDATE_DIR .. "job.txt", table.concat({pkg, newVer, vpk, latest.name, latest.version}, "\n") .. "\n")
 	log("updater ready in " .. math.floor(ms() - t0) .. " ms, handing over")
 	state, step = "installed", "restart"
+	-- nothing waiting for a background write is lost when the app closes
+	if Cache and Cache.flushChapters then
+		pcall(Cache.flushChapters)
+	end
 	for _ = 1, 45 do -- ~0.75 s: time to read "Restarting to install"
 		coroutine.yield(false)
 	end

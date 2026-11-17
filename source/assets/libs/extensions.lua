@@ -931,17 +931,3 @@ function Extensions.importNoboruParsers()
 	touch()
 	return count
 end
-
----Languages present in the catalog (for the language filter)
-function Extensions.getLanguages()
-	local set, list = {}, {}
-	for _, e in ipairs(catalog) do
-		if not set[e.lang] then
-			set[e.lang] = true
-			list[#list + 1] = e.lang
-		end
-	end
-	table.sort(list)
-	table.insert(list, 1, "*")
-	return list
-end
