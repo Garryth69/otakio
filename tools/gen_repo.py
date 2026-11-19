@@ -63,7 +63,8 @@ CONFIG_KEYS = ["id", "name", "baseUrl", "lang", "version", "nsfw", "extension", 
 # `override val name: Type = "x" | true | 12` and `override fun name(): String = "x"`
 GENERIC_OVERRIDE_RE = re.compile(
     r'override\s+(?:val|fun)\s+(\w+)(?:\(\))?\s*(?::\s*[\w?]+)?\s*=\s*("(?:[^"\\$]|\\.)*"|true|false|-?\d+)\s*$', re.M)
-SOURCE_LIST_RE = re.compile(r'Pair\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)')
+# Pair("Name", "https://...") or Pair("Name", baseUrl): the site itself, written "" (the engine reads it as baseUrl)
+SOURCE_LIST_RE = re.compile(r'Pair\(\s*"([^"]+)"\s*,\s*(?:"([^"]+)"|baseUrl)\s*\)')
 
 # Markers used to recognise WordPress manga themes inside hand-written Kotlin sources
 MADARA_MARKERS = re.compile(r"admin-ajax|wp-manga|page-item-detail|manga_get_chapters|madara", re.I)
@@ -127,6 +128,9 @@ def parse_overrides(ext_dir, theme=None):
                 m = re.search(r"override\s+(?:val|fun)\s+" + key + r"(?:\(\))?(?:\s*:\s*String)?\s*=\s*\"([^\"]*)\"", src)
                 if m:
                     cfg["pageListSelector" if key == "pageListParseSelector" else key] = m.group(1)
+            # keiyoushi's KeyoappV2 (series at the site root, ?_ajax= endpoints): the engine has a mode for it
+            if re.search(r":\s*KeyoappV2\s*\(", src):
+                cfg["v2"] = True
             m = re.search(r"override\s+val\s+chapterMode\s*=\s*ChapterMode\.(\w+)", src)
             if m:
                 cfg["chapterMode"] = m.group(1)

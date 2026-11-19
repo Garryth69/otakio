@@ -125,7 +125,15 @@ end
 function Engines.MangaCatalog(cfg)
 	cfg.engine = "mangacatalog"
 	local p = newParser(cfg, {})
-	local series = cfg.sourceList or {{cfg.name, cfg.baseUrl}}
+	-- {name, url} per series; an empty url (keiyoushi's `Pair("...", baseUrl)`) is the site itself, and an empty list
+	-- means the one series the site is about
+	local series = {}
+	for _, s in ipairs(cfg.sourceList or {}) do
+		series[#series + 1] = {s[1], (s[2] and s[2] ~= "") and s[2] or cfg.baseUrl}
+	end
+	if #series == 0 then
+		series[1] = {cfg.name, cfg.baseUrl}
+	end
 	local function list(dt, query)
 		query = lower(query or "")
 		for _, s in ipairs(series) do
@@ -154,11 +162,19 @@ function Engines.MangaCatalog(cfg)
 		local cover = doc:selectFirst("div.flex > img, .card-img-right")
 		setCover(self, manga, cover and cover:attr("abs:src"))
 		local out = {}
+		local seen = {}
 		for _, el in ipairs(doc:select(cfg.chapterListSelector or "div.w-full > div.bg-bg-secondary > div.grid")) do
-			local a = el:selectFirst(".col-span-4 > a")
-			if a and a:attr("href") ~= "" then
-				local extra = textOf(el, ".text-xs:not(a)")
-				out[#out + 1] = {Name = trim(a:text()) .. (extra and (" - " .. extra) or ""), Link = pathOf(a:attr("abs:href"))}
+			-- a site's own chapterListSelector may pick the links themselves
+			local a = el:tagName() == "a" and el or el:selectFirst(".col-span-4 > a")
+			local href = a and a:attr("abs:href") or ""
+			if href ~= "" and not seen[href] then
+				seen[href] = true
+				local extra = el ~= a and textOf(el, ".text-xs:not(a)") or nil
+				local name = trim(a:text())
+				if name == "" then
+					name = "Chapter " .. (match(href, "chapter%-(%d+)") or "?")
+				end
+				out[#out + 1] = {Name = name .. (extra and (" - " .. extra) or ""), Link = pathOf(href)}
 			end
 		end
 		if #out == 0 then
@@ -177,6 +193,10 @@ function Engines.MangaCatalog(cfg)
 		local imgs = doc:select(cfg.pageSelector or "img[data-src]")
 		if imgs:size() == 0 then
 			imgs = doc:select("div.pages img.pages__img, img.pages__img, .js-pages-container img")
+		end
+		if imgs:size() == 0 then
+			-- single-series sites hosting the pages on Blogger
+			imgs = doc:select("img[src*='blogger.googleusercontent.com'], img[src*='bp.blogspot.com']")
 		end
 		for _, img in ipairs(imgs) do
 			local src = attrImg(img)
@@ -534,18 +554,71 @@ function Engines.Keyoapp(cfg)
 		end
 		dt.NoPages = true
 	end
+	-- Keyoapp V2 (keiyoushi's KeyoappV2): series at the site root (/slug), lists and chapters through ?_ajax= endpoints
+	-- that answer JSON with an HTML fragment. `v2 = true` in the extension, or found out when the old pages come back
+	-- empty (remembered per source).
+	local XHR = {["X-Requested-With"] = "XMLHttpRequest", Accept = "application/json, text/javascript, */*; q=0.01"}
+	local function v2List(self, page, dt, query, sort)
+		local url = cfg.baseUrl .. "/?_ajax=search"
+		if query and query ~= "" then
+			url = url .. "&q=" .. enc(query)
+		end
+		if sort then
+			url = url .. "&sort=" .. sort
+		end
+		url = url .. "&offset=" .. ((page - 1) * 20)
+		local data = Http.getJson(url, headers(self, XHR))
+		if type(data) ~= "table" or type(data.html) ~= "string" then
+			return false
+		end
+		local doc = Html.parse(data.html, cfg.baseUrl .. "/")
+		for _, a in ipairs(doc:select("a.group[href]")) do
+			local novel = lower(a:attr("data-type")) == "novel"
+			for _, sp in ipairs(a:select("span")) do
+				if lower(trim(sp:ownText())) == "novel" then
+					novel = true
+				end
+			end
+			if not novel then
+				local h2 = a:selectFirst("h2")
+				local img = a:selectFirst("img")
+				local cover = img and (img:attr("abs:data-src") ~= "" and img:attr("abs:data-src") or nil)
+				addManga(dt, p, h2 and h2:text() or a:attr("title"), a:attr("abs:href"), cover)
+			end
+		end
+		dt.NoPages = data.has_more ~= true
+		return true
+	end
+	local function useV2(self)
+		return cfg.v2 or self.KeyoV2
+	end
 	function p:getPopularManga(page, dt)
+		if useV2(self) then
+			v2List(self, page, dt, nil, "popular")
+			return
+		end
 		local doc = Http.getDocument(cfg.baseUrl, headers(self))
 		cards(doc, "div:contains(Popular) + div .group.overflow-hidden.grid, div:contains(Trending) + div .group.overflow-hidden.grid, div:contains(Popularie) + div .group.overflow-hidden.grid", dt)
 		if #dt == 0 then
 			self:getLatestManga(page, dt)
 		end
+		if #dt == 0 and v2List(self, page, dt, nil, "popular") and #dt > 0 then
+			self.KeyoV2 = true
+		end
 	end
 	function p:getLatestManga(page, dt)
+		if useV2(self) then
+			v2List(self, page, dt, nil, "latest")
+			return
+		end
 		cards(Http.getDocument(cfg.baseUrl .. "/latest/", headers(self)), "div.grid > div.group", dt)
 	end
 	function p:searchManga(query, page, dt)
 		local q = Engines.decodeSearch(query)
+		if useV2(self) then
+			v2List(self, page, dt, q)
+			return
+		end
 		-- newer Keyoapp sites (the Livewire reader) search at /search?q= and answer 404 at /series: remembered per source
 		if not self.KeyoNewSearch then
 			cards(Http.getDocument(cfg.baseUrl .. "/series?q=" .. enc(q), headers(self)), "#searched_series_page > button", dt, q)
@@ -559,9 +632,54 @@ function Engines.Keyoapp(cfg)
 			self.KeyoNewSearch = true
 		end
 	end
+	-- V2 series page: details in the page, chapters from ?_chapters_html (locked ones left out, like keiyoushi's default)
+	local function v2Chapters(self, manga, doc, slug, dt)
+		local function meta(label)
+			for _, sp in ipairs(doc:select("span.text-xs")) do
+				if find(sp:ownText(), label, 1, true) then
+					local parent = sp:parentElement()
+					local nextEl = parent and parent:nextElementSibling()
+					local t = nextEl and trim(nextEl:text()) or ""
+					if t ~= "" then
+						return t
+					end
+				end
+			end
+		end
+		local statusEl = doc:selectFirst("div.text-xs:containsOwn(Status) + div span.text-sm")
+		local desc = doc:selectFirst("#series-desc")
+		dt.Description = Engines.buildInfo({
+			Author = meta("Author"),
+			Artist = meta("Artist"),
+			Status = statusEl and trim(statusEl:text()) or nil,
+			Genres = doc:select("a[href*='?browse&tag']"):eachText()
+		}, desc and trim(desc:wholeText()) or "")
+		local og = doc:selectFirst("meta[property=og:image]")
+		setCover(self, manga, og and og:attr("content") ~= "" and og:attr("content") or nil)
+		local data = Http.getJson(cfg.baseUrl .. "/?_chapters_html=1&series_slug=" .. enc(slug), headers(self, XHR))
+		if type(data) ~= "table" or type(data.rows_html) ~= "string" then
+			return
+		end
+		local rows = Html.parse(data.rows_html, cfg.baseUrl .. "/")
+		local out = {}
+		for _, a in ipairs(rows:select("a.chapter-row[href]")) do
+			if a:attr("data-ch-locked") ~= "1" then
+				local label = trim(a:attr("data-ch-label"))
+				local date = a:selectFirst(".ch-date-row span:last-child")
+				out[#out + 1] = {Name = label ~= "" and label or trim(a:text()), Link = pathOf(a:attr("abs:href")), Date = date and trim(date:text()) or nil}
+			end
+		end
+		pushReversed(dt, out, manga)
+	end
 	function p:getChapters(manga, dt)
 		local doc = Http.getDocument(absolute(cfg.baseUrl, manga.Link), headers(self))
 		co_yield(false)
+		local series = doc:selectFirst("[data-series-uid][data-series-slug]") or doc:selectFirst("[data-series-slug]")
+		if series and doc:selectFirst("[data-series-uid]") then
+			self.KeyoV2 = true
+			v2Chapters(self, manga, doc, series:attr("data-series-slug"), dt)
+			return
+		end
 		local function row(label)
 			for _, d in ipairs(doc:select("div:has(span:containsOwn(" .. label .. ")) ~ div")) do
 				local t = trim(d:text())
@@ -592,6 +710,16 @@ function Engines.Keyoapp(cfg)
 	function p:prepareChapter(chapter, dt)
 		local url = absolute(cfg.baseUrl, chapter.Link)
 		local doc, body = Http.getDocument(url, headers(self))
+		-- V2: plain <img> in the strip reader
+		for _, img in ipairs(doc:select("#strip-reader img.reader-page")) do
+			local src = img:attr("abs:src")
+			if src ~= "" and not find(src, "^data:") then
+				dt[#dt + 1] = Http.image(src, url)
+			end
+		end
+		if #dt > 0 then
+			return
+		end
 		local host = match(body or "", "realUrl%s*=%s*`[^`]-//([^/`]+)")
 		host = host and gsub(host, "%${[^}]*}", "")
 		for _, img in ipairs(doc:select("#pages > img")) do

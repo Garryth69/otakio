@@ -57,6 +57,11 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - "1 repository" / "1 category" instead of the plural.
 
 ### Fixed
+- **Reader:** preparing the next chapter could close the reader with an error, and the screen could dim and sleep while
+  reading. Both features read system functions that the extension sandbox had already removed.
+- **Sources:** Siren Scans and Asmodeus Scans work again: their sites moved to a new version of the Keyoapp theme,
+  which the app now supports. Tower of God Manga Online lists its 650+ chapters again. Mist Scans follows its new
+  domain.
 - **POST requests with `%` in their body** (most searches sent as a form) reached the site mangled; very long
   addresses (over 512 characters, common behind the image proxy) overwrote engine memory, a likely cause of rare
   crashes.

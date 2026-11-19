@@ -125,6 +125,7 @@ Layout:
 | `source/` | the app (Lua) + `eboot.bin` (engine) + `sce_sys/` (icon and LiveArea) |
 | `engine/` | patches and script to rebuild the lpp-vita engine (see `docs/ENGINE_REBUILD.md`) |
 | `tools/` | VPK builder, extension catalog generator, source tester and Vita simulator |
+| `docs/` | `EXTENSIONS.md` (writing a source), `ENGINE_REBUILD.md` (the engine) |
 | `repo/` | **not part of this repository**: a clone of the extension repository |
 
 Commands (Python 3 + `pip install lupa pillow`):
