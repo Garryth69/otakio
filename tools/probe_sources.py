@@ -202,7 +202,7 @@ def merge_health(health, results, today=None, ci=False):
     """Merges probe results into health.json keeping a history per source:
     lastOk   = last day it worked (ok or partial)
     deadSince = first day of the current unbroken run of "dead" results (cleared when it works again)
-    tools/prune_repo.py removes sources dead for more than 180 days.
+    tools/prune_repo.py removes sources dead for more than 90 days.
     A downgrade (ok -> partial, ok/partial -> dead) needs two checks in a row: the first one only keeps the last
     result with "pending" = {status, since}, so a site that failed once (a timeout, a bad minute) doesn't flicker
     in the app. An upgrade counts at once. A dead run started that way dates from the first failed check."""

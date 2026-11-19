@@ -13,10 +13,12 @@ regeneration does not bring them back (delete the line from removed.json to rest
 
 Safety for unattended runs (the weekly workflow commits the result straight to main):
   - a keiyoushi clone with fewer than MIN_KEI_SOURCES build files is treated as broken and nothing is removed;
-  - more than --max-removals removals in one run are all held back and only reported (a person decides);
+  - more than --max-removals keiyoushi removals in one run are all held back and only reported (a person decides);
+  - sources dead for DEAD_DAYS leave at most --max-removals a run, the longest-dead first (the rest the next weeks),
+    and none at all when more than DEAD_SHARE of the catalog's own sources look dead at once (a broken robot);
   - --summary writes what happened (domain changes, removals, held back) for the status report.
 
-  python tools/prune_repo.py --kei <keiyoushi clone> [--days 180] [--probe] [--dry-run] [--max-removals 8] [--summary f.json]
+  python tools/prune_repo.py --kei <keiyoushi clone> [--days 90] [--probe] [--dry-run] [--max-removals 8] [--summary f.json]
 """
 import argparse, json, os, re, shutil, sys, time
 
@@ -27,7 +29,8 @@ ROOT = gen_repo.ROOT
 REPO = os.path.join(ROOT, "repo")
 REMOVED_JSON = os.path.join(REPO, "removed.json")
 REMOVED_MD = os.path.join(REPO, "REMOVED.md")
-DEAD_DAYS = 180
+DEAD_DAYS = 90
+DEAD_SHARE = 0.3  # more dead than this share of the non-keiyoushi sources: the health check is suspect
 MIN_KEI_SOURCES = 500  # keiyoushi has ~1500 sources; far fewer build files means a failed or partial clone
 
 # site owners who asked to be left out: {extension id or host: "reason"}
@@ -96,7 +99,7 @@ def main():
     idx = json.load(open(os.path.join(REPO, "index.json"), encoding="utf8"))
     health = probe_sources.load_health()
     log = load_removed()
-    remove, moved = {}, []
+    remove, moved, dead = {}, [], {}
 
     for e in idx["extensions"]:
         h = health.get(e["id"]) or {}
@@ -118,7 +121,7 @@ def main():
         if h.get("status") == "dead":
             since = h.get("deadSince") or h.get("checked") or today
             if days_since(since) > args.days:
-                remove[e["id"]] = "dead since %s" % since
+                dead[e["id"]] = since
 
     print("domain changes:")
     for e, new in moved:
@@ -126,11 +129,24 @@ def main():
     print("removals:")
     for ext_id, why in remove.items():
         print("  %-32s %s" % (ext_id, why))
-    held = {}
+    held, deferred = {}, []
     if args.max_removals and len(remove) > args.max_removals:
         print("%d removals is more than --max-removals %d: all held back for a person to check" % (len(remove), args.max_removals))
         held, remove = remove, {}
-    summary = {"date": today, "moved": [], "removed": [], "held": [{"id": k, "reason": v} for k, v in sorted(held.items())]}
+    own = sum(1 for e in idx["extensions"] if e.get("origin") != "keiyoushi")
+    if dead and len(dead) > DEAD_SHARE * max(own, 1):
+        print("%d of %d own sources dead for %d days: the health check looks broken, nothing removed" % (len(dead), own, args.days))
+        held.update({k: "dead since %s (held: too many at once)" % v for k, v in dead.items()})
+    else:
+        oldest = sorted(dead, key=lambda k: (dead[k], k))
+        cut = args.max_removals or len(oldest)
+        for k in oldest[:cut]:
+            remove[k] = "dead since %s" % dead[k]
+        deferred = oldest[cut:]
+        if deferred:
+            print("%d more dead sources wait for the next runs" % len(deferred))
+    summary = {"date": today, "moved": [], "removed": [], "held": [{"id": k, "reason": v} for k, v in sorted(held.items())],
+               "deferred": deferred}
     if args.dry_run:
         return
 

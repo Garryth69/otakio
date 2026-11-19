@@ -84,6 +84,8 @@ def main():
     out += ["## Weekly sync with keiyoushi", ""]
     if sync:
         out.append("Last run: %s." % sync.get("date", "?"))
+        for a in sync.get("added", []):
+            out.append("- new source added (passed a live test): %s, %s" % (label(a["id"]), a.get("baseUrl", "")))
         for m in sync.get("moved", []):
             out.append("- new domain applied: %s -> %s" % (label(m["id"]), m["to"]))
         for r in sync.get("removed", []):
@@ -94,7 +96,9 @@ def main():
                     " with a higher `--max-removals` after checking them):"]
             for r in held:
                 out.append("- %s (%s)" % (label(r["id"]), r["reason"]))
-        if not (sync.get("moved") or sync.get("removed") or held):
+        if sync.get("deferred"):
+            out.append("- %d more sources dead for 90 days leave in the next weeks (at most 8 a week)" % len(sync["deferred"]))
+        if not (sync.get("added") or sync.get("moved") or sync.get("removed") or held or sync.get("deferred")):
             out.append("Nothing to do.")
     else:
         out.append("No sync recorded yet.")

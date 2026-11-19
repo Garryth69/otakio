@@ -51,6 +51,10 @@ jobs:
           python tools/tests/test_domain_move.py
           python tools/tests/test_madara_fallback.py
           python tools/tests/test_system_sandbox.py
+          python tools/tests/test_prune_limits.py
+
+      - name: Unattended maintenance in the simulator (remote settings, replaced extensions)
+        run: python tools/tests/test_sim_maintenance.py
 
       - name: Translations
         run: python tools/check_lang.py

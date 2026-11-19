@@ -454,6 +454,9 @@ def main():
 
         def fetch(url, method=None, post=None, ctype=None, headers=(), ua=None):
             url = url.replace("%%", "%")  # lpp-vita un-escapes doubled percent signs
+            remote = os.environ.get("SIM_FAKE_REMOTE")
+            if remote and url.endswith("/main/remote.json"):
+                return open(remote, "rb").read()
             fake = os.environ.get("SIM_FAKE_RELEASE")
             if fake:
                 # app update test: a fake "latest release" serving a local VPK (SIM_FAKE_RELEASE=path, tag v9.9.9)
@@ -519,6 +522,16 @@ def main():
         sim.download = _timed(download)
         sim.netstats = L.table_from(stats)
         globals()["NETSTATS"] = stats
+    elif os.environ.get("SIM_FAKE_REMOTE"):
+        # offline, but the app's remote settings (remote.json) come from this local file (remoteconfig.lua tests)
+        remote_file = os.environ["SIM_FAKE_REMOTE"]
+
+        def remote_only(url, *rest):
+            if url.endswith("/main/remote.json"):
+                return open(remote_file, encoding="utf8").read() + chr(0)
+            return ""
+        sim.wifi = True
+        sim.http = remote_only
     steps = SCENARIOS[args.scenario]
     script, frames = build_script(steps)
     lua_script = L.table_from({k: L.table_from({kk: (L.table_from(list(vv)) if isinstance(vv, tuple) else vv) for kk, vv in v.items()}) for k, v in script.items()})

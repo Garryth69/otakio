@@ -190,6 +190,40 @@ def make_entry(ext_id, cfg, engine, origin, compat, out_dir, header):
     }
 
 
+def build_kei_dir(ext_dir, lang_dir, pkg, out_dir, origin, prefix, repo_label):
+    """Entries (and files in out_dir/extensions) for one keiyoushi-format extension folder: [] when its theme has
+    no Otakio engine."""
+    gradle = os.path.join(ext_dir, "build.gradle.kts")
+    if not os.path.exists(gradle):
+        return []
+    name, theme, nsfw, version, sources = parse_gradle(open(gradle, encoding="utf8").read())
+    if theme not in ENGINES or not name or not sources:
+        return []
+    overrides, compat = parse_overrides(ext_dir, theme)
+    entries = []
+    for src in sources:
+        lang = src["lang"] if len(sources) > 1 else lang_dir
+        ext_id = prefix + "." + lang.lower() + "." + pkg.lower()
+        cfg = {
+            # keep "KEI_" ids stable: library entries reference them
+            "id": prefix.upper() + "_" + re.sub(r"[^A-Z0-9]", "", (src["lang"] + "_" + pkg).upper()),
+            "name": src["name"] or name,
+            "baseUrl": src["baseUrl"],
+            "lang": src["lang"],
+            "version": version + 1,
+            "nsfw": nsfw,
+            "extension": ext_id,
+        }
+        cfg.update(SITE_EXTRA.get(pkg.lower(), {}))
+        for k, v in overrides.items():
+            if k == "sourceList":
+                # "$baseUrl/manga/x" inside Kotlin string templates
+                v = [[n, u.replace("${baseUrl}", src["baseUrl"]).replace("$baseUrl", src["baseUrl"])] for n, u in v]
+            cfg[k] = v
+        entries.append(make_entry(ext_id, cfg, theme, origin, compat, out_dir, "generated from %s: %s/%s" % (repo_label, lang_dir, pkg)))
+    return entries
+
+
 def build_keiyoushi_format(root, out_dir, origin, prefix, repo_label):
     """Any repository using keiyoushi's gradle DSL (keiyoushi, yuzono, cursed-manga-extensions...)."""
     entries = []
@@ -198,36 +232,12 @@ def build_keiyoushi_format(root, out_dir, origin, prefix, repo_label):
         if not os.path.isdir(os.path.join(src_root, lang_dir)):
             continue
         for pkg in sorted(os.listdir(os.path.join(src_root, lang_dir))):
-            ext_dir = os.path.join(src_root, lang_dir, pkg)
-            gradle = os.path.join(ext_dir, "build.gradle.kts")
-            if not os.path.exists(gradle):
-                continue
-            name, theme, nsfw, version, sources = parse_gradle(open(gradle, encoding="utf8").read())
-            if theme not in ENGINES or not name or not sources:
-                continue
-            overrides, compat = parse_overrides(ext_dir, theme)
-            for src in sources:
-                lang = src["lang"] if len(sources) > 1 else lang_dir
-                ext_id = prefix + "." + lang.lower() + "." + pkg.lower()
-                cfg = {
-                    # keep "KEI_" ids stable: library entries reference them
-                    "id": prefix.upper() + "_" + re.sub(r"[^A-Z0-9]", "", (src["lang"] + "_" + pkg).upper()),
-                    "name": src["name"] or name,
-                    "baseUrl": src["baseUrl"],
-                    "lang": src["lang"],
-                    "version": version + 1,
-                    "nsfw": nsfw,
-                    "extension": ext_id,
-                }
-                cfg.update(SITE_EXTRA.get(pkg.lower(), {}))
-                for k, v in overrides.items():
-                    if k == "sourceList":
-                        # "$baseUrl/manga/x" inside Kotlin string templates
-                        v = [[n, u.replace("${baseUrl}", src["baseUrl"]).replace("$baseUrl", src["baseUrl"])] for n, u in v]
-                    cfg[k] = v
-                entries.append(make_entry(ext_id, cfg, theme, origin, compat, out_dir, "generated from %s: %s/%s" % (repo_label, lang_dir, pkg)))
+            entries += build_kei_dir(os.path.join(src_root, lang_dir, pkg), lang_dir, pkg, out_dir, origin, prefix, repo_label)
     return entries
 
+
+# languages published in the catalog (Mihon codes; "all" = multi-language sources)
+DEFAULT_LANGS = "en,pt-BR,pt,es,es-419,fr,de,it,ru,ja,zh,zh-Hans,zh-Hant,all"
 
 NOBORU_LANG = {"ENG": "en", "RUS": "ru", "ESP": "es", "PRT": "pt", "BRA": "pt-BR", "FRA": "fr", "JAP": "ja", "DIF": "all",
                "TUR": "tr", "ITA": "it", "VIE": "vi", "DEU": "de", "POL": "pl", "IDN": "id", "CHN": "zh", "ROU": "ro",
@@ -362,7 +372,7 @@ def main():
     ap.add_argument("--yuzono", help="yuzono/tachiyomi-extensions clone")
     ap.add_argument("--cursed", help="yuzono/cursed-manga-extensions clone (source of mojuru/cursed-manga-repo)")
     ap.add_argument("--probe", action="store_true", help="test every source live and mark dead ones (slow)")
-    ap.add_argument("--langs", default="en,pt-BR,pt,es,es-419,fr,de,it,ru,ja,zh,zh-Hans,zh-Hant,all",
+    ap.add_argument("--langs", default=DEFAULT_LANGS,
                     help="languages to publish (comma separated, Mihon codes; 'all' = multi-language sources)")
     args = ap.parse_args()
     import probe_sources

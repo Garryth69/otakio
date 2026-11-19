@@ -125,7 +125,7 @@ Layout:
 | `source/` | the app (Lua) + `eboot.bin` (engine) + `sce_sys/` (icon and LiveArea) |
 | `engine/` | patches and script to rebuild the lpp-vita engine (see `docs/ENGINE_REBUILD.md`) |
 | `tools/` | VPK builder, extension catalog generator, source tester and Vita simulator |
-| `docs/` | `EXTENSIONS.md` (writing a source), `ENGINE_REBUILD.md` (the engine) |
+| `docs/` | `EXTENSIONS.md` (writing a source), `ENGINE_REBUILD.md` (the engine); `AGENTS.md` at the root sums up maintenance |
 | `repo/` | **not part of this repository**: a clone of the extension repository |
 
 Commands (Python 3 + `pip install lupa pillow`):
@@ -151,7 +151,7 @@ Then:
 |---|---|
 | `python tools/gen_repo.py --kei <dir> --noboru <dir> [...] [--probe]` | builds the `repo/` catalog from keiyoushi themes, NOBORU parsers and the native extensions in `repo/native/` |
 | `python tools/probe_sources.py [--ids file]` | tests sources live and writes `repo/health.json` |
-| `python tools/prune_repo.py --kei <dir>` | follows keiyoushi removals and domain changes, and drops sources dead for 180+ days |
+| `python tools/prune_repo.py --kei <dir>` | follows keiyoushi removals and domain changes, and drops sources dead for 90+ days |
 | `python tools/trace_source.py <id>` | prints every HTTP request an extension makes |
 
 ### Releasing a new version
@@ -183,7 +183,7 @@ Wrong values are ignored, never applied (`tools/tests/test_remoteconfig.lua` che
 
 The extension repository runs on its own:
 - **daily health check:** tests every source, records domain moves and refreshes the README;
-- **weekly sync:** follows keiyoushi (new domains after a live probe, removals) and drops sources down for 180 days.
+- **weekly sync:** follows keiyoushi (new domains after a live probe, removals) and drops sources down for 90 days (at most 8 a week).
   It commits to `main`, but holds every removal back when there are more than 8, or when the keiyoushi clone looks
   broken;
 - **status issue:** a pinned issue, *Catalog status*, is rewritten every week and whenever a robot fails. A keepalive
