@@ -1,6 +1,6 @@
 """Builds Otakio.vpk from source/ (a VPK is a zip with eboot.bin + sce_sys at the root).
 
-Usage: python tools/build_vpk.py [--skip-checks] [--eboot engine/eboot_tls13.bin] [--name Otakio.vpk] [--with-catalog]
+Usage: python tools/build_vpk.py [--skip-checks] [--eboot path/to/eboot.bin] [--name Otakio.vpk] [--with-catalog]
   * release builds carry no extensions: sources come from an extension repository the user adds in the app
   * --with-catalog bundles source/repo/ (the local extension catalog) for offline/test builds
   * writes param.sfo with tools/mksfo.py from VERSION_NAME / TITLE_ID in source/assets/libs/config.lua

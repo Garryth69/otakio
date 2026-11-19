@@ -48,7 +48,3 @@ LanguageNames.English.Default = "System"
 function GetSystemLanguageName()
 	return systemName
 end
-
-function GetLanguages()
-	return ORDER
-end

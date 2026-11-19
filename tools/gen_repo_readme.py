@@ -118,6 +118,10 @@ The catalog is generated, tested and pruned by tools in the app repository (`too
 - keiyoushi-based sources follow keiyoushi (removed there = removed here);
 - other sources are removed after 180 days down in a row.
 
+It all runs on its own: a daily health check (`health.yml`), a weekly sync with keiyoushi that commits to `main` but
+holds back unusual removals for a person (`regen.yml`, history in `sync.json`), and a weekly status report in the
+pinned *Catalog status* issue (`status.yml`).
+
 ## Credits
 
 - **[keiyoushi/extensions-source](https://github.com/keiyoushi/extensions-source)** (Apache 2.0): the theme logic and the

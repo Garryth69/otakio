@@ -283,6 +283,7 @@ local a2u8 = {
 local byte = string.byte
 local char = string.char
 
+-- AnsiToUtf8 and u8c are globals of the NOBORU parser API: legacy parsers (ux0:data/otakio/parsers) call them
 function AnsiToUtf8(s)
 	local r, b = {}, nil
 	for i = 1, s and #s or 0 do
