@@ -5,6 +5,8 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 ## Unreleased
 
 ### Added
+- **Remote settings:** the browser identification sent to sites, the image converter, extensions to switch off and a
+  one-time notice can be changed from the project's GitHub (remote.json) without a new version of the app.
 - **New engine (network):** pages, lists and searches arrive compressed (5-10x less data); connections, TLS
   sessions and DNS answers are reused between requests, so a site is reached without a new handshake; cookies a
   site sets are sent back to it during the session (some sources only list chapters to a visitor that has one).

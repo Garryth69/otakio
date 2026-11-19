@@ -165,6 +165,33 @@ Then:
 
 The app compares the latest release tag with its own version and offers to download the attached `.vpk`.
 
+### Remote settings (no release needed)
+
+[`remote.json`](remote.json) on `main` is read by the app at every start (and kept on the memory card for offline
+starts). Editing it on GitHub changes installed apps without a new version:
+
+| Field | Effect |
+|---|---|
+| `userAgent` | the browser identification sent to sites (must start with `Mozilla/5.0`); update it when sites start refusing an old one |
+| `imageProxy` | the image converter, `https://` with one `%s` for the escaped image address (it must accept `&w=` too, like wsrv.nl) |
+| `disabledExtensions` | extension ids whose sources are switched off, for one that misbehaves |
+| `notice` | `{"id": "...", "until": "YYYY-MM-DD", "text": {"English": "...", "PortugueseBR": "..."}}`: shown once to every user |
+
+Wrong values are ignored, never applied (`tools/tests/test_remoteconfig.lua` checks the published file too).
+
+### Unattended maintenance
+
+The extension repository runs on its own:
+- **daily health check:** tests every source, records domain moves and refreshes the README;
+- **weekly sync:** follows keiyoushi (new domains after a live probe, removals) and drops sources down for 180 days.
+  It commits to `main`, but holds every removal back when there are more than 8, or when the keiyoushi clone looks
+  broken;
+- **status issue:** a pinned issue, *Catalog status*, is rewritten every week and whenever a robot fails. A keepalive
+  commit stops GitHub from switching the schedules off after 60 quiet days.
+
+Dependabot's updates of the pinned actions merge themselves in all three repositories when CI passes. Major versions
+wait for a person.
+
 ## Contributing
 
 Bug reports, source fixes, new sources and translations are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).

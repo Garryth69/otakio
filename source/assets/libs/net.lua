@@ -27,7 +27,15 @@ end
 
 function ImageProxy.isProxied(link)
 	local url = linkUrl(link)
-	return type(url) == "string" and url:find("wsrv.nl", 1, true) ~= nil
+	if type(url) ~= "string" then
+		return false
+	end
+	if url:find("wsrv.nl", 1, true) then
+		return true
+	end
+	-- the proxy remote.json may set instead (remoteconfig.lua)
+	local host = (Config.IMAGE_PROXY or ""):match("^https?://([^/]+)")
+	return host ~= nil and url:find("//" .. host .. "/", 1, true) ~= nil
 end
 
 ---The Otakio engine decodes WebP itself (libwebp); the old NOBORU engine needs the converting proxy

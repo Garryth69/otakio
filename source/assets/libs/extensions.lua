@@ -232,6 +232,11 @@ local function addJob(name, fn)
 	jobs[#jobs + 1] = {name = name, co = co_create(fn)}
 end
 
+---Runs `fn` as a background job of this queue (a coroutine: network calls wait by yielding)
+function Extensions.addJob(name, fn)
+	addJob(name, fn)
+end
+
 function Extensions.update()
 	if not currentJob then
 		currentJob = table.remove(jobs, 1)

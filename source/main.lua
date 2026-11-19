@@ -64,6 +64,7 @@ loadlib("chsaver")
 loadlib("cache")
 loadlib("reader")
 loadlib("import")
+loadlib("remoteconfig")
 
 -- Sandbox: extensions don't get raw access to the OS / file system
 os = nil
@@ -99,6 +100,9 @@ if doesDirExist(legacyPath) then
 else
 	createDirectory("ux0:data/otakio/parsers")
 end
+
+-- remote settings kept from last time (remote.json in the app's repository), before any network: see remoteconfig.lua
+RemoteConfig.loadCached()
 
 local fonts = {
 	FONT13,
@@ -271,6 +275,8 @@ local function preloadData()
 	pcall(ExtLog, "startup: " .. table.concat(stageTimes, ", "))
 	-- new Otakio release on GitHub? asks to install it (unless turned off in Settings > About)
 	AppUpdate.startup()
+	-- and the current remote settings, in the background
+	Extensions.addJob("remote config", RemoteConfig.fetch)
 	Migrations.notify()
 end
 

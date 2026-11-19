@@ -11,7 +11,12 @@ Rules (decided for Otakio's long-term maintenance):
 Every removal is appended to repo/removed.json and listed in repo/REMOVED.md. gen_repo.py skips removed ids, so a
 regeneration does not bring them back (delete the line from removed.json to restore one).
 
-  python tools/prune_repo.py --kei <keiyoushi clone> [--days 180] [--probe] [--dry-run]
+Safety for unattended runs (the weekly workflow commits the result straight to main):
+  - a keiyoushi clone with fewer than MIN_KEI_SOURCES build files is treated as broken and nothing is removed;
+  - more than --max-removals removals in one run are all held back and only reported (a person decides);
+  - --summary writes what happened (domain changes, removals, held back) for the status report.
+
+  python tools/prune_repo.py --kei <keiyoushi clone> [--days 180] [--probe] [--dry-run] [--max-removals 8] [--summary f.json]
 """
 import argparse, json, os, re, shutil, sys, time
 
@@ -23,6 +28,7 @@ REPO = os.path.join(ROOT, "repo")
 REMOVED_JSON = os.path.join(REPO, "removed.json")
 REMOVED_MD = os.path.join(REPO, "REMOVED.md")
 DEAD_DAYS = 180
+MIN_KEI_SOURCES = 500  # keiyoushi has ~1500 sources; far fewer build files means a failed or partial clone
 
 # site owners who asked to be left out: {extension id or host: "reason"}
 OPT_OUT = {}
@@ -76,7 +82,15 @@ def main():
     ap.add_argument("--days", type=int, default=DEAD_DAYS)
     ap.add_argument("--probe", action="store_true", help="probe sources whose domain changed")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--max-removals", type=int, default=0, help="hold back every removal when there are more (0: no limit)")
+    ap.add_argument("--summary", help="write a JSON summary of the run")
     args = ap.parse_args()
+    if args.kei:
+        import glob
+        found = len(glob.glob(os.path.join(args.kei, "src", "*", "*", "build.gradle.kts")))
+        if found < MIN_KEI_SOURCES:
+            print("keiyoushi clone has only %d build files: not following upstream this run" % found)
+            args.kei = None
     today = time.strftime("%Y-%m-%d")
 
     idx = json.load(open(os.path.join(REPO, "index.json"), encoding="utf8"))
@@ -112,6 +126,11 @@ def main():
     print("removals:")
     for ext_id, why in remove.items():
         print("  %-32s %s" % (ext_id, why))
+    held = {}
+    if args.max_removals and len(remove) > args.max_removals:
+        print("%d removals is more than --max-removals %d: all held back for a person to check" % (len(remove), args.max_removals))
+        held, remove = remove, {}
+    summary = {"date": today, "moved": [], "removed": [], "held": [{"id": k, "reason": v} for k, v in sorted(held.items())]}
     if args.dry_run:
         return
 
@@ -141,6 +160,7 @@ def main():
         for k in ("health", "checked"):
             e.pop(k, None)
         applied.append((e, new))
+        summary["moved"].append({"id": e["id"], "to": new})
         targets.append({"id": e["id"], "engine": "native", "baseUrl": new, "lang": e["lang"], "file": e["file"]})
     moved = applied
     kept = []
@@ -151,6 +171,7 @@ def main():
             continue
         log.append({"id": e["id"], "name": e.get("name"), "baseUrl": e.get("baseUrl"), "origin": e.get("origin"), "date": today,
                     "reason": why})
+        summary["removed"].append({"id": e["id"], "reason": why})
         if e.get("file") and os.path.isfile(os.path.join(REPO, e["file"])):
             os.remove(os.path.join(REPO, e["file"]))
         health.pop(e["id"], None)
@@ -171,6 +192,9 @@ def main():
     shutil.rmtree(bundled, ignore_errors=True)
     shutil.copytree(REPO, bundled, ignore=shutil.ignore_patterns("native", "health.json", "removed.json", ".git", ".github", "*.md", "LICENSE"))
     print("catalog: %d extensions, %d removed in total" % (len(kept), len(log)))
+    if args.summary:
+        with open(args.summary, "w", encoding="utf8") as fh:
+            json.dump(summary, fh, ensure_ascii=False, indent=1)
 
 
 if __name__ == "__main__":
