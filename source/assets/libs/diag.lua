@@ -104,7 +104,21 @@ local function newCrashDumps()
 			end
 		end
 	end
-	FS.write(SEEN_DUMPS, table.concat(current, "\n") .. "\n")
+	-- written only when the list changed: a card write at every start-up for nothing
+	local gone = false
+	for name in pairs(seen) do
+		local still = false
+		for _, c in ipairs(current) do
+			if c == name then
+				still = true
+				break
+			end
+		end
+		gone = gone or not still
+	end
+	if #fresh > 0 or gone or next(seen) == nil then
+		FS.write(SEEN_DUMPS, table.concat(current, "\n") .. "\n")
+	end
 	return fresh, next(seen) == nil
 end
 

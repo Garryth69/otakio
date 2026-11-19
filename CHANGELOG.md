@@ -39,6 +39,14 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
   chapters*, *chapters without pages* or *images blocked* (from the daily check of every source).
 
 ### Changed
+- **Opening a result of the global search is fast:** its chapters go first in line, and the sources still being
+  searched step aside (they finish afterwards). Before, the chapters waited behind every source's search.
+- **A slow background download no longer holds up what you asked for:** a cover that takes several seconds is paused
+  and resumed later when a list or chapter you opened is waiting.
+- **Smoother while sources load:** big JSON lists (MangaFlix, MangaDex...) and the extension catalog are read in
+  smaller steps, and the log is written to the card in batches instead of line by line (start-up is lighter too).
+- While the system keyboard opens, the screen shows what is being typed for and a spinner instead of going blank.
+- Keyoapp sites on the new platform (Kitsune Dawn...) can be searched again.
 - **Settings are easier to find:** *Controls* sits right after *Reader*, *Chapter order* moved to *Library*, and the
   active source languages are set in one place (*Browse*). Going back from a section keeps the cursor on it.
 - "1 repository" / "1 category" instead of the plural.
@@ -50,6 +58,10 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - A broken zip no longer closes the app when it is opened.
 - Chapter lists still waiting to be written are saved before the cache is cleared, NOBORU data is imported or the app
   restarts to install an update (they could be lost, or bring a cleared folder back).
+- Images that turn out to be a web page (a "not found" page sent as an image) are no longer sent to the converting
+  proxy and retried: they fail at once.
+- Network errors in the log carry curl's error code (its text could name a harmless certificate notice instead of
+  the real cause).
 - Removed unused code (13 functions, including a busy-wait that could freeze the app) and 2 unused images.
 - **Madara sites with their own card design** (Aqua Manga, Cocomic...) list their series again: when none of the
   known card layouts is found, any link to a series page with a cover next to it is a result (menus, sliders and

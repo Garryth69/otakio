@@ -32,10 +32,19 @@ local co_create, co_resume, co_status, co_yield = coroutine.create, coroutine.re
 ---hardware can be reported without a debug console
 local LOG_PATH = Config.DATA .. "log.txt"
 local logStarted = false
-function ExtLog(msg)
-	local line = (Clock and Clock.date and Clock.date("%Y-%m-%d %H:%M:%S") or "") .. "  " .. tostring(msg)
+-- lines wait in memory and reach the card in batches (ExtLogFlush, at most once a second from the main loop): every
+-- card write paused the frame it happened in, and start-up wrote several (the first one also rewrote the whole file)
+local logBuffer = {}
+local logFlushClock = nil
+
+---Writes the waiting log lines now. The first write of a session also keeps only the last 300 lines of the file.
+function ExtLogFlush()
+	if #logBuffer == 0 then
+		return
+	end
+	local text = table.concat(logBuffer, "\n") .. "\n"
+	logBuffer = {}
 	if not logStarted then
-		-- first line of the session: the last 300 lines of the previous sessions are kept, written once
 		logStarted = true
 		local kept = {}
 		local old = FS.read(LOG_PATH)
@@ -44,14 +53,31 @@ function ExtLog(msg)
 				kept[#kept + 1] = l
 			end
 		end
-		while #kept > 300 do
-			table.remove(kept, 1)
-		end
-		kept[#kept + 1] = line
-		FS.write(LOG_PATH, table.concat(kept, "\n") .. "\n")
+		local keep = math.max(0, 300 - select(2, text:gsub("\n", "")))
+		local first = math.max(1, #kept - keep + 1)
+		FS.write(LOG_PATH, table.concat(kept, "\n", first, #kept) .. (#kept >= first and "\n" or "") .. text)
 	else
-		-- later lines are appended: rewriting the whole file for every line paused the app at each screen change
-		FS.append(LOG_PATH, line .. "\n")
+		FS.append(LOG_PATH, text)
+	end
+end
+
+---Called every frame: flushes the waiting lines once a second (start-up lines wait until the Library shows)
+function ExtLogUpdate()
+	if #logBuffer == 0 then
+		return
+	end
+	logFlushClock = logFlushClock or Timer.new()
+	if Timer.getTime(logFlushClock) >= 1000 then
+		Timer.reset(logFlushClock)
+		ExtLogFlush()
+	end
+end
+
+function ExtLog(msg)
+	local line = (Clock and Clock.date and Clock.date("%Y-%m-%d %H:%M:%S") or "") .. "  " .. tostring(msg)
+	logBuffer[#logBuffer + 1] = line
+	if #logBuffer >= 50 then
+		ExtLogFlush()
 	end
 	if Console then
 		Console.write(line)
@@ -441,8 +467,8 @@ local function mergeIndex(index, repo, base)
 	local n, newer = 0, 0
 	local canYield = coroutine.running() ~= nil
 	for k, e in ipairs(index.extensions) do
-		if canYield and k % 50 == 0 then
-			co_yield(false) -- 361 entries in one go took ~100 ms on the Vita
+		if canYield and k % 20 == 0 then
+			co_yield(false) -- 50 entries per step took ~100-140 ms on the Vita (startup hitches): 20 stay near 50 ms
 		end
 		if type(e) == "table" and (tonumber(e.api) or 1) > Config.ENGINE_LEVEL then
 			newer = newer + 1 -- made for a newer Otakio: not offered here

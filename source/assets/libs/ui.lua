@@ -344,9 +344,16 @@ end
 ---@return string|nil text (nil if cancelled)
 function TextInput(title, default, maxLen, kbType)
 	Keyboard.show(title or "", tostring(default or ""), maxLen or 128, kbType or TYPE_DEFAULT, MODE_TEXT, OPT_NO_AUTOCAP)
+	-- the system keyboard takes a moment to appear when the app is busy (a global search downloading covers...): a
+	-- title and a spinner instead of a bare screen until it covers them
+	local LO = Language[Settings.Language] and Language[Settings.Language].OTAKIO or {}
+	local hint = LO.OPENING_KEYBOARD or Language.English.OTAKIO.OPENING_KEYBOARD or ""
 	while Keyboard.getState() == RUNNING do
 		Graphics.initBlend()
 		Screen.clear(COLOR_BACK)
+		UI.textCenter(FONT20, 480, 220, title or "", COLOR_FONT, 800)
+		UI.spinner(480, 290, 12)
+		UI.textCenter(FONT16, 480, 320, hint, COLOR_SUBFONT, 800)
 		Graphics.termBlend()
 		Screen.waitVblankStart()
 		Screen.flip()

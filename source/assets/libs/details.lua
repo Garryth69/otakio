@@ -275,7 +275,8 @@ function Details.setManga(manga)
 		continueChapterNumber = nil
 
 		if Threads.isOnline() and GetParserByID(manga.ParserID) then
-			ParserManager.getChaptersAsync(manga, chaptersList)
+			-- first in line: what's on screen goes before queued work (a global search's sources...)
+			ParserManager.getChaptersAsync(manga, chaptersList, true)
 			is_chapter_list_loaded_offline = false
 		else
 			chaptersList = Cache.loadChapters(manga)

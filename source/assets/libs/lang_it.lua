@@ -82,7 +82,7 @@ Language.Italian = {
 	OTAKIO = {
 		SOURCE_SETTINGS = "Impostazioni della fonte",
 		SOURCE_DOMAIN = "Indirizzo del sito",
-		SOURCE_DOMAIN_DEFAULT = "Predefinito", SOURCE_DOMAIN_AUTO = "automatico",
+		SOURCE_DOMAIN_DEFAULT = "Predefinito", SOURCE_DOMAIN_AUTO = "automatico", OPENING_KEYBOARD = "Apertura della tastiera...",
 		SOURCE_DOMAIN_PROMPT = "Nuovo indirizzo per %s (vuoto: quello predefinito)",
 		SOURCE_DOMAIN_SET = "Indirizzo cambiato in %s",
 		SOURCE_DOMAIN_INVALID = "Non è un indirizzo web",

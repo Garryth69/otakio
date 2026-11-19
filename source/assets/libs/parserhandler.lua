@@ -27,7 +27,7 @@ end
 
 local function hasForegroundWaiting()
 	for i = 1, #order do
-		if order[i].Type ~= "Skip" and not order[i].Background then
+		if order[i].Type ~= "Skip" and not order[i].Background and not order[i].Deferrable then
 			return true
 		end
 	end
@@ -39,10 +39,21 @@ function ParserManager.update()
 	if #order == 0 and not currentTask then
 		return
 	end
-	-- a background job (source health check) gives way as soon as the user asks for something
-	if currentTask and currentTask.Background and hasForegroundWaiting() then
+	-- a background job (source health check) gives way as soon as the user asks for something; a deferrable one (a
+	-- global search's source) goes back to the end of the queue and starts over later
+	if currentTask and (currentTask.Background or currentTask.Deferrable) and hasForegroundWaiting() then
 		cancelJobRequest(currentTask)
-		uniques[currentTask.Table] = nil
+		if currentTask.Deferrable then
+			local t = currentTask.Table
+			for k = #t, 1, -1 do
+				t[k] = nil
+			end
+			t.NoPages = nil
+			currentTask.Update = nil
+			order[#order + 1] = currentTask
+		else
+			uniques[currentTask.Table] = nil
+		end
 		currentTask = nil
 	end
 	if not currentTask then
@@ -63,8 +74,9 @@ function ParserManager.update()
 			uniques[currentTask.Table] = nil
 			currentTask = nil
 		else
-			-- requests made by background jobs wait behind everything the user is looking at
-			Threads.defaultPriority = currentTask.Background and Threads.BACKGROUND or nil
+			-- requests made by background jobs wait behind everything the user is looking at; deferrable ones behind what
+			-- the user asked for directly
+			Threads.defaultPriority = currentTask.Background and Threads.BACKGROUND or (currentTask.Deferrable and Threads.NORMAL) or nil
 			local t0 = Diag and Diag.now and Diag.now()
 			local _, isSafeToleave = coroutine.resume(currentTask.Update)
 			if t0 then
@@ -412,6 +424,14 @@ function ParserManager.remove(Table)
 end
 
 ---Marks the job filling `Table` as background work (lowest network priority, yields to user requests)
+---A job that steps aside (back to the end of the queue) whenever the user asks for something else: the sources of a
+---global search, so opening one of its results doesn't wait for every other source's search
+function ParserManager.setDeferrable(Table)
+	if uniques[Table] then
+		uniques[Table].Deferrable = true
+	end
+end
+
 function ParserManager.setBackground(Table)
 	if uniques[Table] then
 		uniques[Table].Background = true

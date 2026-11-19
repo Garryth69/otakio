@@ -987,6 +987,7 @@ function GlobalSearch.start(query)
 			local s = {parser = p, results = {}, scroll = 0, hv = 0, free = false}
 			GS.sections[#GS.sections + 1] = s
 			ParserManager.getMangaListAsync("Search", p, 1, s.results, query)
+			ParserManager.setDeferrable(s.results)
 		end
 	end
 	Menu.setMode("GLOBALSEARCH")

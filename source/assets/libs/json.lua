@@ -41,8 +41,10 @@ function Json.decode(str, yieldEvery)
 	end
 	local counter = 0
 	local canYield = yieldEvery and co_running() ~= nil
-	if canYield and yieldEvery > 1000 then
-		yieldEvery = 1000 -- 4000 values between yields took 300 ms on the Vita
+	-- 4000 values between yields took 300 ms on the Vita (~75 us each): 400 keep a step near 30 ms, under the 50 ms
+	-- that shows as a hitch (the log showed 1000-value steps of ~100 ms while a source was checked in the background)
+	if canYield and yieldEvery > 400 then
+		yieldEvery = 400
 	end
 
 	local function skip()

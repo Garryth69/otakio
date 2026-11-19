@@ -311,6 +311,18 @@ local function describeLink(link)
 end
 
 ---For the log: what a downloaded file that is not an image holds (an HTML block page, nothing...) and its size
+---true when a downloaded "image" is really a page or text (a 404 page served with status 200 and an image type)
+local function isTextFile(path)
+	local fh = openFile(path, FREAD)
+	if not fh then
+		return false
+	end
+	local size = sizeFile(fh) or 0
+	local head = size > 0 and readFile(fh, math.min(size, 64)) or ""
+	closeFile(fh)
+	return size == 0 or head:find("^%s*[<{]") ~= nil
+end
+
 local function fileNote(path)
 	local fh = openFile(path, FREAD)
 	if not fh then
@@ -332,7 +344,13 @@ end
 
 ---Task failed this attempt: retried while it has attempts left, otherwise dropped (waiters see an empty result)
 local function fail(task, reason)
-	Console.error("NET: " .. tostring(reason) .. " (" .. describeLink(task.RawLink or task.Path or "") .. ")")
+	if task.Preempted then
+		-- stopped to let something the user is waiting for go first: back in the queue as it was
+		task.Preempted, task.TimedOut = nil, nil
+		task.Retry = task.Retry + 1
+	else
+		Console.error("NET: " .. tostring(reason) .. " (" .. describeLink(task.RawLink or task.Path or "") .. ")")
+	end
 	if current == task then
 		current = nil
 	end
@@ -385,6 +403,11 @@ local function decodeImage(task)
 	-- with the old engine GIFs never reach its decoder: it took the whole app down (data abort in "Image loader Thread")
 	local isGif = width and width > 0 and not (OTAKIO_ENGINE and OTAKIO_ENGINE.gif) and getImageFormat(path) == "gif"
 	if not width or width <= 0 or isGif then
+		-- a page instead of an image (a "soft" 404): the converting proxy would only fetch the same page again
+		if task.Link and not isGif and isTextFile(path) then
+			task.Retry = math.min(task.Retry, 1) -- and asking again brings the same page: no more tries
+			return fail(task, "downloaded file is not an image" .. fileNote(path))
+		end
 		if task.Link and not task.Proxied and (Settings.ImageProxy or "Auto") ~= "Off" then
 			-- WebP/AVIF/GIF the engine can't read: retry through the converting proxy (it always returns JPEG)
 			task.Proxied = true
@@ -646,7 +669,10 @@ local function complete(task)
 		end
 		return
 	end
-	if task.TimedOut then
+	if task.TimedOut or task.Preempted then
+		if task.Preempted and stage == "download" and task.Path then
+			deleteFile(task.Path) -- a partial file must not pass for the image
+		end
 		return fail(task, "timed out")
 	end
 	if stage == "string" then
@@ -663,10 +689,14 @@ local function complete(task)
 		if r then
 			local where = describeLink(task.RawLink or task.Link or "")
 			if (r.code or 0) ~= 0 then
+				-- curl keeps the first message of a transfer: a harmless notice (an unverified certificate) can stand in
+				-- for the real failure, so the curl code goes along (7 no connection, 28 timeout, 35 TLS, 52 empty,
+				-- 56 connection dropped)
+				local why = "request failed (curl " .. tostring(r.code) .. "): " .. tostring(r.error)
 				if TRANSIENT[r.code] then
-					return fail(task, "request failed: " .. tostring(r.error))
+					return fail(task, why)
 				end
-				Console.error("NET: request failed: " .. tostring(r.error) .. " (" .. where .. ")")
+				Console.error("NET: " .. why .. " (" .. where .. ")")
 			elseif (r.status or 0) >= 400 then
 				Console.error("NET: HTTP " .. r.status .. " (" .. where .. ")")
 			elseif body == "" and task.HttpMethod ~= HEAD_METHOD and r.status ~= 204 then
@@ -826,6 +856,16 @@ function Threads.update()
 				end
 				since = current.LastProgressAt or since
 			end
+			-- something the user is waiting for (urgent) is queued behind a background transfer running for a while (a
+			-- slow cover...): stop it, it goes back to the queue untouched and runs again later
+			if not current.Preempted and not current.TimedOut and (current.Priority or Threads.NORMAL) > Threads.URGENT
+				and (current.Stage == "string" or current.Stage == "download") and now() - (current.StartedAt or now()) > 2000 then
+				local q = queue[1]
+				if q and q.Priority == Threads.URGENT and not isImageTask(q) then
+					current.Preempted = true
+					Network.stopCurrentDownload()
+				end
+			end
 			if limit and not current.TimedOut and now() - since > limit then
 				if current.Stage == "string" or current.Stage == "download" then
 					current.TimedOut = true
@@ -875,8 +915,10 @@ function Threads.update()
 		if not pick then
 			return
 		end
-		-- aging: a low-priority task waiting more than 15 s goes first, so background work never starves
-		for i = pick + 1, #queue do
+		-- aging: a low-priority task waiting more than 15 s goes first, so background work never starves. Never ahead
+		-- of an urgent task (what the user just asked for): after a global search dozens of old searches and covers
+		-- kept winning over the chapter list of the manga just opened
+		for i = (queue[pick].Priority > Threads.URGENT and pick + 1 or #queue + 1), #queue do
 			local q = queue[i]
 			if t - q.QueuedAt > 15000 and q.Priority > queue[pick].Priority and eligible(q) then
 				pick = i

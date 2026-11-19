@@ -82,7 +82,7 @@ Language.German = {
 	OTAKIO = {
 		SOURCE_SETTINGS = "Quelleneinstellungen",
 		SOURCE_DOMAIN = "Adresse der Seite",
-		SOURCE_DOMAIN_DEFAULT = "Standard", SOURCE_DOMAIN_AUTO = "automatisch",
+		SOURCE_DOMAIN_DEFAULT = "Standard", SOURCE_DOMAIN_AUTO = "automatisch", OPENING_KEYBOARD = "Tastatur wird geöffnet...",
 		SOURCE_DOMAIN_PROMPT = "Neue Adresse für %s (leer: Standard)",
 		SOURCE_DOMAIN_SET = "Adresse geändert zu %s",
 		SOURCE_DOMAIN_INVALID = "Keine Webadresse",

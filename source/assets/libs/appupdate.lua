@@ -284,6 +284,9 @@ local function install()
 	if Cache and Cache.flushChapters then
 		pcall(Cache.flushChapters)
 	end
+	if ExtLogFlush then
+		pcall(ExtLogFlush)
+	end
 	for _ = 1, 45 do -- ~0.75 s: time to read "Restarting to install"
 		coroutine.yield(false)
 	end

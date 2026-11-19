@@ -392,6 +392,7 @@ local function update()
 		Extensions.update()
 		Diag.stepEnd("extensions")
 		SourceStatus.update()
+		ExtLogUpdate()
 		AppUpdate.update()
 		Diag.update()
 		Backup.update()
@@ -504,6 +505,7 @@ local function recover(err)
 	recoveries = recoveries + 1
 	if ExtLog then
 		pcall(ExtLog, "recovered from error: " .. tostring(err):sub(1, 600))
+		pcall(ExtLogFlush) -- right away: the next error may not leave time for it
 	end
 	Console.error(err)
 	if recoveries > 5 then

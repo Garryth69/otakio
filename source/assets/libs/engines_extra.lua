@@ -526,7 +526,10 @@ function Engines.Keyoapp(cfg)
 				title = el:attr("title")
 			end
 			if a and (not query or find(lower(title), query, 1, true)) then
-				addManga(dt, p, title, a:attr("abs:href"), keyoBackground(el:selectFirst("*[style*=background-image]")))
+				-- newer sites put the cover in an <img> instead of a background style
+				local img = el:selectFirst("img[src*='/series/']")
+				local cover = keyoBackground(el:selectFirst("*[style*=background-image]")) or (img and img:attr("abs:src") or nil)
+				addManga(dt, p, title, a:attr("abs:href"), cover)
 			end
 		end
 		dt.NoPages = true
@@ -543,7 +546,18 @@ function Engines.Keyoapp(cfg)
 	end
 	function p:searchManga(query, page, dt)
 		local q = Engines.decodeSearch(query)
-		cards(Http.getDocument(cfg.baseUrl .. "/series?q=" .. enc(q), headers(self)), "#searched_series_page > button", dt, q)
+		-- newer Keyoapp sites (the Livewire reader) search at /search?q= and answer 404 at /series: remembered per source
+		if not self.KeyoNewSearch then
+			cards(Http.getDocument(cfg.baseUrl .. "/series?q=" .. enc(q), headers(self)), "#searched_series_page > button", dt, q)
+			if #dt > 0 then
+				return
+			end
+		end
+		local doc = Http.getDocument(cfg.baseUrl .. "/search?q=" .. enc(q), headers(self))
+		cards(doc, "div.group:has(a[href*='/series/'])", dt)
+		if #dt > 0 then
+			self.KeyoNewSearch = true
+		end
 	end
 	function p:getChapters(manga, dt)
 		local doc = Http.getDocument(absolute(cfg.baseUrl, manga.Link), headers(self))
