@@ -26,12 +26,38 @@ local escapes = {
 	[34] = '"', [92] = "\\", [47] = "/", [98] = "\b", [102] = "\f", [110] = "\n", [114] = "\r", [116] = "\t"
 }
 
+-- values per step of the engine's decoder (JsonNative): ~10x faster than the Lua one (~7 us a value on the Vita against
+-- ~75), so 4000 values keep a step near 30 ms
+local NATIVE_STEP = 4000
+
+---The engine's decoder (same result as the Lua one below), stepping like it inside a coroutine
+local function decodeNative(str, yieldEvery)
+	local canYield = yieldEvery and co_running() ~= nil
+	local dec = JsonNative.new(str, Json.null)
+	while true do
+		local done, value = dec:step(canYield and NATIVE_STEP or nil)
+		if done == nil then
+			if Console then
+				Console.error(value)
+			end
+			return nil, value
+		end
+		if done then
+			return value
+		end
+		co_yield(false)
+	end
+end
+
 ---@param str string
 ---@param yieldEvery number|nil
 ---@return any
 function Json.decode(str, yieldEvery)
 	if type(str) ~= "string" then
 		return nil
+	end
+	if JsonNative and not Json.forceLua then
+		return decodeNative(str, yieldEvery)
 	end
 	local pos = 1
 	local len = #str

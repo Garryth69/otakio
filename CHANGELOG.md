@@ -18,6 +18,8 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
   reading modes; *Scroll* keeps the old behavior (a screen at a time).
 - **Faster lists:** the HTML of listings and chapters is read by the engine (in C) instead of Lua, still a piece at a
   time so the screen keeps moving.
+- **JSON read in C too:** sources with an API (MangaDex, MangaFlix, Asura, MangaLib...) and the extension catalog are
+  decoded by the engine, 6-15x faster than before, with exactly the same result.
 - **Text appears faster:** the interface fonts are read from the memory card through a cache, instead of several card
   reads for every new character (they were the slowest part of start-up and caused a long stutter right after it).
 - **Clearer log:** every 30 s, requests per site (count, average time, size, compression, failures); a request that
