@@ -83,3 +83,15 @@ function Sha256(msg)
 	end
 	return table.concat(out)
 end
+
+-- engine 2: the same digest in C (HashNative, the engine's luaSelect.cpp); the Lua one stays for older engines and
+-- the simulator
+local LuaSha256 = Sha256
+if HashNative and HashNative.sha256 then
+	function Sha256(msg)
+		if Sha256Lua then
+			return LuaSha256(msg)
+		end
+		return HashNative.sha256(msg)
+	end
+end

@@ -20,6 +20,9 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
   time so the screen keeps moving.
 - **JSON read in C too:** sources with an API (MangaDex, MangaFlix, Asura, MangaLib...) and the extension catalog are
   decoded by the engine, 6-15x faster than before, with exactly the same result.
+- **Pages searched in C:** after a page is read, finding its covers, titles, chapters and images (the CSS selectors
+  every source uses) runs in the engine on an index of the page, 10-15x faster than the Lua walk, with exactly the
+  same results. Extension downloads are checked (SHA-256) in C as well.
 - **Text appears faster:** the interface fonts are read from the memory card through a cache, instead of several card
   reads for every new character (they were the slowest part of start-up and caused a long stutter right after it).
 - **Clearer log:** every 30 s, requests per site (count, average time, size, compression, failures); a request that

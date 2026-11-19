@@ -27,13 +27,14 @@ The shipped binary is `source/eboot.bin`. `engine/*.bin` are local build outputs
 | gzip/deflate transfers, 64 KB buffer, TCP keep-alive, 10 min DNS cache | listings and JSON arrive 5-10x smaller; a body a server compressed wrongly is asked again uncompressed |
 | One curl share for DNS, TLS sessions, connections and cookies | no new TLS handshake per request; sites that set a cookie on the first visit get it back |
 | `Network.getLastResponse([sync])`, `Network.clearCookies()` | HTTP status, curl error, final URL, content type, time, bytes and compression of each request, for retries and the log |
-| `OTAKIO_ENGINE` table (`version`, `gzip`, `cookies`, `response`, `plainArgs`, `gif`, `avif`, `filters`, `imageLane`, `htmlNative`, `jsonNative`) | scripts use a feature only when the engine has it |
+| `OTAKIO_ENGINE` table (`version`, `gzip`, `cookies`, `response`, `plainArgs`, `gif`, `avif`, `filters`, `imageLane`, `htmlNative`, `jsonNative`, `selectNative`, `hashNative`) | scripts use a feature only when the engine has it |
 | Image decoding in its own async lane (`Graphics.getAsyncState/getAsyncResult`) | the next page downloads while the current one decodes |
 | GIF first frame through stb_image | the old GIF decoder wrote frames without bounds checks and took the app down |
 | Native AVIF (libavif 1.4.2 + dav1d 1.5.4 with NEON), straight into the texture at the kept scale | AVIF pages no longer go through the image proxy |
 | `Graphics.filterImage(img, "gray"\|"invert")` | grayscale and inverted reader pages, written into the texture once after decoding |
 | `HtmlNative.new/parse` (luaHtml.cpp) | the app's HTML tree built in C, in steps; identical to html.lua's parser on real pages |
 | `JsonNative.new/decode` (luaJson.cpp) | json.lua's decoder in C, in steps: the same values on real API responses and edge cases, 6-15x faster without the JIT (a 1.2 MB MangaDex list: 84 -> 6 ms on a PC) |
+| `HtmlNative.selector`, `HashNative.sha256` (luaSelect.cpp) | html.lua's CSS selector walk in C, in steps, on an index of the tree built once per page: the same results on the real selectors of every source and on generated ones, 10-15x faster without the JIT; and sha256.lua in C |
 | `libvita2d-otakio.patch`: font files read through a 2 MB shared block cache | FreeType's default stream made several card reads per new glyph (about 10 ms each with the 13 MB CJK fonts) |
 
 ## Automatic build

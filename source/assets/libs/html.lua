@@ -1059,7 +1059,62 @@ local function walk(root, fn)
 	end
 end
 
+-- engine 2: the walk and the tests in C (HtmlNative.selector, the engine's luaSelect.cpp), same results. The first
+-- select on a tree indexes it in C; later ones run on the index, tens of times faster than this walk without the JIT.
+-- A step covers 3000 nodes (index or walk).
+Html.nativeWalk = 3000
+
+-- the tests the C side leaves to Lua (they use Lua patterns or the node's text)
+local function slowTest(node, t)
+	local kind = t[1]
+	if kind == "contains" then
+		return find(lower(node:text()), t[2], 1, true) ~= nil
+	elseif kind == "containsown" then
+		return find(lower(node:ownText()), t[2], 1, true) ~= nil
+	elseif kind == "matches" then
+		return find(node:text(), t[2]) ~= nil
+	elseif kind == "matchesown" then
+		return find(node:ownText(), t[2]) ~= nil
+	elseif kind == "nth" then
+		return nthMatch(t[2], (elementIndex(node)))
+	end
+	return true
+end
+
+local function nativeTest(node, t)
+	local ok, r = pcall(slowTest, node, t)
+	if ok then
+		return r
+	end
+	return nil, tostring(r)
+end
+
+---@return boolean handled, any result
+local function selectNative(root, group, firstOnly)
+	local sel = HtmlNative.selector(root, group, firstOnly, Elements, nativeTest)
+	local canYield = co_running() ~= nil
+	while true do
+		local done, value = sel:step(canYield and Html.nativeWalk or nil)
+		if done == nil then
+			if value == nil then
+				return false -- not a node of a tree: the Lua walk below
+			end
+			error(value, 0)
+		end
+		if done then
+			return true, value
+		end
+		co_yield(false)
+	end
+end
+
 local function selectCompiled(root, group, firstOnly)
+	if HtmlNative and HtmlNative.selector and not Html.forceLuaSelect then
+		local handled, result = selectNative(root, group, firstOnly)
+		if handled then
+			return result
+		end
+	end
 	local results = setmetatable({}, Elements)
 	local seen = #group > 1 and {} or nil
 	local found = walk(
