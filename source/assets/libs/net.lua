@@ -33,7 +33,7 @@ end
 ---The Otakio engine decodes WebP itself (libwebp); the old NOBORU engine needs the converting proxy
 ImageProxy.nativeWebp = false
 pcall(function()
-	ImageProxy.nativeWebp = System.getImageFormat("app0:assets/images/probe.webp") == "webp"
+	ImageProxy.nativeWebp = System.getImageFormat("app0:assets/images/probe.webp") == "webp" -- load time
 end)
 
 function ImageProxy.needsConversion(link)

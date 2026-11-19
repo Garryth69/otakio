@@ -10,7 +10,7 @@ string.rawsub = string.rawsub or string.sub
 -- a page). Same speed when it matters, less battery and heat the rest of the time.
 Perf = {}
 do
-	local setCpu, setBus, setGpu, setXbar = System.setCpuSpeed, System.setBusSpeed, System.setGpuSpeed, System.setGpuXbarSpeed
+	local setCpu, setBus, setGpu, setXbar = System.setCpuSpeed, System.setBusSpeed, System.setGpuSpeed, System.setGpuXbarSpeed -- load time
 	local FAST = {444, 222, 222, 166}
 	local NORMAL = {333, 166, 166, 111}
 	local IDLE_MS = 4000

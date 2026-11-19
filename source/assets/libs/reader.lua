@@ -209,6 +209,10 @@ local getPictureResolution = System.getPictureResolution
 local doesFileExist_ = System.doesFileExist
 local deleteFile_ = System.deleteFile
 local listDirectory_ = System.listDirectory
+-- main.lua swaps System for a reduced table once the libs are loaded: anything used later is kept here
+local doesDirExist_ = System.doesDirExist
+local createDirectory_ = System.createDirectory
+local disableTimer_, enableTimer_ = System.disableTimer, System.enableTimer
 
 local function entryUrl(entry)
 	if type(entry) == "table" then
@@ -265,8 +269,8 @@ local function nextTick(nearEnd)
 		local pages = nextPrep.pages
 		if pages.Done and not nextPrep.asked then
 			nextPrep.asked = true
-			if not System.doesDirExist(NEXT_DIR) then
-				System.createDirectory(NEXT_DIR)
+			if not doesDirExist_(NEXT_DIR) then
+				createDirectory_(NEXT_DIR)
 			end
 			for i = 1, math.min(NEXT_FIRST_PAGES, #pages) do
 				local url = entryUrl(pages[i])
@@ -1180,24 +1184,29 @@ local function setKeepAwake(on)
 	if on == keepAwake then
 		return
 	end
-	local f = on and System.disableTimer or System.enableTimer
+	local f = on and disableTimer_ or enableTimer_
 	if f and pcall(f) then
 		keepAwake = on
 	end
 end
 
 local function exit()
+	local t0 = Diag.now()
 	setKeepAwake(false)
 	nextClear()
 	for i = 1, #allPages do
 		deletePageImage(i)
 	end
 	prefetchClear()
+	local t1 = Diag.now()
 	allPages = {
 		Page = 0
 	}
 	ParserManager.remove((((Chapters or {})[currentChapterNumber or 0] or {}).Pages) or 0)
 	collectgarbage("step", 1024)
+	-- leaving the reader stalled 450-550 ms on the Vita: which part (textures or the collector) shows in the log
+	Diag.slow("reader exit: pages", t1 - t0)
+	Diag.slow("reader exit: collector", Diag.now() - t1)
 	AppMode = MENU
 	ContextMenu = false
 	MenuFade = 0

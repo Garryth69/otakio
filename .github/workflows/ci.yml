@@ -50,6 +50,7 @@ jobs:
           python tools/tests/test_health_merge.py
           python tools/tests/test_domain_move.py
           python tools/tests/test_madara_fallback.py
+          python tools/tests/test_system_sandbox.py
 
       - name: Translations
         run: python tools/check_lang.py
