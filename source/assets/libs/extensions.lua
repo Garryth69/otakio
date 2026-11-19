@@ -627,7 +627,9 @@ local REPLACED_BY = {
 	["noboru.myhentaigalleryen"] = "otakio.myhentaigallery",
 	["noboru.heavenmangaesp"] = "otakio.heavenmanga",
 	["noboru.inmangaspa"] = "otakio.inmanga",
-	["noboru.vercomicspornoesp"] = "otakio.vercomicsporno"
+	["noboru.vercomicspornoesp"] = "otakio.vercomicsporno",
+	["kei.es.mhscans"] = "otakio.mhscans",
+	["kei.en.keroscans"] = "otakio.keroscans"
 }
 
 local function migrateReplaced()
