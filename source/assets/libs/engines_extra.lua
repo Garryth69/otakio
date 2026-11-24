@@ -164,8 +164,8 @@ function Engines.MangaCatalog(cfg)
 		local out = {}
 		local seen = {}
 		for _, el in ipairs(doc:select(cfg.chapterListSelector or "div.w-full > div.bg-bg-secondary > div.grid")) do
-			-- a site's own chapterListSelector may pick the links themselves
-			local a = el:tagName() == "a" and el or el:selectFirst(".col-span-4 > a")
+			-- a site's own chapterListSelector may pick the links themselves, or the cell that holds one (ReadSNK)
+			local a = el:tagName() == "a" and el or el:selectFirst(".col-span-4 > a") or el:selectFirst("a[href]")
 			local href = a and a:attr("abs:href") or ""
 			if href ~= "" and not seen[href] then
 				seen[href] = true

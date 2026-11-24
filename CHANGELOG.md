@@ -2,12 +2,23 @@
 
 All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the GitHub release with that tag.
 
-## 1.1.5
+## 1.1.6
 
 ### Added
 - **Site themes fixed without an app update:** when a theme used by many sources (Madara, MangaThemesia, Keyoapp...)
   changes its pages, the official catalog can publish a fix for its engine. The app downloads it on the next catalog
   refresh (its SHA-256 checked), runs it in the extension sandbox and rebuilds the installed sources on top of it.
+
+### Fixed
+- **Madara sites that moved their series to another path** (ManhwaToon: `/manhwa/`) list their series again.
+- **ReadSNK** (Attack on Titan) shows its chapters again.
+
+### Sources
+- MangaWorld works again on its new address and layout.
+
+## 1.1.5
+
+### Added
 - **Remote settings:** the browser identification sent to sites, the image converter, extensions to switch off and a
   one-time notice can be changed from the project's GitHub (remote.json) without a new version of the app.
 - **New engine (network):** pages, lists and searches arrive compressed (5-10x less data); connections, TLS

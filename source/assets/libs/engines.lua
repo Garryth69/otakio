@@ -228,8 +228,8 @@ end
 
 -- Newer skins (aqua-manga-card, asura-card...) drop every Madara class. A result is then any link to a series page
 -- (/manga/<slug>/) with a cover next to it; the title comes from the card's text link, else the link or cover labels.
-local function madaraParseLinks(p, doc, dt)
-	local path = "/" .. p.Config.mangaSubString .. "/"
+local function madaraParseLinks(p, doc, dt, sub)
+	local path = "/" .. (sub or p.Config.mangaSubString) .. "/"
 	local order, groups = {}, {}
 	for _, a in ipairs(doc:select('a[href*="' .. path .. '"]')) do
 		local href = a:attr("abs:href") or ""
@@ -319,7 +319,19 @@ local function madaraParseArchive(p, doc, dt, selector)
 		end
 	end
 	if count == 0 then
-		count = madaraParseLinks(p, doc, dt)
+		count = madaraParseLinks(p, doc, dt, p.Config.seriesSubString)
+	end
+	if count == 0 and not p.Config.seriesSubString then
+		-- some sites moved their series under another path (ManhwaToon: /manhwa/<slug>/); found once, then kept
+		for _, sub in ipairs({"manhwa", "series", "webtoon", "comic", "manhua"}) do
+			if sub ~= p.Config.mangaSubString then
+				count = madaraParseLinks(p, doc, dt, sub)
+				if count > 0 then
+					p.Config.seriesSubString = sub
+					break
+				end
+			end
+		end
 	end
 	return count
 end
