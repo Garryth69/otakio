@@ -14,6 +14,12 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - **A backup image converter:** when the image converter fails several times in a row, the app moves to the next one
   of its list (remote settings can change the list).
 
+### Changed
+- **Everything works by touch:** a tap on a hint of the bottom bar (Back, Select, Section, Search...) does what its
+  button does, on every screen, so a section of Settings, a source being browsed or an Import folder can be left
+  without the buttons. The "no connection" message closes with a tap, and an app update download can be canceled
+  by tapping Cancel.
+
 ### Fixed
 - **A save cut short no longer loses the library:** if the console switched off in the middle of saving, the complete
   new copy left on the card is used at the next start.

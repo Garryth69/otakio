@@ -153,6 +153,9 @@ SCENARIOS = {
     # Settings > Data: the automatic backup option cycles 7 -> 3 -> 1 days -> off
     "autobackup": ["R", "R", "R", "R", "R", "R", "R", ("wait", 30)] + ["DOWN"] * 9 + ["CROSS", ("wait", 60), "DOWN", "DOWN", ("wait", 20),
                    "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 30)],
+    # touch only: a tap on a hint of the bottom bar presses its button (Settings > Data, then "Back" and "Section")
+    "hinttap": ["R", "R", "R", "R", "R", "R", "R", ("wait", 30)] + ["DOWN"] * 9 + ["CROSS", ("wait", 60), ("touch", 262, 535),
+                ("wait", 40), ("touch", 20, 535), ("wait", 40)],
     "importread": [("wait", 30), "DOWN", "RIGHT", "CROSS", ("wait", 120), "DOWN", "CROSS", ("wait", 200), "RIGHT", ("wait", 100)],
     # needs a library (--tmp): Triangle refreshes it online, then the Updates tab shows what was found
     "refresh": [("wait", 60), "TRIANGLE", ("wait", 900), "R", ("wait", 60)],

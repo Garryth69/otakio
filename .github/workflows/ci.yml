@@ -65,7 +65,7 @@ jobs:
 
       - name: Simulated Vita (offline scenarios)
         run: |
-          for s in tour extensions settings lang about extlang opensrc idleclock dlviews downloads themepick alltabs                    importempty browselang readerselect settingstree autobackup; do
+          for s in tour extensions settings lang about extlang opensrc idleclock dlviews downloads themepick alltabs                    importempty browselang readerselect settingstree autobackup hinttap; do
             echo "::group::$s"
             python tools/tests/sim.py "$s"
             echo "::endgroup::"

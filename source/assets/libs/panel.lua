@@ -83,8 +83,38 @@ function Panel.update()
 	end
 end
 
+-- where each hint was drawn last frame: {x0, x1, button name}. A tap on a hint presses its button (main.lua), so
+-- every action the bar shows (Back, Select, Section...) is also reachable by touch, on every screen alike.
+local areas = {}
+
+local BUTTON_OF = {
+	Cross = function() return SCE_CTRL_CROSS end, -- the confirm button (swapped on Japanese consoles)
+	Circle = function() return SCE_CTRL_CIRCLE end,
+	Square = function() return SCE_CTRL_SQUARE end,
+	Triangle = function() return SCE_CTRL_TRIANGLE end,
+	Start = function() return SCE_CTRL_START end,
+	Select = function() return SCE_CTRL_SELECT end,
+	L = function() return SCE_CTRL_LTRIGGER end,
+	R = function() return SCE_CTRL_RTRIGGER end
+}
+
+---The button of the hint under a touch at (x, y), or nil (bar hidden, no hint there, or a hint without a button)
+function Panel.buttonAt(tx, ty)
+	if y > 2 or not tx or ty < 516 then
+		return nil
+	end
+	for _, a in ipairs(areas) do
+		if tx >= a[1] - 6 and tx <= a[2] + 6 then
+			local f = BUTTON_OF[a[3]]
+			return f and f() or nil
+		end
+	end
+	return nil
+end
+
 ---Draws Panel on screen
 function Panel.draw()
+	areas = {}
 	if y >= 23 then
 		return
 	end
@@ -95,6 +125,7 @@ function Panel.draw()
 	for i = 1, #hints do
 		local v = hints[i]
 		if hints[v] then
+			local x0 = x
 			if ButtonsIcons[v] then
 				local icon = ButtonIcon(v)
 				Graphics.drawImage(x, 527 + y, icon.e)
@@ -102,14 +133,19 @@ function Panel.draw()
 			elseif v == "L\\R" then
 				Graphics.drawImage(x, 527 + y, ButtonsIcons.L.e)
 				x = x + Graphics.getImageWidth(ButtonsIcons.L.e) + 2
+				-- the L icon goes back a section, the R icon and the label forward
+				areas[#areas + 1] = {x0, x - 1, "L"}
+				x0 = x
 				Graphics.drawImage(x, 527 + y, ButtonsIcons.R.e)
 				x = x + Graphics.getImageWidth(ButtonsIcons.R.e) + 4
+				v = "R"
 			else
 				Font.print(FONT13, x, 526 + y, v, hintColor)
 				x = x + Font.getTextWidth(FONT13, v) + 5
 			end
-			Font.print(FONT13, x, 526 + y, hints[v], hintColor)
-			x = x + Font.getTextWidth(FONT13, hints[v]) + 16
+			Font.print(FONT13, x, 526 + y, hints[hints[i]], hintColor)
+			x = x + Font.getTextWidth(FONT13, hints[hints[i]]) + 16
+			areas[#areas + 1] = {x0, x - 16, v}
 		end
 	end
 	if FrameStats.show then

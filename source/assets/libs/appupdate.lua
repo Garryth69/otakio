@@ -411,8 +411,11 @@ function AppUpdate.isBusy()
 end
 
 ---Circle cancels while downloading; nothing else can be stopped safely
-function AppUpdate.input(oldPad, pad)
-	if step == "download" and not canceled and Controls.check(pad, SCE_CTRL_CIRCLE) and not Controls.check(oldPad, SCE_CTRL_CIRCLE) then
+function AppUpdate.input(oldPad, pad, oldTouch, touch)
+	-- or a tap on the "Cancel" hint (bottom right of the panel, see AppUpdate.draw)
+	local tapped = touch and touch.x and not (oldTouch and oldTouch.x) and touch.x >= 760 - 220 and touch.x <= 760
+		and touch.y >= 372 - 56 and touch.y <= 372
+	if step == "download" and not canceled and (tapped or (Controls.check(pad, SCE_CTRL_CIRCLE) and not Controls.check(oldPad, SCE_CTRL_CIRCLE))) then
 		canceled = true
 		Threads.remove(downloadKey)
 	end

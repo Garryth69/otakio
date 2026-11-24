@@ -344,9 +344,19 @@ local function input()
 
 	Debug.input()
 
+	-- a tap on a hint of the bottom bar presses its button for this frame (panel.lua); the finger then stays locked
+	-- until it lifts, so the list under it doesn't take the same touch as a tap
+	if touch.x and not oldTouch.x and not touch2.x and Keyboard.getState() ~= RUNNING then
+		local button = Panel.buttonAt(touch.x, touch.y)
+		if button and not Controls.check(pad, button) then
+			pad = pad + button
+			is_touch_locked = true
+		end
+	end
+
 	if ConnectMessage.isActive() then
 		if touch.x or pad ~= 0 then
-			oldPad = ConnectMessage.input(pad) or 0
+			oldPad = ConnectMessage.input(pad, touch.x, oldTouch.x) or 0
 		end
 		pad = oldPad
 		is_touch_locked = true
@@ -371,7 +381,7 @@ local function input()
 
 	if Keyboard.getState() ~= RUNNING then
 		if AppUpdate.isBusy() then
-			AppUpdate.input(oldPad, pad)
+			AppUpdate.input(oldPad, pad, oldTouch, touch)
 		elseif Dialog.isOpen() then
 			Dialog.input(oldPad, pad, oldTouch, touch)
 		elseif ReaderSheet.takesInput(pad) then

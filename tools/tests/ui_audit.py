@@ -25,6 +25,7 @@ SCENARIOS = {
     "importempty": ([], 30),
     "extissues": (["--keyboard", "scan"], 40),
     "settingstree": ([], 16),
+    "autobackup": ([], 30),
 }
 
 
