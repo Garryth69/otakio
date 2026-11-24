@@ -320,7 +320,8 @@ local function check(silent, prompt)
 	state = "checking"
 	local body = Http.get(string.format(API, Config.GITHUB_REPO), {Accept = "application/vnd.github+json"})
 	coroutine.yield(false)
-	local data = Json.decode(body, 1500)
+	-- no network: an empty body is not JSON
+	local data = type(body) == "string" and body ~= "" and select(2, pcall(Json.decode, body, 1500)) or nil
 	if type(data) ~= "table" or type(data.tag_name) ~= "string" then
 		state = "error"
 		if not silent then

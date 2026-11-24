@@ -318,14 +318,22 @@ end
 -- History
 -------------------------------------------------------------------------------
 
-local Hist = {list = ListView.new(TOP), version = -1, info = {}}
+local Hist = {list = ListView.new(TOP), version = -1, info = {}, loadsLeft = 1}
 Screens.HISTORY = Hist
 
-local function historyInfo(manga)
+---`lazy` (drawing): nil when another row already read its chapter list from the card this frame. A long series' list
+---(1000+ chapters) takes a while to load, and a screen of them at once froze the History tab for most of a second
+local function historyInfo(manga, lazy)
 	local key = Cache.getKey(manga)
 	local info = Hist.info[key]
 	if info then
 		return info
+	end
+	if lazy then
+		if Hist.loadsLeft <= 0 then
+			return nil
+		end
+		Hist.loadsLeft = Hist.loadsLeft - 1
 	end
 	info = {chapter = nil, page = nil}
 	if not Cache.BookmarksLoaded(manga) then
@@ -335,7 +343,9 @@ local function historyInfo(manga)
 	if latest then
 		local chapters = Cache.loadChapters(manga, true)
 		for i = 1, #chapters do
-			if chapters[i].Link:gsub("%p", "") == latest then
+			local link = chapters[i].Link
+			-- the key is the link without punctuation: a cheap length check skips most chapters before the gsub
+			if #link >= #latest and link:gsub("%p", "") == latest then
 				info.chapter = chapters[i].Name
 				info.index = i
 				info.total = #chapters
@@ -402,6 +412,7 @@ function Hist.update()
 		end
 		Hist.list:setRows(rows)
 	end
+	Hist.loadsLeft = 1
 	Hist.list:update()
 	Panel.set(Panels.HISTORY or {})
 end
@@ -418,7 +429,7 @@ function Hist.draw()
 		ensureThumb(manga)
 		drawThumb(manga, X0 + 14, y + 8, 42, 63)
 		UI.text(FONT20, X0 + 70, y + 6, manga.Name, COLOR_FONT, 560)
-		local info = historyInfo(manga)
+		local info = historyInfo(manga, true) or {}
 		local sub
 		if info.chapter then
 			sub = info.chapter

@@ -583,10 +583,17 @@ local function indexCachePath(url)
 	return INDEX_CACHE .. (url:gsub("^%a+://", ""):gsub("[^%w%.%-]", "_")) .. ".json"
 end
 
-local function fetchIndex(url, maxAge)
+---Returns the index and whether it is an old copy kept on the card (no network: `offline`, or the download failed)
+local function fetchIndex(url, maxAge, offline)
 	local path = indexCachePath(url)
-	local body
-	if maxAge then
+	local body, stale
+	if offline then
+		body, stale = FS.read(path) or "", true
+		if body == "" then
+			return nil
+		end
+		ExtLog("repo " .. url .. ": offline, using the copy on the card")
+	elseif maxAge then
 		local stamp = tonumber(FS.read(path .. ".time") or "")
 		if stamp and Clock.now() - stamp >= 0 and Clock.now() - stamp < maxAge then
 			body = FS.read(path)
@@ -597,12 +604,18 @@ local function fetchIndex(url, maxAge)
 	end
 	if not body or body == "" then
 		body = Http.get(url)
-		if body ~= "" then
+		if type(body) == "string" and body ~= "" then
 			if not FS.exists(INDEX_CACHE) then
 				FS.mkdir(INDEX_CACHE)
 			end
 			FS.write(path, body)
 			FS.write(path .. ".time", tostring(Clock.now()))
+		else
+			-- no network (or the site is down): an old copy beats an empty catalog
+			body, stale = FS.read(path) or "", true
+			if body ~= "" then
+				ExtLog("repo " .. url .. ": download failed, using the copy on the card")
+			end
 		end
 	end
 	if body == "" then
@@ -614,7 +627,7 @@ local function fetchIndex(url, maxAge)
 		ExtLog("repo " .. url .. ": not a valid index (" .. body:sub(1, 60):gsub("%c", " ") .. ")")
 		return nil
 	end
-	return index
+	return index, stale
 end
 
 ---Reloads all repository indexes. `force` ignores the 10 minute cache.
@@ -683,19 +696,20 @@ function Extensions.refresh(force, maxAge)
 		co_yield(false)
 		local online = Threads.isOnline()
 		-- 2. official repo online: only adds newer versions on top of the built-in copy
-		if online and official and official.url ~= "" then
-			local index = fetchIndex(official.url, maxAge)
+		if official and official.url ~= "" then
+			local index, stale = fetchIndex(official.url, maxAge, not online)
 			if index then
 				mergeIndex(index, official, (official.url:gsub("[^/]+$", "")))
-				repoStatus[official.url] = "ok"
-				onlineRepos[official.name] = true
+				-- an old copy can't tell which extensions were removed since (Extensions.isRemoved)
+				repoStatus[official.url] = stale and "offline" or "ok"
+				onlineRepos[official.name] = not stale or nil
 			end
 		end
 		co_yield(false)
 		-- 3. user repositories
 		for _, repo in ipairs(repos) do
 			repoStatus[repo.url] = "loading"
-			local index = online and fetchIndex(repo.url, maxAge)
+			local index, stale = fetchIndex(repo.url, maxAge, not online)
 			if index and isMihonIndex(index) then
 				local matched, total = matchMihonIndex(index, repo)
 				repoStatus[repo.url] = "mihon:" .. matched .. "/" .. total
@@ -706,8 +720,8 @@ function Extensions.refresh(force, maxAge)
 				ExtLog("Mihon repo " .. repo.url .. ": " .. matched .. "/" .. total .. " sources have a Lua equivalent")
 			elseif index then
 				mergeIndex(index, repo, (repo.url:gsub("[^/]+$", "")))
-				repoStatus[repo.url] = "ok"
-				onlineRepos[repo.name] = true
+				repoStatus[repo.url] = stale and "offline" or "ok"
+				onlineRepos[repo.name] = not stale or nil
 				if index.name and repo.name ~= index.name then
 					repo.name = index.name
 					saveRepos()

@@ -2,7 +2,7 @@
 
 All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the GitHub release with that tag.
 
-## Unreleased
+## 1.1.5
 
 ### Added
 - **Remote settings:** the browser identification sent to sites, the image converter, extensions to switch off and a
@@ -57,8 +57,12 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - **Settings are easier to find:** *Controls* sits right after *Reader*, *Chapter order* moved to *Library*, and the
   active source languages are set in one place (*Browse*). Going back from a section keeps the cursor on it.
 - "1 repository" / "1 category" instead of the plural.
+- **History tab is smooth with long series:** it reads one title's chapter list from the card per frame instead of
+  all the visible ones at once (a screen of 1000-chapter series froze it for most of a second).
 
 ### Fixed
+- **Without a connection the extension catalog is no longer empty:** the last copy kept on the card is used (also
+  when the network is up but GitHub can't be reached), and the update check no longer logs an error.
 - **Reader:** preparing the next chapter could close the reader with an error, and the screen could dim and sleep while
   reading. Both features read system functions that the extension sandbox had already removed.
 - **Sources:** Siren Scans and Asmodeus Scans work again: their sites moved to a new version of the Keyoapp theme,
@@ -88,7 +92,10 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
   server that works for it.
 
 ### Sources
-- 22 more sources work end to end than in 1.1.4 (251 of 353), several thanks to native AVIF/GIF and the POST fix.
+- 271 of 363 sources work end to end (251 of 353 in 1.1.4), several thanks to native AVIF/GIF and the POST fix.
+- **The catalog looks after itself:** every week it follows keiyoushi (new domains, sources removed upstream), adds
+  new sources that pass a live test, and drops sources dead for 90 days. 18 new sources came in this way so far.
+- Weeb Central (1000+ chapter series) and Flame Comics (whole catalog in one page) no longer stutter while loading.
 - **New native extensions** replacing broken NOBORU parsers: HeavenManga (es), InManga (es), MyHentaiGallery (en),
   VerComicsPorno (es). Installed NOBORU copies are swapped for them automatically.
 - Removed 2 NOBORU sources whose domains are now parked pages (Leomangas, ReadM).

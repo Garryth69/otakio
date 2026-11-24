@@ -112,14 +112,16 @@ def main():
     if runs:
         by = collections.defaultdict(list)
         for r in runs:
-            by[r.get("workflowName", "?")].append(r)
+            # runs still going (this very report) or skipped by their own conditions say nothing about health
+            if r.get("conclusion") not in (None, "", "skipped"):
+                by[r.get("workflowName", "?")].append(r)
         out += ["| Workflow | Last run | Result | Failures in the last 10 |", "|---|---|---|---:|"]
         alarm = False
         for name in sorted(by):
             rs = sorted(by[name], key=lambda r: r.get("createdAt", ""), reverse=True)[:10]
             fails = sum(1 for r in rs if r.get("conclusion") == "failure")
             last = rs[0]
-            out.append("| %s | %s | %s | %d |" % (name, last.get("createdAt", "")[:10], last.get("conclusion") or "running", fails))
+            out.append("| %s | %s | %s | %d |" % (name, last.get("createdAt", "")[:10], last.get("conclusion"), fails))
             alarm = alarm or (len(rs) >= 3 and all(r.get("conclusion") == "failure" for r in rs[:3]))
         if alarm:
             out += ["", "**A robot failed its last 3 runs.** Open the Actions tab of this repository to see why."]
