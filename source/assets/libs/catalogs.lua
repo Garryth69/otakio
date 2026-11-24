@@ -227,17 +227,26 @@ Textures.register("covers", 1, function()
 	freeCoversOutside(first, last, 0)
 end)
 
+local coverClock = Timer.new()
+
 local function UpdateMangas()
 	local first, last = visibleRange()
 	if abs(slider.V) < 6 and Timer.getTime(touchTimer) > 120 then
 		-- preload one extra row below
+		-- starting a cover checks files on the memory card (exists, picture size, cache entry): a new page of 15-20
+		-- covers started in one frame was a 100-400 ms hitch, so each frame starts them for ~8 ms at most, the
+		-- visible ones first, then the rest on the next frames
 		local preloadLast = min(#currentMangaList, last + COLS)
+		local t0 = Timer.getTime(coverClock)
 		for i = first, preloadLast do
 			local manga = currentMangaList[i]
 			if manga and not manga.ImageDownload then
 				loadMangaImage(manga)
 				manga.ImageDownload = true
 				downloadedImages[#downloadedImages + 1] = i
+				if Timer.getTime(coverClock) - t0 >= 8 then
+					break
+				end
 			end
 		end
 	end

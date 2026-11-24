@@ -18,6 +18,10 @@ end
 -- ListView: vertical list with variable row heights, d-pad + touch + inertia
 -------------------------------------------------------------------------------
 
+-- thumbnail start budget of the current list draw (see ensureThumb)
+local thumbClock = Timer.new()
+local thumbFrame = -1
+
 local ListView = {}
 ListView.__index = ListView
 
@@ -147,6 +151,7 @@ end
 
 ---Iterates visible rows: calls fn(i, row, screenY, isSelected)
 function ListView:draw(fn)
+	thumbFrame = -1 -- a new budget of thumbnail starts for this draw (ensureThumb)
 	local rows = self.rows
 	for i = 1, #rows do
 		local y = self.top + self.offsets[i] - self.y
@@ -166,8 +171,15 @@ end
 
 local thumbs = {}
 
+-- starting a thumbnail checks files on the memory card: a screen of rows started in one frame was a 100-250 ms
+-- hitch on opening History, so each list draw starts them for ~6 ms at most (the rest on the next frames)
 local function ensureThumb(manga)
 	if manga and not manga.ImageDownload then
+		if thumbFrame < 0 then
+			thumbFrame = Timer.getTime(thumbClock)
+		elseif Timer.getTime(thumbClock) - thumbFrame >= 6 then
+			return
+		end
 		Catalogs.loadMangaImage(manga)
 		manga.ImageDownload = true
 		thumbs[#thumbs + 1] = manga
@@ -1124,6 +1136,7 @@ function GS.update()
 		end
 	end
 	GS.y = max(0, min(GS.y, max(0, #list * SEC_H - (524 - TOP))))
+	local coverT0 = Timer.getTime(thumbClock)
 	for i, s in ipairs(list) do
 		local maxScroll = max(0, #s.results * (THUMB_W + THUMB_GAP) - THUMB_GAP - (X1 - X0))
 		if s.free then
@@ -1141,7 +1154,8 @@ function GS.update()
 		if sy > -SEC_H and sy < 544 then
 			for j, m in ipairs(s.results) do
 				local x = X0 + (j - 1) * (THUMB_W + THUMB_GAP) - s.scroll
-				if x > X0 - THUMB_W * 2 and x < 960 + THUMB_W and not m.ImageDownload then
+				-- ~6 ms of cover starts a frame, as in ensureThumb
+				if x > X0 - THUMB_W * 2 and x < 960 + THUMB_W and not m.ImageDownload and Timer.getTime(thumbClock) - coverT0 < 6 then
 					Catalogs.loadMangaImage(m)
 					m.ImageDownload = true
 				end

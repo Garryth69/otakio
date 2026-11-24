@@ -12,6 +12,9 @@ local concat, insert = table.concat, table.insert
 local tonumber, type, setmetatable, ipairs = tonumber, type, setmetatable, ipairs
 local floor = math.floor
 local co_running, co_yield = coroutine.running, coroutine.yield
+-- bytes of markup per step of the engine's parser inside a coroutine, adapted to the time a step takes
+local nativeStep = 16384
+local stepClock = Timer and Timer.new and Timer.new()
 
 local VOID = {
 	area = true, base = true, br = true, col = true, embed = true, hr = true, img = true, input = true,
@@ -135,15 +138,26 @@ end
 ---@return table document
 function Html.parse(html, baseUrl)
 	html = html or ""
-	-- engine 2: the same tree built in C (HtmlNative, see the engine's luaHtml.cpp), in steps of 32 KB of markup so a
+	-- engine 2: the same tree built in C (HtmlNative, see the engine's luaHtml.cpp), in steps of markup so a
 	-- coroutine gives the frame back between them, like the Lua parser below
 	if HtmlNative and HtmlNative.new then
 		local parser = HtmlNative.new(html, Node, unescape)
-		local canYieldNative = co_running() ~= nil
-		local doc = parser:step(canYieldNative and 32768 or nil)
-		while not doc do
-			co_yield(false)
-			doc = parser:step(32768)
+		local doc
+		if co_running() == nil then
+			doc = parser:step(nil)
+		else
+			-- the step size follows the time each one takes (~12 ms, see Json.adaptStep): a fixed 32 KB took 60 ms on
+			-- some sites
+			repeat
+				local t0 = stepClock and Timer.getTime(stepClock)
+				doc = parser:step(nativeStep)
+				if t0 and Json and Json.adaptStep then
+					nativeStep = Json.adaptStep(nativeStep, Timer.getTime(stepClock) - t0, 4096, 65536)
+				end
+				if not doc then
+					co_yield(false)
+				end
+			until doc
 		end
 		doc.baseUrl = baseUrl or ""
 		doc.isDocument = true

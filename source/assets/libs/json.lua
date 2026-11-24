@@ -26,16 +26,33 @@ local escapes = {
 	[34] = '"', [92] = "\\", [47] = "/", [98] = "\b", [102] = "\f", [110] = "\n", [114] = "\r", [116] = "\t"
 }
 
--- values per step of the engine's decoder (JsonNative): ~10x faster than the Lua one (~7 us a value on the Vita against
--- ~75), so 4000 values keep a step near 30 ms
-local NATIVE_STEP = 4000
+-- values per step of the engine's decoder (JsonNative), inside a coroutine. The size follows the time each step
+-- takes, aiming at ~12 ms: a fixed 4000 was meant to take ~30 ms, and took 60-76 ms a step on MangaDex's lists
+-- (the log's "parser MangaList" hitches). What it learns is kept for the next decode.
+local TARGET_MS = 12
+local nativeStep = 1500
+local stepClock = Timer and Timer.new and Timer.new()
+
+---The next step size from how long the last one took
+function Json.adaptStep(size, ms, lo, hi)
+	if ms > TARGET_MS * 1.5 then
+		return math.max(lo, floor(size * TARGET_MS / ms))
+	elseif ms < TARGET_MS / 2 then
+		return math.min(hi, floor(size * 1.5))
+	end
+	return size
+end
 
 ---The engine's decoder (same result as the Lua one below), stepping like it inside a coroutine
 local function decodeNative(str, yieldEvery)
 	local canYield = yieldEvery and co_running() ~= nil
 	local dec = JsonNative.new(str, Json.null)
 	while true do
-		local done, value = dec:step(canYield and NATIVE_STEP or nil)
+		local t0 = canYield and stepClock and Timer.getTime(stepClock)
+		local done, value = dec:step(canYield and nativeStep or nil)
+		if t0 then
+			nativeStep = Json.adaptStep(nativeStep, Timer.getTime(stepClock) - t0, 200, 8000)
+		end
 		if done == nil then
 			if Console then
 				Console.error(value)
