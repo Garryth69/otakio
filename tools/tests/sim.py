@@ -156,6 +156,15 @@ SCENARIOS = {
     # touch only: a tap on a hint of the bottom bar presses its button (Settings > Data, then "Back" and "Section")
     "hinttap": ["R", "R", "R", "R", "R", "R", "R", ("wait", 30)] + ["DOWN"] * 9 + ["CROSS", ("wait", 60), ("touch", 262, 535),
                 ("wait", 40), ("touch", 20, 535), ("wait", 40)],
+    # a series with chapters (import fixtures, --tmp): its details, then the chapter list cursor moving down and up
+    # after 'import' (same --tmp): a series' details, then the chapter list cursor moving down and up
+    "detailsel": [("wait", 40), "RIGHT", "RIGHT", "RIGHT", "RIGHT", ("wait", 10), "CROSS", ("wait", 90), "DOWN", ("wait", 20), "DOWN", ("wait", 20),
+                  "DOWN", ("wait", 20), "DOWN", ("wait", 20), "UP", ("wait", 30)],
+    # a 40-chapter series (--tmp with ux0:data/otakio/import/<folder>): import it, open its details, then move through the
+    # chapter list far enough to scroll it, and back
+    "detailscroll": ["R", "R", "R", "R", "R", "R", ("wait", 30), "DOWN", "SQUARE", ("wait", 160), "L", "L", "L", "L", "L", "L",
+                     ("wait", 40), "RIGHT", ("wait", 10), "CROSS", ("wait", 90)] + ["DOWN", ("wait", 8)] * 14 + ["UP", ("wait", 8)] * 6
+                    + [("wait", 30)],
     "importread": [("wait", 30), "DOWN", "RIGHT", "CROSS", ("wait", 120), "DOWN", "CROSS", ("wait", 200), "RIGHT", ("wait", 100)],
     # needs a library (--tmp): Triangle refreshes it online, then the Updates tab shows what was found
     "refresh": [("wait", 60), "TRIANGLE", ("wait", 900), "R", ("wait", 60)],

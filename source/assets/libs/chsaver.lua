@@ -5,6 +5,23 @@ local currentTask = nil
 local Downloading = {}
 
 ---Path to saved chapters folder
+---File name order a person expects: numbers by value, so "Chapter 2" comes before "Chapter 10" and "2.jpg" before
+---"10.jpg" (a plain comparison put them the other way round); the rest ignores case
+local function padNumber(n)
+	n = n:gsub("^0+", "")
+	return #n < 20 and string.rep("0", 20 - #n) .. n or n
+end
+
+local function naturalLess(a, b)
+	local ka = a:lower():gsub("%d+", padNumber)
+	local kb = b:lower():gsub("%d+", padNumber)
+	if ka ~= kb then
+		return ka < kb
+	end
+	return a < b
+end
+ChapterSaver.naturalLess = naturalLess
+
 local FOLDER = "ux0:data/otakio/chapters/"
 local CHAPTERSAV_PATH = "ux0:data/otakio/c.c"
 
@@ -306,7 +323,7 @@ function ChapterSaver.importManga(path)
 			table.sort(
 				dir,
 				function(a, b)
-					return a.name < b.name
+					return naturalLess(a.name, b.name)
 				end
 			)
 			if type == "folder" then
@@ -324,7 +341,7 @@ function ChapterSaver.importManga(path)
 					table.sort(
 						subDir,
 						function(a, b)
-							return a.name < b.name
+							return naturalLess(a.name, b.name)
 						end
 					)
 					local imageLinks = {}
@@ -409,7 +426,7 @@ function ChapterSaver.importManga(path)
 					table.sort(
 						zipDir,
 						function(a, b)
-							return a.name < b.name
+							return naturalLess(a.name, b.name)
 						end
 					)
 					local is_contain_images = false
@@ -465,7 +482,7 @@ function ChapterSaver.importManga(path)
 				table.sort(
 					zipDir,
 					function(a, b)
-						return a.name < b.name
+						return naturalLess(a.name, b.name)
 					end
 				)
 				local is_cover_loaded = false
@@ -696,7 +713,7 @@ function ChapterSaver.getChapter(chapter)
 			table.sort(
 				dir,
 				function(a, b)
-					return a.name < b.name
+					return naturalLess(a.name, b.name)
 				end
 			)
 			for _, file in ipairs(dir) do
@@ -711,7 +728,7 @@ function ChapterSaver.getChapter(chapter)
 			table.sort(
 				zip,
 				function(a, b)
-					return a.name < b.name
+					return naturalLess(a.name, b.name)
 				end
 			)
 			for _, file in ipairs(zip) do
@@ -741,7 +758,7 @@ function ChapterSaver.getChapter(chapter)
 				table.sort(
 					zip,
 					function(a, b)
-						return a.name < b.name
+						return naturalLess(a.name, b.name)
 					end
 				)
 				for _, file in ipairs(zip) do

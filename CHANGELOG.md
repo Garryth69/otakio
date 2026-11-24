@@ -21,6 +21,10 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
   by tapping Cancel.
 
 ### Fixed
+- **Chapter list cursor in newest-first order:** moving with the d-pad scrolled the list but the highlight was drawn
+  on the mirrored row, off screen; it now sits on the chapter it selects.
+- **Imported chapters and pages in number order:** "Chapter 2" before "Chapter 10" and "2.jpg" before "10.jpg"
+  (series imported earlier are put in order too).
 - **A save cut short no longer loses the library:** if the console switched off in the middle of saving, the complete
   new copy left on the card is used at the next start.
 - **Madara sites that moved their series to another path** (ManhwaToon: `/manhwa/`) list their series again.

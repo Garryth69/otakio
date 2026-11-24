@@ -524,13 +524,15 @@ function Details.draw()
 		Graphics.fillRect(260, 955, 95 + chaptersMaxHeightOffset, 544, backgroundColor)
 		local listCount = #chaptersList
 		-- selection / touch highlight sits under the row text
+		-- the d-pad cursor counts rows on screen; the touched row (slider.ItemID) is a chapter index, which newest-first
+		-- order (N->1) shows mirrored
 		local selectedItem = detailsSelector.getSelected()
-		for _, highlighted in ipairs({selectedItem, slider.ItemID}) do
+		for k, highlighted in ipairs({selectedItem, slider.ItemID}) do
 			if highlighted and highlighted ~= 0 then
-				local row = Settings.ChapterSorting ~= "N->1" and highlighted or listCount - highlighted + 1
+				local row = (k == 1 or Settings.ChapterSorting ~= "N->1") and highlighted or listCount - highlighted + 1
 				local hy = shift - slider.Y + row * 80 + chaptersMaxHeightOffset
 				if hy + 80 > 95 + chaptersMaxHeightOffset and hy < 544 then
-					UI.listHighlight(270, math.max(hy + 3, 95 + chaptersMaxHeightOffset), 950, hy + 77, highlighted == selectedItem)
+					UI.listHighlight(270, math.max(hy + 3, 95 + chaptersMaxHeightOffset), 950, hy + 77, k == 1)
 				end
 			end
 		end

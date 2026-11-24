@@ -59,6 +59,7 @@ jobs:
           python tools/tests/test_sim_maintenance.py
           python tools/tests/test_sim_patches.py
           python tools/tests/test_sim_backup.py
+          python tools/tests/test_sim_details.py
 
       - name: Translations
         run: python tools/check_lang.py

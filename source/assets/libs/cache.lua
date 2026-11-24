@@ -478,6 +478,12 @@ function Cache.loadChapters(manga, skipHiding)
 				end
 			)
 			closeFile(fh)
+			if success and manga.ParserID == "IMPORTED" and type(newChaptersList) == "table" and ChapterSaver.naturalLess then
+				-- imports before 1.1.6 kept their chapters in plain text order ("Chapter 10" before "Chapter 2")
+				table.sort(newChaptersList, function(a, b)
+					return ChapterSaver.naturalLess(tostring(a.Name or ""), tostring(b.Name or ""))
+				end)
+			end
 			if success then
 				if skipHiding then
 					newChaptersList.Description = newChaptersList.Description or ""
