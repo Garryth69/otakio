@@ -55,7 +55,7 @@ Language.ChineseTraditional = {
 		DoubleTapReader = "點兩下縮放", PressEdgesToChangePage = "點選頁面邊緣翻頁", PreloadPages = "預先載入頁數",
 		Incognito = "無痕模式", SaveImageFormat = "圖片儲存格式", ConnectionTime = "連線逾時（秒）", ImageProxy = "圖片轉換（wsrv.nl）",
 		DataSaver = "節省流量", Proxy = "代理伺服器", UseProxy = "使用代理伺服器", UseProxyAuth = "代理伺服器驗證", ProxyAuth = "帳號:密碼",
-		CreateBackup = "建立備份", RestoreBackup = "還原備份", ImportNoboruData = "從 NOBORU 匯入",
+		CreateBackup = "建立備份", AutoBackup = "自動備份", RestoreBackup = "還原備份", ImportNoboruData = "從 NOBORU 匯入",
 		SaveDataPath = "下載儲存位置", ClearLibrary = "清空書櫃", ClearCache = "清除快取（書櫃外的漫畫）",
 		ClearAllCache = "清除所有快取", ClearChapters = "刪除所有已下載章節", ResetAllSettings = "重設所有設定",
 		SkipFontLoading = "略過字型預先載入", ChapterSorting = "章節順序", SilentDownloads = "隱藏下載通知",
@@ -73,7 +73,7 @@ Language.ChineseTraditional = {
 		Network = "逾時、圖片轉換、代理伺服器", Data = "備份、快取、儲存空間", Other = "字型、通知、詳情",
 		Controls = "按鍵與類比搖桿", About = "版本與致謝",
 		AutoDownloadNew = "在書櫃更新之後", PreloadPages = "在背景下載後面的頁面",
-		Incognito = "不儲存紀錄與進度", SaveImageFormat = "用於閱讀器中的「儲存圖片」。轉換為其他格式需要幾秒鐘", UIFontSize = "放大清單、選單和簡介中的文字（標題大小不變）", ImageProxy = "僅用於 Vita 無法開啟的格式（AVIF、JXL、GIF）",
+		AutoBackup = "書庫和紀錄的副本（保留最近 3 份）", Incognito = "不儲存紀錄與進度", SaveImageFormat = "用於閱讀器中的「儲存圖片」。轉換為其他格式需要幾秒鐘", UIFontSize = "放大清單、選單和簡介中的文字（標題大小不變）", ImageProxy = "僅用於 Vita 無法開啟的格式（AVIF、JXL、GIF）",
 		DataSaver = "透過代理伺服器取得較小的圖片（960px）", ImportNoboruData = "書櫃、進度與解析器"
 	},
 	THEME = {Otakio = "Otakio（深紫）", AMOLED = "AMOLED 純黑", Dark = "深色", Ocean = "海洋", Matcha = "抹茶", Crimson = "緋紅", Sakura = "櫻花（淺色）", Light = "淺色"},
@@ -148,7 +148,7 @@ Language.ChineseTraditional = {
 		IMPORT_HELP = "複製到上方的資料夾（VitaShell FTP 或 USB）：\n• .cbz 或 .zip 檔案\n• 含有頁面圖片的資料夾\n• 每章一個資料夾或 .cbz 的漫畫資料夾\n然後按 ✕ 閱讀，按 □ 加入書櫃。",
 		IMPORTED_N = "已匯入 %d 項",
 		-- settings / data
-		PROXY_MODES = {Auto = "僅在需要時", Off = "關閉"}, PROXY_ADDRESS = "位址（IP:連接埠）",
+		AUTO_BACKUP_MODES = {Off = "關閉", D1 = "每天", D3 = "每 3 天", D7 = "每 7 天"}, PROXY_MODES = {Auto = "僅在需要時", Off = "關閉"}, PROXY_ADDRESS = "位址（IP:連接埠）",
 		BACKUP_CREATED = "備份已儲存：\n%s", BACKUP_FAILED = "無法建立備份", BACKUP_INVALID = "無效的備份檔案",
 		BACKUP_RESTORED = "備份已還原（新增 %d 部漫畫）", NO_BACKUPS = "ux0:data/otakio/backups 中沒有備份",
 		RESTORE_BACKUP = "還原備份", RESTORE_BACKUP_Q = "還原這個備份？",

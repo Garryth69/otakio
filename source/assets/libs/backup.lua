@@ -18,9 +18,8 @@ local function copyManga(m)
 	return t
 end
 
-local AUTO_PREFIX = "otakio_auto_" -- backups made before an app update, and once a week
+local AUTO_PREFIX = "otakio_auto_" -- backups made before an app update, and every few days (Settings.AutoBackup)
 local AUTO_KEEP = 3
-local WEEK = 7 * 86400
 
 ---Keeps only the newest AUTO_KEEP automatic backups (the user's own backups are never removed)
 local function pruneAuto()
@@ -99,10 +98,12 @@ function Backup.create(opts)
 	return ok and (DIR .. name) or nil
 end
 
----When the newest automatic backup is a week old (or there is none), makes one in the background. Without app
----updates for a long time there would otherwise be no recent copy of the library to go back to.
-function Backup.weekly()
-	if #Database.getAll() == 0 then
+---When the newest automatic backup is Settings.AutoBackup days old (1, 3 or 7; 0 turns it off) or there is none,
+---makes one in the background. Without app updates for a long time there would otherwise be no recent copy of the
+---library to go back to.
+function Backup.periodic()
+	local days = tonumber(Settings.AutoBackup or 7) or 7
+	if days <= 0 or #Database.getAll() == 0 then
 		return
 	end
 	local newest = nil
@@ -113,13 +114,13 @@ function Backup.weekly()
 			newest = math.max(newest or 0, stamp)
 		end
 	end
-	local weekAgo = tonumber(Clock.date("%Y%m%d", Clock.now() - WEEK))
-	if newest and newest > weekAgo then
+	local cutoff = tonumber(Clock.date("%Y%m%d", Clock.now() - days * 86400))
+	if newest and newest > cutoff then
 		return
 	end
-	Extensions.addJob("weekly backup", function()
+	Extensions.addJob("automatic backup", function()
 		local path = Backup.create({auto = true})
-		ExtLog(path and ("weekly backup: " .. path) or "weekly backup failed")
+		ExtLog(path and ("automatic backup: " .. path) or "automatic backup failed")
 	end)
 end
 

@@ -55,7 +55,7 @@ Language.Russian = {
 		DoubleTapReader = "Двойное касание для масштаба", PressEdgesToChangePage = "Касание краёв листает страницы", PreloadPages = "Предзагрузка страниц",
 		Incognito = "Режим инкогнито", SaveImageFormat = "Формат сохранения изображений", ConnectionTime = "Тайм-аут соединения (секунды)", ImageProxy = "Конвертация изображений (wsrv.nl)",
 		DataSaver = "Экономия трафика", Proxy = "Прокси", UseProxy = "Использовать прокси", UseProxyAuth = "Авторизация прокси", ProxyAuth = "Логин:пароль",
-		CreateBackup = "Создать резервную копию", RestoreBackup = "Восстановить копию", ImportNoboruData = "Импорт из NOBORU",
+		CreateBackup = "Создать резервную копию", AutoBackup = "Автоматическая резервная копия", RestoreBackup = "Восстановить копию", ImportNoboruData = "Импорт из NOBORU",
 		SaveDataPath = "Место для загрузок", ClearLibrary = "Очистить библиотеку", ClearCache = "Очистить кэш (манга вне библиотеки)",
 		ClearAllCache = "Очистить весь кэш", ClearChapters = "Удалить все скачанные главы", ResetAllSettings = "Сбросить все настройки",
 		SkipFontLoading = "Пропустить предзагрузку шрифтов", ChapterSorting = "Порядок глав", SilentDownloads = "Скрыть уведомления о загрузках",
@@ -73,7 +73,7 @@ Language.Russian = {
 		Network = "Тайм-аут, конвертация изображений, прокси", Data = "Резервные копии, кэш, хранилище", Other = "Шрифты, уведомления, детали",
 		Controls = "Кнопки и стики", About = "Версия и авторы",
 		AutoDownloadNew = "После обновления библиотеки", PreloadPages = "Следующие страницы скачиваются в фоне",
-		Incognito = "Не сохраняет историю и прогресс", SaveImageFormat = "Для «Сохранить изображение» в читалке. Преобразование в другой формат занимает несколько секунд", UIFontSize = "Крупнее текст в списках, меню и описаниях (заголовки не меняются)", ImageProxy = "Только для форматов, которые Vita не открывает (AVIF, JXL, GIF)",
+		AutoBackup = "Копия библиотеки и истории (хранятся 3 последние)", Incognito = "Не сохраняет историю и прогресс", SaveImageFormat = "Для «Сохранить изображение» в читалке. Преобразование в другой формат занимает несколько секунд", UIFontSize = "Крупнее текст в списках, меню и описаниях (заголовки не меняются)", ImageProxy = "Только для форматов, которые Vita не открывает (AVIF, JXL, GIF)",
 		DataSaver = "Уменьшенные изображения через прокси (960px)", ImportNoboruData = "Библиотека, прогресс и парсеры"
 	},
 	THEME = {Otakio = "Otakio (тёмно-фиолетовая)", AMOLED = "AMOLED чёрная", Dark = "Тёмная", Ocean = "Океан", Matcha = "Матча", Crimson = "Багровая", Sakura = "Сакура (светлая)", Light = "Светлая"},
@@ -148,7 +148,7 @@ Language.Russian = {
 		IMPORT_HELP = "Скопируйте в папку выше (FTP VitaShell или USB):\n• файл .cbz или .zip\n• папку с изображениями страниц\n• папку манги, где каждая глава — папка или .cbz\nЗатем ✕ — читать, □ — добавить в Библиотеку.",
 		IMPORTED_N = "Импортировано: %d",
 		-- settings / data
-		PROXY_MODES = {Auto = "Только при необходимости", Off = "Выкл."}, PROXY_ADDRESS = "Адрес (IP:порт)",
+		AUTO_BACKUP_MODES = {Off = "Выкл.", D1 = "Каждый день", D3 = "Каждые 3 дня", D7 = "Каждые 7 дней"}, PROXY_MODES = {Auto = "Только при необходимости", Off = "Выкл."}, PROXY_ADDRESS = "Адрес (IP:порт)",
 		BACKUP_CREATED = "Копия сохранена:\n%s", BACKUP_FAILED = "Не удалось создать копию", BACKUP_INVALID = "Неверный файл копии",
 		BACKUP_RESTORED = "Копия восстановлена (новых манг: %d)", NO_BACKUPS = "Нет копий в ux0:data/otakio/backups",
 		RESTORE_BACKUP = "Восстановить копию", RESTORE_BACKUP_Q = "Восстановить эту копию?",

@@ -55,7 +55,7 @@ Language.Spanish = {
 		DoubleTapReader = "Doble toque para zoom", PressEdgesToChangePage = "Tocar los bordes para pasar página", PreloadPages = "Páginas a precargar",
 		Incognito = "Modo incógnito", SaveImageFormat = "Formato al guardar imagen", ConnectionTime = "Tiempo de espera de conexión (segundos)", ImageProxy = "Conversión de imágenes (wsrv.nl)",
 		DataSaver = "Ahorro de datos", Proxy = "Proxy", UseProxy = "Usar proxy", UseProxyAuth = "Autenticación del proxy", ProxyAuth = "Usuario:contraseña",
-		CreateBackup = "Crear copia de seguridad", RestoreBackup = "Restaurar copia de seguridad", ImportNoboruData = "Importar desde NOBORU",
+		CreateBackup = "Crear copia de seguridad", AutoBackup = "Copia de seguridad automática", RestoreBackup = "Restaurar copia de seguridad", ImportNoboruData = "Importar desde NOBORU",
 		SaveDataPath = "Almacenamiento de descargas", ClearLibrary = "Vaciar biblioteca", ClearCache = "Borrar caché (mangas fuera de la biblioteca)",
 		ClearAllCache = "Borrar toda la caché", ClearChapters = "Borrar todos los capítulos descargados", ResetAllSettings = "Restablecer todos los ajustes",
 		SkipFontLoading = "Omitir precarga de fuentes", ChapterSorting = "Orden de los capítulos", SilentDownloads = "Ocultar avisos de descarga",
@@ -73,7 +73,7 @@ Language.Spanish = {
 		Network = "Tiempo de espera, conversión de imágenes, proxy", Data = "Copia de seguridad, caché, almacenamiento", Other = "Fuentes, avisos, detalles",
 		Controls = "Botones y sticks", About = "Versión y créditos",
 		AutoDownloadNew = "Después de actualizar la biblioteca", PreloadPages = "Las siguientes páginas se descargan en segundo plano",
-		Incognito = "No guarda historial ni progreso", SaveImageFormat = "Para «Guardar imagen» del lector. Convertir a otro formato tarda unos segundos", UIFontSize = "Texto más grande en listas, menús y descripciones (los títulos no cambian)", ImageProxy = "Solo para formatos que la Vita no abre (AVIF, JXL, GIF)",
+		AutoBackup = "Copia de la biblioteca y el historial (guarda las 3 últimas)", Incognito = "No guarda historial ni progreso", SaveImageFormat = "Para «Guardar imagen» del lector. Convertir a otro formato tarda unos segundos", UIFontSize = "Texto más grande en listas, menús y descripciones (los títulos no cambian)", ImageProxy = "Solo para formatos que la Vita no abre (AVIF, JXL, GIF)",
 		DataSaver = "Imágenes más pequeñas a través del proxy (960px)", ImportNoboruData = "Biblioteca, progreso y parsers"
 	},
 	THEME = {Otakio = "Otakio (morado oscuro)", AMOLED = "Negro AMOLED", Dark = "Oscuro", Ocean = "Océano", Matcha = "Matcha", Crimson = "Carmesí", Sakura = "Sakura (claro)", Light = "Claro"},
@@ -148,7 +148,7 @@ Language.Spanish = {
 		IMPORT_HELP = "Copia a la carpeta de arriba (FTP de VitaShell o USB):\n• un archivo .cbz o .zip\n• una carpeta con las imágenes de las páginas\n• una carpeta del manga con un capítulo por carpeta o .cbz\nLuego, ✕ lo lee y □ lo añade a la Biblioteca.",
 		IMPORTED_N = "%d elementos importados",
 		-- ajustes / datos
-		PROXY_MODES = {Auto = "Solo cuando haga falta", Off = "Desactivado"}, PROXY_ADDRESS = "Dirección (IP:puerto)",
+		AUTO_BACKUP_MODES = {Off = "Desactivado", D1 = "Cada día", D3 = "Cada 3 días", D7 = "Cada 7 días"}, PROXY_MODES = {Auto = "Solo cuando haga falta", Off = "Desactivado"}, PROXY_ADDRESS = "Dirección (IP:puerto)",
 		BACKUP_CREATED = "Copia de seguridad guardada:\n%s", BACKUP_FAILED = "No se pudo crear la copia de seguridad", BACKUP_INVALID = "Archivo de copia de seguridad no válido",
 		BACKUP_RESTORED = "Copia restaurada (%d mangas nuevos)", NO_BACKUPS = "No hay copias en ux0:data/otakio/backups",
 		RESTORE_BACKUP = "Restaurar copia de seguridad", RESTORE_BACKUP_Q = "¿Restaurar esta copia de seguridad?",

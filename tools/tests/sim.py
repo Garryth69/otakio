@@ -150,6 +150,9 @@ SCENARIOS = {
     "settingstree": ["R", "R", "R", "R", "R", "R", "R", ("wait", 30), "DOWN", "DOWN", "DOWN", "CROSS", ("wait", 30), "CIRCLE", "DOWN",
                      "CROSS", ("wait", 30), "CIRCLE", "DOWN", "CROSS", ("wait", 30), "CIRCLE", "DOWN", "CROSS", ("wait", 30),
                      "CIRCLE", "DOWN", "CROSS", ("wait", 30), "CIRCLE", ("wait", 20)],
+    # Settings > Data: the automatic backup option cycles 7 -> 3 -> 1 days -> off
+    "autobackup": ["R", "R", "R", "R", "R", "R", "R", ("wait", 30)] + ["DOWN"] * 9 + ["CROSS", ("wait", 60), "DOWN", "DOWN", ("wait", 20),
+                   "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 20), "CROSS", ("wait", 30)],
     "importread": [("wait", 30), "DOWN", "RIGHT", "CROSS", ("wait", 120), "DOWN", "CROSS", ("wait", 200), "RIGHT", ("wait", 100)],
     # needs a library (--tmp): Triangle refreshes it online, then the Updates tab shows what was found
     "refresh": [("wait", 60), "TRIANGLE", ("wait", 900), "R", ("wait", 60)],

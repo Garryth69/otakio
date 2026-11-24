@@ -55,7 +55,7 @@ Language.Japanese = {
 		DoubleTapReader = "ダブルタップでズーム", PressEdgesToChangePage = "端をタップしてページ送り", PreloadPages = "先読みするページ数",
 		Incognito = "シークレットモード", SaveImageFormat = "画像の保存形式", ConnectionTime = "接続タイムアウト（秒）", ImageProxy = "画像変換（wsrv.nl）",
 		DataSaver = "データセーバー", Proxy = "プロキシ", UseProxy = "プロキシを使う", UseProxyAuth = "プロキシ認証", ProxyAuth = "ユーザー:パスワード",
-		CreateBackup = "バックアップを作成", RestoreBackup = "バックアップを復元", ImportNoboruData = "NOBORUからインポート",
+		CreateBackup = "バックアップを作成", AutoBackup = "自動バックアップ", RestoreBackup = "バックアップを復元", ImportNoboruData = "NOBORUからインポート",
 		SaveDataPath = "ダウンロードの保存先", ClearLibrary = "ライブラリを消去", ClearCache = "キャッシュを消去（ライブラリ外の作品）",
 		ClearAllCache = "すべてのキャッシュを消去", ClearChapters = "ダウンロード済みの話をすべて削除", ResetAllSettings = "すべての設定をリセット",
 		SkipFontLoading = "フォントの先読みを省略", ChapterSorting = "話の並び順", SilentDownloads = "ダウンロード通知を隠す",
@@ -73,7 +73,7 @@ Language.Japanese = {
 		Network = "タイムアウト、画像変換、プロキシ", Data = "バックアップ、キャッシュ、保存先", Other = "フォント、通知、詳細",
 		Controls = "ボタンとアナログスティック", About = "バージョンとクレジット",
 		AutoDownloadNew = "ライブラリ更新のあとに", PreloadPages = "次のページを裏でダウンロード",
-		Incognito = "履歴と進捗を保存しません", SaveImageFormat = "リーダーの「画像を保存」用。別の形式への変換には数秒かかります", UIFontSize = "リスト・メニュー・説明の文字を大きくします（タイトルはそのまま）", ImageProxy = "Vitaで開けない形式のみ（AVIF、JXL、GIF）",
+		AutoBackup = "ライブラリと履歴のコピー（最新3つを保持）", Incognito = "履歴と進捗を保存しません", SaveImageFormat = "リーダーの「画像を保存」用。別の形式への変換には数秒かかります", UIFontSize = "リスト・メニュー・説明の文字を大きくします（タイトルはそのまま）", ImageProxy = "Vitaで開けない形式のみ（AVIF、JXL、GIF）",
 		DataSaver = "プロキシ経由で画像を小さく（960px）", ImportNoboruData = "ライブラリ、進捗、パーサー"
 	},
 	THEME = {Otakio = "Otakio（ダークパープル）", AMOLED = "AMOLEDブラック", Dark = "ダーク", Ocean = "オーシャン", Matcha = "抹茶", Crimson = "クリムゾン", Sakura = "桜（ライト）", Light = "ライト"},
@@ -148,7 +148,7 @@ Language.Japanese = {
 		IMPORT_HELP = "上のフォルダーにコピーしてください（VitaShellのFTPかUSB）:\n• .cbz または .zip ファイル\n• ページ画像の入ったフォルダー\n• 1話ごとにフォルダーか .cbz を入れた作品フォルダー\n✕で読み、□でライブラリに追加します。",
 		IMPORTED_N = "%d件をインポートしました",
 		-- settings / data
-		PROXY_MODES = {Auto = "必要なときだけ", Off = "オフ"}, PROXY_ADDRESS = "アドレス（IP:ポート）",
+		AUTO_BACKUP_MODES = {Off = "オフ", D1 = "毎日", D3 = "3日ごと", D7 = "7日ごと"}, PROXY_MODES = {Auto = "必要なときだけ", Off = "オフ"}, PROXY_ADDRESS = "アドレス（IP:ポート）",
 		BACKUP_CREATED = "バックアップを保存しました:\n%s", BACKUP_FAILED = "バックアップを作成できませんでした", BACKUP_INVALID = "無効なバックアップファイル",
 		BACKUP_RESTORED = "バックアップを復元しました（新しい作品%d件）", NO_BACKUPS = "ux0:data/otakio/backups にバックアップがありません",
 		RESTORE_BACKUP = "バックアップを復元", RESTORE_BACKUP_Q = "このバックアップを復元しますか？",

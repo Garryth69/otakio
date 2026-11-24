@@ -35,6 +35,7 @@ Settings = {
 	LoadSummary = true,
 	-- Otakio
 	ImageProxy = "Auto",
+	AutoBackup = 7, -- days between automatic backups (0: off)
 	DataSaver = false,
 	PreloadPages = 3,
 	SaveImageFormat = "Original",
@@ -150,6 +151,7 @@ local settingsListTree = {
 	},
 	Data = {
 		"CreateBackup",
+		"AutoBackup",
 		"RestoreBackup",
 		"ImportNoboruData",
 		"SaveDataPath",
@@ -285,6 +287,7 @@ function settings.load()
 				setSetting(new, "LibrarySorting", Database.SORT_MODES)
 				setSetting(new, "LibraryFilter", Database.FILTERS)
 				setSetting(new, "ImageProxy", { "Auto", "Off" })
+				setSetting(new, "AutoBackup", { 0, 1, 3, 7 })
 				setSetting(new, "DataSaver", { true, false })
 				setSetting(new, "PreloadPages", { 0, 1, 2, 3, 5, 8 })
 				setSetting(new, "SaveImageFormat", { "Original", "PNG", "JPEG", "WebP" })
@@ -609,6 +612,9 @@ SettingsFunctions = {
 	end,
 	CreateBackup = function()
 		Backup.create()
+	end,
+	AutoBackup = function()
+		settings.AutoBackup = table.next(settings.AutoBackup or 7, { 7, 3, 1, 0 })
 	end,
 	CheckAppUpdate = function()
 		AppUpdate.menuAction()

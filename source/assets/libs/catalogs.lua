@@ -1065,6 +1065,10 @@ local function settingInfo(task)
 		return LS.SETTINGS[Settings.KeyType]
 	elseif task == "SaveDataPath" then
 		return Settings.SaveDataPath
+	elseif task == "AutoBackup" then
+		local days = Settings.AutoBackup or 7
+		local modes = L().AUTO_BACKUP_MODES or Language.English.OTAKIO.AUTO_BACKUP_MODES
+		return days == 0 and modes.Off or modes["D" .. days] or tostring(days)
 	elseif task == "ImageProxy" then
 		return L().PROXY_MODES[Settings.ImageProxy or "Auto"]
 	elseif task == "SaveImageFormat" then

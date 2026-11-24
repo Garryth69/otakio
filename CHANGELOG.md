@@ -8,8 +8,9 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
 - **Site themes fixed without an app update:** when a theme used by many sources (Madara, MangaThemesia, Keyoapp...)
   changes its pages, the official catalog can publish a fix for its engine. The app downloads it on the next catalog
   refresh (its SHA-256 checked), runs it in the extension sandbox and rebuilds the installed sources on top of it.
-- **Weekly library backup:** once a week the app saves a copy of the library, history, bookmarks and settings in
-  `backups/` (the last 3 automatic ones are kept), in the background. Before, a copy was only made before an update.
+- **Automatic library backup** (Settings > Data): every day, every 3 days or every 7 days (the default), the app saves
+  a copy of the library, history, bookmarks and settings in `backups/` in the background; the last 3 automatic ones
+  are kept. It can be turned off. Before, a copy was only made before an update.
 - **A backup image converter:** when the image converter fails several times in a row, the app moves to the next one
   of its list (remote settings can change the list).
 
