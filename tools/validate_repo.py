@@ -8,7 +8,8 @@ Fails (exit 1) on:
 - a "file" that doesn't exist, or whose sha256 differs from index.json (hashed with LF line endings, as git stores
   it; --git compares against the committed blob instead of the working copy);
 - a .lua file that doesn't compile (compiled with LuaJIT, never run);
-- a file with an "-- @id" header that doesn't match its entry.
+- a file with an "-- @id" header that doesn't match its entry;
+- an engine patch ("patches") with a bad id or path, a wrong sha256 or code that doesn't compile.
 """
 import argparse, hashlib, json, os, re, subprocess, sys
 
@@ -74,9 +75,43 @@ def main():
         if m and m.group(1).decode() != ext_id:
             errors.append(f"{ext_id}: header says @id {m.group(1).decode()}")
 
+    # engine patches (tools/add_patch.py): same pinning, plus the rules the app enforces before it downloads one
+    patches = index.get("patches") or []
+    seen_patches = set()
+    for e in patches:
+        pid = e.get("id", "?")
+        if not re.match(r"^[\w.\-]+$", str(pid)):
+            errors.append(f"patch {pid}: bad id")
+        if pid in seen_patches:
+            errors.append(f"patch {pid}: duplicate id")
+        seen_patches.add(pid)
+        f = str(e.get("file") or "")
+        if not re.match(r"^[\w.\-/]+\.lua$", f) or ".." in f:
+            errors.append(f"patch {pid}: file must be a relative .lua path, got {f!r}")
+            continue
+        for k in ("minApp", "maxApp"):
+            if k in e and not re.match(r"^\d+(\.\d+)*$", str(e[k])):
+                errors.append(f"patch {pid}: {k} must look like 1.1.5")
+        if args.git:
+            r = subprocess.run(["git", "-C", args.repo, "show", "HEAD:" + f], capture_output=True)
+            if r.returncode:
+                errors.append(f"patch {pid}: {f} is not committed")
+                continue
+            data = r.stdout
+        elif not os.path.isfile(os.path.join(args.repo, f)):
+            errors.append(f"patch {pid}: {f} not found")
+            continue
+        else:
+            data = open(os.path.join(args.repo, f), "rb").read().replace(b"\r\n", b"\n")
+        if hashlib.sha256(data).hexdigest() != e.get("sha256"):
+            errors.append(f"patch {pid}: sha256 missing or wrong for {f}")
+        err = compile_lua(data.decode("utf-8", "replace"), "=" + f)
+        if err:
+            errors.append(f"patch {pid}: does not compile: {err}")
+
     for msg in errors:
         print("ERROR", msg)
-    print(f"{len(entries)} entries, {files} files checked, {len(errors)} errors")
+    print(f"{len(entries)} entries, {files} files checked, {len(patches)} engine patches, {len(errors)} errors")
     sys.exit(1 if errors else 0)
 
 

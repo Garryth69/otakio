@@ -45,7 +45,9 @@ The fork builds the engine with GitHub Actions on every push to `otakio` (`.gith
 - NOBORU's libvita2d at a fixed commit.
 
 Each run keeps `eboot_unsafe.bin` with its SHA-256 and `build-info.txt` as an artifact. A tag named `engine-*` publishes
-them as a release. The output is not byte-identical to a local build, because debug info records the build paths and
+them as a release, together with `vitasdk-otakio.tar.xz`: the prepared SDK (the toolchain and every library, as that
+build made them). If the VitaSDK download ever disappears or changes, the workflow uses the newest archived SDK instead,
+so the engine can still be rebuilt years later. The output is not byte-identical to a local build, because debug info records the build paths and
 the fself is compressed, but it is built from the same source and the same toolchain.
 
 ## Quick rebuild (WSL/Linux with VitaSDK)

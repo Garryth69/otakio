@@ -1,0 +1,4 @@
+# Python packages of the tools, tests and robots (CI, release, the catalog workflows), at the versions they were
+# tested with. Dependabot proposes updates; they merge only when CI passes.
+lupa==2.8
+pillow==13.0.0

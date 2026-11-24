@@ -2,7 +2,8 @@
 - sources dead for DEAD_DAYS leave at most --max-removals a run, the longest-dead first;
 - nothing dead is removed when a large share of the catalog looks dead at once (a broken health check);
 - keiyoushi removals beyond the limit are all held back;
-- a keiyoushi clone that looks incomplete is not followed at all.
+- a keiyoushi clone that looks incomplete is not followed at all;
+- a dead source whose site only refuses the health check's machine stays.
 python tools/tests/test_prune_limits.py"""
 import json, os, sys, tempfile, time
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -77,6 +78,17 @@ assert "otakio.dead5" in ids(repo) and "otakio.dead0" not in ids(repo)
 s = run()
 assert sorted(r["id"] for r in s["removed"]) == ["otakio.dead1", "otakio.dead4"] and s["deferred"] == [], s
 assert all("dead since" in r["reason"] for r in json.load(open(prune_repo.REMOVED_JSON)))
+
+# dead for long, but the site only refuses the health check's machine: kept (the console may still read it)
+root, repo = setup(20, [prune_repo.DEAD_DAYS + 50, prune_repo.DEAD_DAYS + 40])
+h = json.load(open(probe_sources.HEALTH))
+h["otakio.dead0"]["site"] = "blocked"
+h["otakio.dead1"]["site"] = "gone"
+json.dump(h, open(probe_sources.HEALTH, "w"))
+s = run()
+assert [r["id"] for r in s["removed"]] == ["otakio.dead1"] and s["kept"] == ["otakio.dead0"], s
+assert "site down" in s["removed"][0]["reason"], s
+assert "otakio.dead0" in ids(repo)
 
 # half the catalog dead at once: the health check is suspect, nothing goes
 root, repo = setup(4, [prune_repo.DEAD_DAYS + 5] * 4)

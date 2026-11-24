@@ -79,6 +79,49 @@ end
 '''
 
 
+def app_version():
+    import re
+    text = open(os.path.join(ROOT, "source", "assets", "libs", "config.lua"), encoding="utf8").read()
+    return re.search(r'VERSION_NAME\s*=\s*"([^"]+)"', text).group(1)
+
+
+def version_tuple(v):
+    import re
+    return tuple(int(n) for n in re.findall(r"\d+", str(v)))
+
+
+def catalog_patches(repo=None):
+    """The engine patches of the catalog (index.json "patches") that apply to this app version, in the order the app
+    runs them (by id): [(id, path)]"""
+    import json
+    repo = repo or os.path.join(ROOT, "repo")
+    try:
+        index = json.load(open(os.path.join(repo, "index.json"), encoding="utf8"))
+    except (OSError, ValueError):
+        return []
+    app = version_tuple(app_version())
+    out = []
+    for e in index.get("patches") or []:
+        if e.get("minApp") and app < version_tuple(e["minApp"]):
+            continue
+        if e.get("maxApp") and app > version_tuple(e["maxApp"]):
+            continue
+        out.append((e["id"], os.path.join(repo, e["file"])))
+    return sorted(out)
+
+
+def apply_patches(L):
+    """Like the app at start-up: the catalog's engine patches run on top of the engines before any extension.
+    OTAKIO_NO_PATCHES=1 leaves the engines as the app ships them."""
+    if os.environ.get("OTAKIO_NO_PATCHES"):
+        return []
+    applied = []
+    for pid, path in catalog_patches():
+        L.execute("dofile(...)", path.replace("\\", "/"))
+        applied.append(pid)
+    return applied
+
+
 class Engine:
     def __init__(self, timeout=15):
         self.timeout = timeout
@@ -86,6 +129,7 @@ class Engine:
         self.L = luajit21.LuaRuntime(unpack_returned_tuples=True)
         self.L.globals().PY_FETCH = self._fetch
         self.L.execute(BOOT, ROOT)
+        self.patches = apply_patches(self.L)
 
     def _fetch(self, url, method, body, headers):
         self.requests += 1

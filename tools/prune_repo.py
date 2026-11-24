@@ -5,7 +5,9 @@ Rules (decided for Otakio's long-term maintenance):
      right away (keiyoushi also removes sites at their owner's request); a site that moved to a new domain gets the
      new baseUrl here and is probed again.
   2. Every other entry (native, yuzono, cursed, NOBORU parsers) is removed after DEAD_DAYS days in a row of failed
-     health checks (repo/health.json keeps "deadSince", see probe_sources.merge_health).
+     health checks (repo/health.json keeps "deadSince", see probe_sources.merge_health), unless its site only refuses
+     the health check's machine (health "site": "blocked", or an HTTP 403/429/503 during the probe): the console may
+     still read it, so it stays and is reported as kept.
   3. OPT_OUT: sites whose owner asked to be left out, never published again.
 
 Every removal is appended to repo/removed.json and listed in repo/REMOVED.md. gen_repo.py skips removed ids, so a
@@ -99,7 +101,7 @@ def main():
     idx = json.load(open(os.path.join(REPO, "index.json"), encoding="utf8"))
     health = probe_sources.load_health()
     log = load_removed()
-    remove, moved, dead = {}, [], {}
+    remove, moved, dead, kept = {}, [], {}, []
 
     for e in idx["extensions"]:
         h = health.get(e["id"]) or {}
@@ -121,7 +123,10 @@ def main():
         if h.get("status") == "dead":
             since = h.get("deadSince") or h.get("checked") or today
             if days_since(since) > args.days:
-                dead[e["id"]] = since
+                if h.get("site") == "blocked" or h.get("blocked"):
+                    kept.append(e["id"])
+                else:
+                    dead[e["id"]] = since
 
     print("domain changes:")
     for e, new in moved:
@@ -141,12 +146,17 @@ def main():
         oldest = sorted(dead, key=lambda k: (dead[k], k))
         cut = args.max_removals or len(oldest)
         for k in oldest[:cut]:
-            remove[k] = "dead since %s" % dead[k]
+            site = (health.get(k) or {}).get("site")
+            remove[k] = "dead since %s" % dead[k] + ({"gone": " (site down)", "parked": " (domain parked)",
+                                                       "cloudflare": " (site behind a browser check)",
+                                                       "up": " (site changed)"}.get(site, ""))
         deferred = oldest[cut:]
         if deferred:
             print("%d more dead sources wait for the next runs" % len(deferred))
     summary = {"date": today, "moved": [], "removed": [], "held": [{"id": k, "reason": v} for k, v in sorted(held.items())],
-               "deferred": deferred}
+               "deferred": deferred, "kept": sorted(kept)}
+    if kept:
+        print("%d dead sources kept: their site only refuses the health check's machine" % len(kept))
     if args.dry_run:
         return
 

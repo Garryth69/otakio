@@ -62,6 +62,9 @@ Everything in CI (`.github/workflows/ci.yml`) must pass before a change is done.
   runs source jobs in coroutines. Every long loop must yield.
 - `extensions.lua` installs, updates and sandboxes the extensions. `REPLACED_BY` moves installs of a retired extension
   to its replacement.
+- Engine patches: the official catalog can list Lua files (`patches` in `index.json`) that replace or wrap
+  `Engines.*` functions. The app runs them in the extension sandbox before any extension; sha256 pinned, limited to
+  `minApp`..`maxApp`, removed when the catalog stops listing them (`extensions.lua`, `tools/add_patch.py`).
 - `remoteconfig.lua` reads `remote.json` from this repository at start, which lets the app be adjusted without a
   release (user agent, image proxy, disabled extensions, a notice). The README documents the format.
 - Engines for site themes (Madara, MangaThemesia, Keyoapp, ...) live in `engines*.lua`. An extension is either a theme
@@ -80,7 +83,9 @@ Everything in CI (`.github/workflows/ci.yml`) must pass before a change is done.
   third of the catalog dead at once. `sync.json` records each run.
 - **`status.yml`, weekly and when a robot fails:** rewrites the pinned *Catalog status* issue. It also makes a
   keepalive commit after 30 quiet days, because GitHub stops schedules after 60.
-- **Dependabot updates** of the pinned actions merge themselves when CI passes (minor and patch only).
+- **Dependabot updates** (the pinned actions in all three repositories, the Python packages in
+  `tools/requirements.txt`) merge themselves when CI passes, major versions too. The catalog's CI also dry-runs the
+  robots' tools, so an update that breaks them is never merged.
 
 Start every maintenance session by reading the *Catalog status* issue.
 
@@ -92,13 +97,16 @@ Start every maintenance session by reading the *Catalog status* issue.
    - **Layout or theme changed:** look at keiyoushi's current code for that site
      (`keiyoushi/extensions-source`, `src/<lang>/<name>`, and `lib-multisrc/<theme>` for themes).
 2. Fix it in the smallest place:
-   - a theme engine in `engines*.lua`, when a whole theme changed;
+   - a theme engine in `engines*.lua`, when a whole theme changed. Engine changes only reach users with a release,
+     so also publish the fix as an **engine patch** (`python tools/add_patch.py repo/patches/<name>.lua --max-app
+     <current version>`; the docstring has an example). Installed apps download it on their next catalog refresh,
+     and the health check applies it too. Withdraw it with `--remove` if it misbehaves;
    - the generator `tools/gen_repo.py`, when the generated configuration is wrong;
    - a new native in `repo/native/`, when the site left its theme. Add a `REPLACED_BY` entry and retire the old id
      with `tools/remove_sources.py`.
 3. When an extension file changes, raise its `version` and re-pin its `sha256` in `index.json`. The app refuses any
    file whose hash doesn't match. Re-probe it, run `python tools/gen_repo_readme.py`, then commit in `repo/`.
-4. Engine changes (`engines*.lua`) ship with the app: extensions that need them reach users with the next release.
+4. Engine changes (`engines*.lua`) ship with the app; until the next release, an engine patch carries them (step 2).
 
 ## Releasing a version
 

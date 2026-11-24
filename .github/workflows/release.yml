@@ -20,7 +20,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install lupa
+        run: pip install -r tools/requirements.txt
 
       - name: Check the tag matches the app version
         run: |

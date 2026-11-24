@@ -422,10 +422,15 @@ local function loadManual()
 	end
 end
 
+-- engine patches (defined below, after the download helpers)
+local loadPatches, syncPatches
+
 function Extensions.loadInstalled()
 	FS.mkdir(EXT_DIR)
 	installed = FS.loadTable(DB_PATH) or {}
 	repos = FS.loadTable(REPOS_PATH) or {}
+	-- before any extension: their parsers are built from the (patched) engines
+	loadPatches()
 	for id, meta in pairs(installed) do
 		local path = EXT_DIR .. meta.file
 		if FS.exists(path) then
@@ -719,6 +724,9 @@ function Extensions.refresh(force, maxAge)
 				end
 				ExtLog("Mihon repo " .. repo.url .. ": " .. matched .. "/" .. total .. " sources have a Lua equivalent")
 			elseif index then
+				if not stale and Extensions.isOfficialRepo(repo.url) then
+					syncPatches(index.patches, (repo.url:gsub("[^/]+$", "")))
+				end
 				mergeIndex(index, repo, (repo.url:gsub("[^/]+$", "")))
 				repoStatus[repo.url] = stale and "offline" or "ok"
 				onlineRepos[repo.name] = not stale or nil
@@ -846,6 +854,160 @@ local function validate(path)
 		return false
 	end
 	return load(data) ~= nil
+end
+
+-------------------------------------------------------------------------------
+-- engine patches: fixes for the theme engines (engines*.lua) that the official catalog publishes in its index.json
+-- ("patches"), so a site theme that changes its pages can be fixed for every source built on it without a new app
+-- version. A patch is a Lua file run in the extension sandbox that replaces or wraps Engines.* functions. Only the
+-- official repository can publish them, each needs its sha256, `minApp`/`maxApp` limit it to the app versions it was
+-- written for (the next release carries the fix itself), and one the catalog stops listing is removed.
+-------------------------------------------------------------------------------
+
+local PATCH_DIR = Config.DATA .. "patches/"
+local PATCH_DB = Config.DATA .. "patches.dat"
+local patches = {} -- id -> {id, version, file, sha256, minApp, maxApp}
+local pristine = nil -- Engines as the app shipped it (patches always apply on top of this)
+
+---"1.1.5" <= "1.1.10"
+local function versionLE(a, b)
+	local pa, pb = {}, {}
+	for n in tostring(a):gmatch("%d+") do
+		pa[#pa + 1] = tonumber(n)
+	end
+	for n in tostring(b):gmatch("%d+") do
+		pb[#pb + 1] = tonumber(n)
+	end
+	for i = 1, math.max(#pa, #pb) do
+		local x, y = pa[i] or 0, pb[i] or 0
+		if x ~= y then
+			return x < y
+		end
+	end
+	return true
+end
+
+local function patchFits(p)
+	return (type(p.minApp) ~= "string" or versionLE(p.minApp, Config.VERSION_NAME))
+		and (type(p.maxApp) ~= "string" or versionLE(Config.VERSION_NAME, p.maxApp))
+end
+
+---Puts Engines (and the tables in it, like Engines.util) back as the app shipped them
+local function resetEngines()
+	if not pristine then
+		pristine = {}
+		for k, v in pairs(Engines) do
+			local copy = nil
+			if type(v) == "table" then
+				copy = {}
+				for k2, v2 in pairs(v) do
+					copy[k2] = v2
+				end
+			end
+			pristine[k] = {value = v, copy = copy}
+		end
+		return
+	end
+	for k in pairs(Engines) do
+		if not pristine[k] then
+			Engines[k] = nil
+		end
+	end
+	for k, saved in pairs(pristine) do
+		if saved.copy then
+			for k2 in pairs(saved.value) do
+				if saved.copy[k2] == nil then
+					saved.value[k2] = nil
+				end
+			end
+			for k2, v2 in pairs(saved.copy) do
+				saved.value[k2] = v2
+			end
+		end
+		Engines[k] = saved.value
+	end
+end
+
+local function applyPatches()
+	resetEngines()
+	local ids = {}
+	for id, p in pairs(patches) do
+		if patchFits(p) then
+			ids[#ids + 1] = id
+		end
+	end
+	table.sort(ids)
+	for _, id in ipairs(ids) do
+		local ok, err = pcall(RunSandboxed, PATCH_DIR .. patches[id].file)
+		ExtLog(ok and ("engine patch " .. id .. " v" .. patches[id].version) or ("engine patch " .. id .. " failed: " .. tostring(err)))
+	end
+end
+
+function loadPatches()
+	patches = FS.loadTable(PATCH_DB) or {}
+	local any = false
+	for id, p in pairs(patches) do
+		if type(p) ~= "table" or type(p.file) ~= "string" or not FS.exists(PATCH_DIR .. p.file) then
+			patches[id] = nil
+		else
+			any = true
+		end
+	end
+	if any then
+		applyPatches()
+	end
+end
+
+---Parsers already built keep the engine functions they were made with: build every installed extension again
+local function reloadInstalled()
+	for id, meta in pairs(installed) do
+		disableParsersOf(id)
+		loadExtensionFile(id, EXT_DIR .. meta.file)
+		co_yield(false)
+	end
+end
+
+---Brings the patches in line with the official index (`list`, its "patches"; `base` the index's folder). Runs in the
+---refresh job.
+function syncPatches(list, base)
+	local wanted, changed = {}, false
+	for _, e in ipairs(type(list) == "table" and list or {}) do
+		if type(e) == "table" and type(e.id) == "string" and e.id:match("^[%w%._%-]+$") and type(e.file) == "string"
+			and e.file:match("^[%w%._%-/]+%.lua$") and not e.file:find("..", 1, true) and type(e.sha256) == "string"
+			and (tonumber(e.api) or 1) <= Config.ENGINE_LEVEL and patchFits(e) then
+			wanted[e.id] = true
+			local have, version, sha = patches[e.id], tonumber(e.version) or 1, e.sha256:lower()
+			if not have or have.version ~= version or have.sha256 ~= sha then
+				if not FS.exists(PATCH_DIR) then
+					FS.mkdir(PATCH_DIR)
+				end
+				local file = e.id .. ".lua"
+				local tmp = PATCH_DIR .. file .. ".part"
+				if downloadTo(base .. e.file, tmp) and Sha256(FS.read(tmp) or "") == sha then
+					FS.delete(PATCH_DIR .. file)
+					FS.copy(tmp, PATCH_DIR .. file)
+					patches[e.id] = {id = e.id, version = version, file = file, sha256 = sha, minApp = e.minApp, maxApp = e.maxApp}
+					changed = true
+				else
+					ExtLog("engine patch " .. e.id .. ": download failed or sha256 mismatch")
+				end
+				FS.delete(tmp)
+			end
+		end
+	end
+	for id, p in pairs(patches) do
+		if not wanted[id] then
+			FS.delete(PATCH_DIR .. p.file)
+			patches[id] = nil
+			changed = true
+			ExtLog("engine patch " .. id .. " withdrawn")
+		end
+	end
+	if changed then
+		FS.saveTable(PATCH_DB, patches)
+		applyPatches()
+		reloadInstalled()
+	end
 end
 
 ---@param entry table catalog entry

@@ -84,6 +84,7 @@ FOOTER = """
 | `index.json` | catalog read by the app (id, name, language, version, file, status) |
 | `extensions/` | published extensions, one `.lua` per source |
 | `native/` | source code of the native extensions (sites with their own API or layout) |
+| `patches/` | engine patches: fixes for a site theme's engine that installed apps download without an update (`patches` in `index.json`, see `tools/add_patch.py` in the app repository) |
 | `SOURCES.md` | every source by language, with site, status and type (generated) |
 | `health.json` | latest automated test result of each source, with `deadSince`/`lastOk` history |
 | `removed.json`, `REMOVED.md` | sources taken out of the catalog, with date and reason |

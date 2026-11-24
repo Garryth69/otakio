@@ -7,3 +7,10 @@ updates:
       interval: monthly
     commit-message:
       prefix: ci
+  # Python packages of the tools and robots (tools/requirements.txt): CI runs every test with the new version first
+  - package-ecosystem: pip
+    directory: /tools
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: deps

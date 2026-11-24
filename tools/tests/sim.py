@@ -522,16 +522,33 @@ def main():
         sim.download = _timed(download)
         sim.netstats = L.table_from(stats)
         globals()["NETSTATS"] = stats
-    elif os.environ.get("SIM_FAKE_REMOTE"):
-        # offline, but the app's remote settings (remote.json) come from this local file (remoteconfig.lua tests)
-        remote_file = os.environ["SIM_FAKE_REMOTE"]
+    elif os.environ.get("SIM_FAKE_REMOTE") or os.environ.get("SIM_FAKE_REPO"):
+        # offline, but the app's remote settings (remote.json) come from a local file (remoteconfig.lua tests) and the
+        # official catalog (raw.githubusercontent.com/<extensions repo>/main/...) from a local folder (engine patches)
+        remote_file = os.environ.get("SIM_FAKE_REMOTE")
+        repo_dir = os.environ.get("SIM_FAKE_REPO")
+        repo_prefix = "https://raw.githubusercontent.com/Garryth69/otakio-extensions/main/"
 
-        def remote_only(url, *rest):
-            if url.endswith("/main/remote.json"):
-                return open(remote_file, encoding="utf8").read() + chr(0)
-            return ""
+        def local_file(url):
+            if remote_file and url.endswith("/main/remote.json"):
+                return remote_file
+            if repo_dir and url.startswith(repo_prefix):
+                path = os.path.join(repo_dir, *url[len(repo_prefix):].split("/"))
+                if os.path.isfile(path):
+                    return path
+            return None
+
+        def fake_http(url, *rest):
+            path = local_file(url)
+            return open(path, encoding="utf8").read() + chr(0) if path else ""
+
+        def fake_download(url, path, *rest):
+            src = local_file(url)
+            if src:
+                shutil.copy(src, path)
         sim.wifi = True
-        sim.http = remote_only
+        sim.http = fake_http
+        sim.download = fake_download
     steps = SCENARIOS[args.scenario]
     script, frames = build_script(steps)
     lua_script = L.table_from({k: L.table_from({kk: (L.table_from(list(vv)) if isinstance(vv, tuple) else vv) for kk, vv in v.items()}) for k, v in script.items()})

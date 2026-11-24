@@ -183,14 +183,16 @@ Wrong values are ignored, never applied (`tools/tests/test_remoteconfig.lua` che
 
 The extension repository runs on its own:
 - **daily health check:** tests every source, records domain moves and refreshes the README;
-- **weekly sync:** follows keiyoushi (new domains after a live probe, removals) and drops sources down for 90 days (at most 8 a week).
+- **weekly sync:** follows keiyoushi (new domains after a live probe, removals), adds new keiyoushi sources that pass a
+  live test and drops sources down for 90 days (at most 8 a week).
   It commits to `main`, but holds every removal back when there are more than 8, or when the keiyoushi clone looks
   broken;
 - **status issue:** a pinned issue, *Catalog status*, is rewritten every week and whenever a robot fails. A keepalive
   commit stops GitHub from switching the schedules off after 60 quiet days.
 
-Dependabot's updates of the pinned actions merge themselves in all three repositories when CI passes. Major versions
-wait for a person.
+Dependabot's updates (the pinned actions in all three repositories, the Python packages of the tools) merge themselves
+when CI passes, major versions too; the catalog's CI dry-runs the robots' tools first. Site themes that change can be
+fixed for every installed app through **engine patches** in the catalog, without a new version (see AGENTS.md).
 
 ## Contributing
 

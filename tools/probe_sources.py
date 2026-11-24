@@ -5,8 +5,12 @@
   python tools/probe_sources.py --file my.lua   # test a new extension file
   python tools/probe_sources.py --candidates file.json   # used by gen_repo.py for theme auto-detection
 
-Writes repo/health.json: {id: {status, popular, chapters, pages, checked, movedTo?}}
+Writes repo/health.json: {id: {status, popular, chapters, pages, checked, movedTo?, site?}}
 status: ok (pages load) | partial (listing works, chapters/pages don't) | dead (nothing works)
+site (dead sources only), what the site's home page does: gone (no answer: DNS, connection, TLS, a 5xx error) | parked (a domain
+parking page) | blocked (403/429/503 to this machine: a CI runner's address is often refused, the console may not be)
+| cloudflare (a challenge page: the console can't pass it either) | up (it answers: the extension is what broke).
+tools/prune_repo.py leaves "blocked" sources in the catalog.
 movedTo: the site answers from another address now (its own sends visitors there) and the extension works there; the
 app sends the source's requests to it (see sourceprefs.lua), so nobody has to wait for a new extension version
 """
@@ -88,6 +92,8 @@ def probe_entry(entry):
             break
     best["status"] = status_of(best)
     best["checked"] = time.strftime("%Y-%m-%d")
+    if best["status"] == "dead":
+        best["site"] = "cloudflare" if best.get("cloudflare") else site_state(entry["baseUrl"])
     if chosen and chosen[0] in ("Madara", "MangaThemesia"):
         # remember what worked (gen_repo.py reuses it for auto-detected sources)
         best["engine"] = chosen[0]
@@ -98,6 +104,37 @@ def probe_entry(entry):
 # where expired or sold domains end up: never a site's new home
 PARKING = ("sedo.", "parkingcrew", "bodis.", "hugedomains", "dan.com", "afternic", "godaddy", "namecheap", "porkbun",
            "parklogic", "above.com", "/lander")
+
+
+def site_state(url, timeout=15):
+    """Why a dead source's site fails, from its home page: gone | parked | blocked | cloudflare | up (see the top)"""
+    import socket, ssl, urllib.error, urllib.request
+    from lua_engine import UA, _ctx, vita_url
+    try:
+        req = urllib.request.Request(vita_url(url), headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=timeout, context=_ctx) as r:
+            final, body = r.geturl(), r.read(200000).decode("utf8", "replace")
+    except urllib.error.HTTPError as e:
+        try:
+            body = e.read(20000).decode("utf8", "replace")
+        except Exception:
+            body = ""
+        if "<title>Just a moment...</title>" in body or "cf-chl-" in body:
+            return "cloudflare"
+        if e.code in (403, 429, 503):
+            return "blocked"
+        # 500-530 (Cloudflare's 52x: the site behind it doesn't answer): the server is down
+        return "gone" if 500 <= e.code < 600 else "up"
+    except (urllib.error.URLError, socket.timeout, ssl.SSLError, ConnectionError, OSError):
+        return "gone"
+    except Exception:
+        return "gone"
+    low = (final + " " + body[:20000]).lower()
+    if any(p in low for p in PARKING):
+        return "parked"
+    if "<title>just a moment...</title>" in low or "cf-chl-" in low:
+        return "cloudflare"
+    return "up"
 
 
 def origin_of(url):

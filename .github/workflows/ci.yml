@@ -25,7 +25,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install lupa pillow
+        run: pip install -r tools/requirements.txt
 
       - name: Extension catalog (hashes, ids, Lua compiles)
         run: python tools/validate_repo.py --git
@@ -54,7 +54,9 @@ jobs:
           python tools/tests/test_prune_limits.py
 
       - name: Unattended maintenance in the simulator (remote settings, replaced extensions)
-        run: python tools/tests/test_sim_maintenance.py
+        run: |
+          python tools/tests/test_sim_maintenance.py
+          python tools/tests/test_sim_patches.py
 
       - name: Translations
         run: python tools/check_lang.py
@@ -92,8 +94,8 @@ jobs:
       - name: Release VPK builds
         run: python tools/build_vpk.py --name Otakio-ci.vpk
 
-  # Dependabot's updates of the pinned actions merge themselves once the job above passes (minor and patch versions
-  # only: a major version waits for a person), so the workflows keep working while nobody maintains the repository
+  # Dependabot's updates merge themselves once the job above passes, major versions included: GitHub retires old
+  # action runtimes, and an update left waiting for a person would stop the workflows while nobody maintains them
   automerge:
     needs: test
     if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
@@ -104,8 +106,7 @@ jobs:
     steps:
       - id: meta
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
-      - if: steps.meta.outputs.update-type != 'version-update:semver-major'
-        run: gh pr merge "$PR" --squash --delete-branch --repo "$REPO"
+      - run: gh pr merge "$PR" --squash --delete-branch --repo "$REPO"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ github.event.pull_request.number }}

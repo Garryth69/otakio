@@ -434,6 +434,14 @@ def main():
 
     hash_entries(entries, out)
     index = {"name": "Otakio Extensions", "format": 1, "minEngine": 1, "extensions": entries}
+    # engine patches are written by hand (tools/add_patch.py): a regeneration keeps them
+    try:
+        old_patches = json.load(open(os.path.join(out, "index.json"), encoding="utf8")).get("patches")
+    except (OSError, ValueError):
+        old_patches = None
+    if old_patches:
+        hash_entries(old_patches, out)
+        index["patches"] = old_patches
     with open(os.path.join(out, "index.json"), "w", encoding="utf8", newline="\n") as fh:
         json.dump(index, fh, ensure_ascii=False, separators=(",", ":"))
     bundled = os.path.join(ROOT, "source", "repo")

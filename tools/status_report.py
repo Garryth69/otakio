@@ -52,6 +52,12 @@ def main():
             "| %d%s | %d%s | %d%s | %d%s |" % (count["ok"], delta("ok"), count["partial"], delta("partial"), count["dead"], delta("dead"),
                                               len(health), (" (%+d)" % (len(health) - len(old))) if old and len(health) != len(old) else ""), ""]
 
+    dead_sites = collections.Counter(h.get("site") or "unknown" for h in health.values() if h.get("status") == "dead")
+    if dead_sites:
+        words = {"gone": "site down", "parked": "domain parked", "blocked": "refuse the robot only",
+                 "cloudflare": "browser check", "up": "site changed", "unknown": "not classified yet"}
+        out += ["Down, by cause: " + ", ".join("%s %d" % (words.get(k, k), n) for k, n in dead_sites.most_common()), ""]
+
     def label(i):
         return "%s (`%s`)" % (names.get(i, i), i)
 
@@ -98,7 +104,10 @@ def main():
                 out.append("- %s (%s)" % (label(r["id"]), r["reason"]))
         if sync.get("deferred"):
             out.append("- %d more sources dead for 90 days leave in the next weeks (at most 8 a week)" % len(sync["deferred"]))
-        if not (sync.get("added") or sync.get("moved") or sync.get("removed") or held or sync.get("deferred")):
+        if sync.get("kept"):
+            out.append("- %d sources dead for 90 days kept: their site refuses the robot's machine only, the console may "
+                       "still read them (%s)" % (len(sync["kept"]), ", ".join("`%s`" % k for k in sync["kept"][:10])))
+        if not (sync.get("added") or sync.get("moved") or sync.get("removed") or held or sync.get("deferred") or sync.get("kept")):
             out.append("Nothing to do.")
     else:
         out.append("No sync recorded yet.")

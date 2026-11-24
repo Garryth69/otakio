@@ -126,3 +126,20 @@ The daily health check in otakio-extensions runs the same probe on every source.
 
 The app refuses any download whose hash doesn't match the index, so every file change needs the regenerated
 `index.json`.
+
+## Engine patches
+
+When a site theme changes its pages, every source built on it breaks, and a fix in `engines*.lua` only reaches users
+with the next app release. An engine patch carries it sooner: a Lua file in `repo/patches/`, listed under `patches` in
+the official `index.json`, that replaces or wraps `Engines.*` functions (wrapping keeps it short: build the parser with
+the original function, then replace the method that broke). Installed apps download it on their next catalog refresh,
+check its SHA-256, run it in the extension sandbox before any extension and rebuild the installed extensions. Only the
+official catalog can publish patches.
+
+```sh
+python tools/add_patch.py repo/patches/madara-chapters.lua --max-app 1.1.5   # publish, or a new version of it
+python tools/add_patch.py --remove madara-chapters                         # withdraw it
+```
+
+`--max-app` is the last app version that needs the patch: put the same fix in `engines*.lua` for the next release.
+The health check applies the catalog's patches as well (`OTAKIO_NO_PATCHES=1` runs the engines without them).
