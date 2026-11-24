@@ -458,7 +458,8 @@ end
 
 function CatalogModes.input(pad, oldpad, touch, oldtouch)
 	if status == "START" then
-		if TOUCH_MODES.MODE == TOUCH_MODES.NONE and oldtouch.x and touch.x and touch.x > 240 then
+		-- a finger on the panel counts from its first frame (as in catalogs.lua); one beside it closes the panel below
+		if TOUCH_MODES.MODE == TOUCH_MODES.NONE and touch.x and touch.x >= 960 - 350 * fade * oldFade then
 			TOUCH_MODES.MODE = TOUCH_MODES.READ
 			slider.TouchY = touch.y
 		elseif TOUCH_MODES.MODE ~= TOUCH_MODES.NONE and not touch.x then

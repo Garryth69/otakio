@@ -88,7 +88,7 @@ function ListView:input(oldPad, pad, oldTouch, touch)
 	end
 	-- touch
 	local tapped = nil
-	if self.touchMode == 0 and oldTouch.x and touch.x and touch.x > X0 and touch.y > self.top then
+	if self.touchMode == 0 and touch.x and touch.x > X0 and touch.y > self.top then -- from the first frame (catalogs.lua)
 		self.touchMode = 1
 		self.touchY = touch.y
 	elseif self.touchMode ~= 0 and not touch.x then

@@ -27,8 +27,8 @@ function ConnectMessage.show()
 end
 
 ---Cross or a tap (a new touch, like everywhere else) closes the message
-function ConnectMessage.input(pad, touchX, oldTouchX)
-	local tapped = touchX ~= nil and oldTouchX == nil
+---`tapped`: a finger went down this frame
+function ConnectMessage.input(pad, tapped)
 	if (Controls.check(pad, SCE_CTRL_REAL_CROSS) or tapped) and is_active and yOffset == yFinal then
 		ChapterSaver.clearDownloadingList()
 		is_active = false

@@ -352,7 +352,7 @@ end
 function Details.input(oldPad, pad, oldTouch, touch)
 	if status == "START" then
 		local oldTouchMode = TOUCH_MODES.MODE
-		if TOUCH_MODES.MODE == TOUCH_MODES.NONE and oldTouch.x and touch.x and touch.x > 240 then
+		if TOUCH_MODES.MODE == TOUCH_MODES.NONE and touch.x and touch.x > 240 then -- from the first frame, as in catalogs.lua
 			TOUCH_MODES.MODE = TOUCH_MODES.READ
 			slider.TouchY = touch.y
 		elseif TOUCH_MODES.MODE ~= TOUCH_MODES.NONE and not touch.x then
@@ -433,7 +433,7 @@ function Details.input(oldPad, pad, oldTouch, touch)
 			if math.abs(slider.V) > 0.1 or math.abs(touch.y - slider.TouchY) > 10 then
 				TOUCH_MODES.MODE = TOUCH_MODES.SLIDE
 			else
-				if oldTouch.x > 320 and oldTouch.x < 900 and oldTouch.y > 90 + chaptersMaxHeightOffset then
+				if oldTouch.x and oldTouch.x > 320 and oldTouch.x < 900 and oldTouch.y > 90 + chaptersMaxHeightOffset then
 					local id = math.floor((slider.Y - 20 + oldTouch.y - chaptersMaxHeightOffset) / 80)
 					if Settings.ChapterSorting == "N->1" then
 						id = #chaptersList - id + 1

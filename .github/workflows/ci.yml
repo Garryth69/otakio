@@ -59,6 +59,7 @@ jobs:
           python tools/tests/test_sim_maintenance.py
           python tools/tests/test_sim_patches.py
           python tools/tests/test_sim_backup.py
+          python tools/tests/test_sim_touch.py
           python tools/tests/test_sim_details.py
 
       - name: Translations
@@ -66,7 +67,7 @@ jobs:
 
       - name: Simulated Vita (offline scenarios)
         run: |
-          for s in tour extensions settings lang about extlang opensrc idleclock dlviews downloads themepick alltabs                    importempty browselang readerselect settingstree autobackup hinttap; do
+          for s in tour extensions settings lang about extlang opensrc idleclock dlviews downloads themepick alltabs                    importempty browselang readerselect settingstree autobackup hinttap hinthold quicktap; do
             echo "::group::$s"
             python tools/tests/sim.py "$s"
             echo "::endgroup::"

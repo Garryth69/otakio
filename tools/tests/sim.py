@@ -156,6 +156,10 @@ SCENARIOS = {
     # touch only: a tap on a hint of the bottom bar presses its button (Settings > Data, then "Back" and "Section")
     "hinttap": ["R", "R", "R", "R", "R", "R", "R", ("wait", 30)] + ["DOWN"] * 9 + ["CROSS", ("wait", 60), ("touch", 262, 535),
                 ("wait", 40), ("touch", 20, 535), ("wait", 40)],
+    # a finger kept on the R hint presses R once (not every frame), and touch still works once it lifts
+    "hinthold": [("wait", 60), ("hold", 52, 535, 200), ("wait", 30), ("touch", 42, 40), ("wait", 40), ("touch", 42, 300), ("wait", 40)],
+    # a tap that lasts one frame (a quick tap during a slow frame) still opens the row under it: More > first row
+    "quicktap": ["R", "R", "R", "R", "R", "R", "R", ("wait", 40), ("hold", 500, 140, 1), ("wait", 40)],
     # a series with chapters (import fixtures, --tmp): its details, then the chapter list cursor moving down and up
     # after 'import' (same --tmp): a series' details, then the chapter list cursor moving down and up
     "detailsel": [("wait", 40), "RIGHT", "RIGHT", "RIGHT", "RIGHT", ("wait", 10), "CROSS", ("wait", 90), "DOWN", ("wait", 20), "DOWN", ("wait", 20),

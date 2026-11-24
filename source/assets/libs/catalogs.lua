@@ -748,7 +748,9 @@ function Catalogs.input(oldpad, pad, oldtouch, touch)
 	end
 	-- touch handling -----------------------------------------------------------
 	local top = isGrid() and gridTop() or listTop()
-	if TOUCH_MODES.MODE == TOUCH_MODES.NONE and oldtouch.x and touch.x and touch.x > X0 then
+	-- a finger counts from its first frame: during a slow frame a quick tap lasts one frame only, and waiting for a
+	-- second frame lost it
+	if TOUCH_MODES.MODE == TOUCH_MODES.NONE and touch.x and touch.x > X0 then
 		if status == "DOWNLOAD" and touch.y < listTop() - 4 and touch.y > 52 then
 			for _, chip in ipairs(downloadChips()) do
 				if touch.x >= chip.x0 and touch.x <= chip.x1 then
@@ -820,7 +822,7 @@ function Catalogs.input(oldpad, pad, oldtouch, touch)
 	if TOUCH_MODES.MODE == TOUCH_MODES.READ then
 		if abs(slider.V) > 0.1 or abs(slider.TouchY - touch.y) > 10 then
 			TOUCH_MODES.MODE = TOUCH_MODES.SLIDE
-		elseif not isGrid() and oldtouch.x > X0 and oldtouch.x < X1 and oldtouch.y > listTop() then
+		elseif not isGrid() and oldtouch.x and oldtouch.x > X0 and oldtouch.x < X1 and oldtouch.y > listTop() then
 			local id = floor((oldtouch.y - listTop() + slider.Y) / ROW_H) + 1
 			local count = (status == "CATALOGS" and #parsersList) or (status == "DOWNLOAD" and #downloadRows()) or (status == "SETTINGS" and #Settings.list()) or (status == "IMPORT" and #Import.listDir()) or 0
 			if id >= 1 and id <= count then

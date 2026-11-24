@@ -21,4 +21,29 @@ hasnt(l, "sess99", "cookie")
 hasnt(l, "hunter2", "password")
 hasnt(l, "xyz", "token")
 eq(c("install otakio.mangadex v1"), "install otakio.mangadex v1", "ordinary line untouched")
+
+-- the input line: presses, touches, and what held touches back (a touch problem shows in the log)
+local logged = {}
+ExtLog = function(t) logged[#logged + 1] = t end
+local now = 0
+Timer.getTime = function() return now end
+System.getFreeRamMemory = nil
+Diag.input(true, false)
+Diag.input(false, true, nil, "CATALOGS")
+Diag.input(false, true, "finger kept from before", "HISTORY+details")
+now = 31000
+Diag.update()
+local line
+for _, t in ipairs(logged) do
+	if t:find("^input:") then
+		line = t
+	end
+end
+eq(line, "input: 1 presses, 2 touches (held back: finger kept from before x1), last touch in HISTORY+details", "input line")
+logged = {}
+now = 62000
+Diag.update()
+for _, t in ipairs(logged) do
+	hasnt(t, "input:", "quiet period")
+end
 print("diag tests OK")

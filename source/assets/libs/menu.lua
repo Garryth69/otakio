@@ -68,6 +68,8 @@ function Menu.setMode(newMode)
 		return
 	end
 	Diag.trail("screen", tostring(newMode))
+	-- a drag left half-way by the screen being left must not hold back the touches of the next one
+	TOUCH_MODES.MODE = TOUCH_MODES.NONE
 	if mode and isScreen(mode) and Screens[mode].onLeave then
 		Screens[mode].onLeave()
 	end

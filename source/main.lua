@@ -338,37 +338,68 @@ end
 
 local fade = 1
 
+-- the finger as read last frame, before any lock clears it: a finger kept down is never a new touch, even while
+-- locked (a lock clears oldTouch, so without this a held finger would look like a fresh tap every frame)
+local rawTouchX = nil
+
+---Where a touch landed, for the input line of the log
+local function touchContext()
+	local parts = {AppMode == READER and "reader" or tostring(Menu.getMode())}
+	if Details.getStatus() ~= "END" then
+		parts[#parts + 1] = "details"
+	end
+	if CatalogModes.getStatus() ~= "END" then
+		parts[#parts + 1] = "source menu"
+	end
+	if Dialog.isOpen() then
+		parts[#parts + 1] = "dialog"
+	end
+	if TOUCH_MODES.MODE ~= TOUCH_MODES.NONE then
+		parts[#parts + 1] = "touch mode " .. TOUCH_MODES.MODE
+	end
+	return table.concat(parts, "+")
+end
+
 local function input()
+	local prevRawX = rawTouchX
 	oldPad, pad = pad, Controls.read()
 	oldTouch.x, oldTouch.y, oldTouch2.x, oldTouch2.y, touch.x, touch.y, touch2.x, touch2.y = touch.x, touch.y, touch2.x, touch2.y, Controls.readTouch()
+	rawTouchX = touch.x
+	local newTouch = touch.x ~= nil and prevRawX == nil
+	local newPress = pad ~= 0 and pad ~= oldPad
+	local heldBack = nil
 
 	Debug.input()
 
-	-- a tap on a hint of the bottom bar presses its button for this frame (panel.lua); the finger then stays locked
-	-- until it lifts, so the list under it doesn't take the same touch as a tap
-	if touch.x and not oldTouch.x and not touch2.x and Keyboard.getState() ~= RUNNING then
+	-- a tap on a hint of the bottom bar presses its button once (panel.lua); the finger then stays locked until it
+	-- lifts, so the list under it doesn't take the same touch as a tap
+	if newTouch and not touch2.x and Keyboard.getState() ~= RUNNING then
 		local button = Panel.buttonAt(touch.x, touch.y)
 		if button and not Controls.check(pad, button) then
 			pad = pad + button
 			is_touch_locked = true
+			heldBack = "bar button"
 		end
 	end
 
 	if ConnectMessage.isActive() then
 		if touch.x or pad ~= 0 then
-			oldPad = ConnectMessage.input(pad, touch.x, oldTouch.x) or 0
+			oldPad = ConnectMessage.input(pad, newTouch) or 0
 		end
 		pad = oldPad
 		is_touch_locked = true
+		heldBack = heldBack or "connection message"
 	end
 
 	if touch2.x and AppMode ~= READER then
 		is_touch_locked = true
+		heldBack = heldBack or "two fingers"
 	elseif not touch.x then
 		is_touch_locked = false
 	end
 
 	if is_touch_locked then
+		heldBack = heldBack or "finger kept from before"
 		touch.x = nil
 		touch.y = nil
 		oldTouch.x = nil
@@ -377,6 +408,11 @@ local function input()
 		touch2.y = nil
 		oldTouch2.x = nil
 		oldTouch2.y = nil
+	elseif Keyboard.getState() == RUNNING then
+		heldBack = "keyboard"
+	end
+	if newPress or newTouch then
+		Diag.input(newPress, newTouch, heldBack, newTouch and touchContext() or nil)
 	end
 
 	if Keyboard.getState() ~= RUNNING then

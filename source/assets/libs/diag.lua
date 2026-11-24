@@ -329,6 +329,39 @@ local function netReport()
 	hosts = {}
 end
 
+-- input seen in the last 30 s: buttons pressed, new touches, and the touches that never reached a screen (and why).
+-- A report of presses with no touches at all, or touches all blocked, tells a touch problem from a busy app.
+local inputs = {presses = 0, touches = 0, blocked = {}, where = nil}
+---main.lua, every frame: `newPress` a button went down, `newTouch` a finger went down, `blockedBy` what held that
+---touch back from the screens (nil when it got through), `where` the screen state when it landed
+function Diag.input(newPress, newTouch, blockedBy, where)
+	if newPress then
+		inputs.presses = inputs.presses + 1
+	end
+	if newTouch then
+		inputs.touches = inputs.touches + 1
+		if blockedBy then
+			inputs.blocked[blockedBy] = (inputs.blocked[blockedBy] or 0) + 1
+		end
+		inputs.where = where
+	end
+end
+
+local function inputReport()
+	if inputs.presses == 0 and inputs.touches == 0 then
+		return
+	end
+	local parts = {}
+	for k, n in pairs(inputs.blocked) do
+		parts[#parts + 1] = k .. " x" .. n
+	end
+	table.sort(parts)
+	log(string.format("input: %d presses, %d touches%s%s", inputs.presses, inputs.touches,
+		#parts > 0 and (" (held back: " .. table.concat(parts, ", ") .. ")") or "",
+		inputs.where and (", last touch in " .. inputs.where) or ""))
+	inputs = {presses = 0, touches = 0, blocked = {}, where = nil}
+end
+
 local lastRam, lastGpu, lastCheck = nil, nil, 0
 ---Called every frame: every 30 s logs the slow frames, and memory when it moved by 8 MB or more
 function Diag.update()
@@ -340,6 +373,7 @@ function Diag.update()
 	hitchReport()
 	readyReport()
 	netReport()
+	inputReport()
 	local ram, gpu, lua = memoryLine()
 	if not ram or not gpu then
 		return
