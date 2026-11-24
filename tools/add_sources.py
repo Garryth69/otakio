@@ -102,10 +102,11 @@ def main():
         with open(os.path.join(REPO, "index.json"), "w", encoding="utf8", newline="\n") as fh:
             json.dump(idx, fh, ensure_ascii=False, separators=(",", ":"))
         probe_sources.save_health(health)
-        # keep the bundled test catalog in sync
+        # keep the bundled test catalog in sync (with the real catalog only, not a scratch one)
         bundled = os.path.join(gen_repo.ROOT, "source", "repo")
-        shutil.rmtree(bundled, ignore_errors=True)
-        shutil.copytree(REPO, bundled, ignore=shutil.ignore_patterns("native", "health.json", "removed.json", ".git", ".github", "*.md", "LICENSE"))
+        if os.path.abspath(REPO) == os.path.abspath(os.path.join(gen_repo.ROOT, "repo")):
+            shutil.rmtree(bundled, ignore_errors=True)
+            shutil.copytree(REPO, bundled, ignore=shutil.ignore_patterns("native", "health.json", "removed.json", ".git", ".github", "*.md", "LICENSE"))
     print("added %d of %d candidates" % (len(added), len(entries)))
     if args.summary:
         summary = {}

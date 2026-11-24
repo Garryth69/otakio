@@ -116,8 +116,9 @@ configuration. Sites with their own structure have **native** extensions, hand-w
 
 The catalog is generated, tested and pruned by tools in the app repository (`tools/gen_repo.py`,
 `tools/probe_sources.py`, `tools/prune_repo.py`, `tools/gen_repo_readme.py`):
-- keiyoushi-based sources follow keiyoushi (removed there = removed here);
-- other sources are removed after 90 days down in a row.
+- keiyoushi-based sources follow keiyoushi: new domains, removals (removed there = removed here), new sources that
+  pass a live test, and keiyoushi's fixes for sources that don't work here (kept only when a live test does better);
+- other sources are removed after 90 days down in a row, unless their site only refuses the robot.
 
 It all runs on its own: a daily health check (`health.yml`), a weekly sync with keiyoushi that commits to `main` but
 holds back unusual removals for a person (`regen.yml`, history in `sync.json`), and a weekly status report in the

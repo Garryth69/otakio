@@ -2,5 +2,9 @@
  "format": 1,
  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
  "imageProxy": "https://wsrv.nl/?url=%s&output=jpg&q=85&we",
- "disabledExtensions": []
+ "disabledExtensions": [],
+ "imageProxies": [
+  "https://wsrv.nl/?url=%s&output=jpg&q=85&we",
+  "https://images.weserv.nl/?url=%s&output=jpg&q=85&we"
+ ]
 }

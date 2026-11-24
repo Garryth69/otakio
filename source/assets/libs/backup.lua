@@ -18,8 +18,9 @@ local function copyManga(m)
 	return t
 end
 
-local AUTO_PREFIX = "otakio_auto_" -- backups made before an app update
+local AUTO_PREFIX = "otakio_auto_" -- backups made before an app update, and once a week
 local AUTO_KEEP = 3
+local WEEK = 7 * 86400
 
 ---Keeps only the newest AUTO_KEEP automatic backups (the user's own backups are never removed)
 local function pruneAuto()
@@ -38,10 +39,12 @@ local function pruneAuto()
 end
 
 ---Creates ux0:data/otakio/backups/otakio_YYYY-MM-DD_HHMM.otk
----opts.auto: before an app update, silent, named otakio_auto_YYYY-MM-DD_HHMMSS_from-<version>.otk (the last 3 are kept)
+---opts.auto: before an app update or the weekly one, silent, named otakio_auto_YYYY-MM-DD_HHMMSS_from-<version>.otk
+---(the last 3 are kept). Inside a coroutine it yields between titles (each one reads its bookmarks from the card).
 ---@return string|nil path of the backup, nil if it couldn't be written
 function Backup.create(opts)
 	local auto = opts and opts.auto
+	local canYield = coroutine.running() ~= nil
 	local data = {
 		format = 1,
 		app = Config.VERSION_NAME,
@@ -54,7 +57,10 @@ function Backup.create(opts)
 		extensions = {},
 		repos = {}
 	}
-	for _, m in ipairs(Database.getAll()) do
+	for i, m in ipairs(Database.getAll()) do
+		if canYield and i % 10 == 0 then
+			coroutine.yield(false)
+		end
 		local key = Database.getKey(m)
 		data.library[#data.library + 1] = copyManga(m)
 		local b = FS.loadTable(CACHE .. key .. "/bookmarks.dat")
@@ -91,6 +97,30 @@ function Backup.create(opts)
 		Notifications.push(L().BACKUP_FAILED)
 	end
 	return ok and (DIR .. name) or nil
+end
+
+---When the newest automatic backup is a week old (or there is none), makes one in the background. Without app
+---updates for a long time there would otherwise be no recent copy of the library to go back to.
+function Backup.weekly()
+	if #Database.getAll() == 0 then
+		return
+	end
+	local newest = nil
+	for _, f in ipairs(FS.list(DIR)) do
+		local y, mo, d = f.name:match("^" .. AUTO_PREFIX .. "(%d%d%d%d)%-(%d%d)%-(%d%d)_")
+		if y then
+			local stamp = tonumber(y) * 10000 + tonumber(mo) * 100 + tonumber(d)
+			newest = math.max(newest or 0, stamp)
+		end
+	end
+	local weekAgo = tonumber(Clock.date("%Y%m%d", Clock.now() - WEEK))
+	if newest and newest > weekAgo then
+		return
+	end
+	Extensions.addJob("weekly backup", function()
+		local path = Backup.create({auto = true})
+		ExtLog(path and ("weekly backup: " .. path) or "weekly backup failed")
+	end)
 end
 
 local function restore(path)

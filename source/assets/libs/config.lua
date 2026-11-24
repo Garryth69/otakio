@@ -19,6 +19,8 @@ Config = {
 	GITHUB_REPO = "Garryth69/otakio",
 	-- Image proxy used to convert formats the Vita can't decode (WebP/AVIF) and to downscale huge pages
 	IMAGE_PROXY = "https://wsrv.nl/?url=%s&output=jpg&q=85&we",
+	-- the same converter under its other address: used when the first keeps failing (remote.json can change the list)
+	IMAGE_PROXIES = {"https://wsrv.nl/?url=%s&output=jpg&q=85&we", "https://images.weserv.nl/?url=%s&output=jpg&q=85&we"},
 	-- Layout
 	RAIL_WIDTH = 84,
 	SCREEN_W = 960,

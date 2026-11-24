@@ -277,6 +277,8 @@ local function preloadData()
 	AppUpdate.startup()
 	-- and the current remote settings, in the background
 	Extensions.addJob("remote config", RemoteConfig.fetch)
+	-- a copy of the library once a week (backups/otakio_auto_*, the last 3 kept)
+	pcall(Backup.weekly)
 	Migrations.notify()
 end
 

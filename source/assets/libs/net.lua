@@ -33,9 +33,43 @@ function ImageProxy.isProxied(link)
 	if url:find("wsrv.nl", 1, true) then
 		return true
 	end
-	-- the proxy remote.json may set instead (remoteconfig.lua)
-	local host = (Config.IMAGE_PROXY or ""):match("^https?://([^/]+)")
-	return host ~= nil and url:find("//" .. host .. "/", 1, true) ~= nil
+	-- the proxies remote.json may set instead (remoteconfig.lua)
+	for _, proxy in ipairs(Config.IMAGE_PROXIES or {Config.IMAGE_PROXY}) do
+		local host = (proxy or ""):match("^https?://([^/]+)")
+		if host and url:find("//" .. host .. "/", 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+-- several converting proxies can be listed (Config.IMAGE_PROXIES, remote.json "imageProxies"): when the one in use
+-- fails PROXY_SWITCH_AFTER times in a row, the next one takes over for the rest of the session
+local PROXY_SWITCH_AFTER = 4
+local proxyFailures = 0
+
+---Called with the outcome of every download that went through the proxy
+function ImageProxy.noteResult(ok)
+	if ok then
+		proxyFailures = 0
+		return
+	end
+	proxyFailures = proxyFailures + 1
+	local list = Config.IMAGE_PROXIES
+	if proxyFailures < PROXY_SWITCH_AFTER or type(list) ~= "table" or #list < 2 then
+		return
+	end
+	proxyFailures = 0
+	local at = 1
+	for i, p in ipairs(list) do
+		if p == Config.IMAGE_PROXY then
+			at = i
+		end
+	end
+	Config.IMAGE_PROXY = list[at % #list + 1]
+	if ExtLog then
+		ExtLog("image proxy failing: switched to " .. tostring(Config.IMAGE_PROXY:match("^https?://([^/]+)")))
+	end
 end
 
 ---The Otakio engine decodes WebP itself (libwebp); the old NOBORU engine needs the converting proxy
@@ -358,6 +392,9 @@ local function fail(task, reason)
 		task.Retry = task.Retry + 1
 	else
 		Console.error("NET: " .. tostring(reason) .. " (" .. describeLink(task.RawLink or task.Path or "") .. ")")
+		if task.RawLink and ImageProxy.isProxied(task.RawLink) then
+			ImageProxy.noteResult(false)
+		end
 	end
 	if current == task then
 		current = nil
@@ -433,6 +470,9 @@ local function decodeImage(task)
 			ExtLog("image failed: " .. tostring(task.RawLink or task.Link or path))
 		end
 		return finish(task)
+	end
+	if task.RawLink and ImageProxy.isProxied(task.RawLink) then
+		ImageProxy.noteResult(true)
 	end
 	local tall = height > MAX_TEXTURE_SIDE and height / width > 2 and not task.MaxHeight
 	if tall then

@@ -6,6 +6,7 @@
 ---    "format": 1,
 ---    "userAgent": "Mozilla/5.0 ...",                 browser identification sent to the sites
 ---    "imageProxy": "https://wsrv.nl/?url=%s&...",    image converter; one %s for the escaped image address
+---    "imageProxies": ["https://...%s...", ...],      several, in order: the app moves to the next when one keeps failing
 ---    "disabledExtensions": ["kei.en.example"],       extensions whose sources are switched off (harmful or broken)
 ---    "notice": {"id": "2027-01", "until": "2027-03-01", "text": {"English": "...", "PortugueseBR": "..."}}
 ---  }
@@ -74,8 +75,15 @@ function RemoteConfig.apply(data, showNotice)
 		USERAGENT = data.userAgent
 		changes[#changes + 1] = "user agent"
 	end
-	if validProxy(data.imageProxy) and data.imageProxy ~= Config.IMAGE_PROXY then
-		Config.IMAGE_PROXY = data.imageProxy
+	local proxies = {}
+	for _, p in ipairs(type(data.imageProxies) == "table" and data.imageProxies or {data.imageProxy}) do
+		if validProxy(p) and #proxies < 5 then
+			proxies[#proxies + 1] = p
+		end
+	end
+	if #proxies > 0 and table.concat(proxies, " ") ~= table.concat(Config.IMAGE_PROXIES or {}, " ") then
+		Config.IMAGE_PROXIES = proxies
+		Config.IMAGE_PROXY = proxies[1]
 		changes[#changes + 1] = "image proxy"
 	end
 	if type(data.disabledExtensions) == "table" and DisableParsersOfExtension then

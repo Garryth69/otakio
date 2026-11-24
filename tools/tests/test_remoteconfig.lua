@@ -71,5 +71,12 @@ USERAGENT = "x"
 Config.IMAGE_PROXY = "x"
 RemoteConfig.apply(published, false)
 eq(USERAGENT, published.userAgent, "published user agent is valid")
-eq(Config.IMAGE_PROXY, published.imageProxy, "published image proxy is valid")
+eq(Config.IMAGE_PROXY, published.imageProxies[1], "published image proxies are valid")
+eq(#Config.IMAGE_PROXIES, #published.imageProxies, "every published proxy kept")
+eq(published.imageProxy, published.imageProxies[1], "older apps (imageProxy only) get the same first proxy")
+
+-- a list of proxies: invalid ones dropped, the first valid one in use
+RemoteConfig.apply({imageProxies = {"http://evil/?u=%s", "https://a.example/?u=%s", "https://b.example/?u=%s"}}, false)
+eq(Config.IMAGE_PROXY, "https://a.example/?u=%s", "first valid proxy in use")
+eq(#Config.IMAGE_PROXIES, 2, "invalid proxy dropped")
 print("remote config tests OK")

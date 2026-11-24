@@ -110,7 +110,21 @@ function FS.saveTable(path, t)
 	return FS.write(path, "return " .. table.serialize(t, true))
 end
 
+---A table saved with FS.saveTable. A save cut short (the console switched off between removing the old file and
+---renaming the new one) leaves the complete new copy as <path>.tmp: it is used when the file itself is missing or
+---unreadable.
 function FS.loadTable(path)
+	local t = FS.loadTableFile(path)
+	if t == nil and doesFileExist(path .. ".tmp") then
+		t = FS.loadTableFile(path .. ".tmp")
+		if t ~= nil then
+			FS.write(path, FS.read(path .. ".tmp"))
+		end
+	end
+	return t
+end
+
+function FS.loadTableFile(path)
 	local data = FS.read(path)
 	if not data or data == "" then
 		return nil

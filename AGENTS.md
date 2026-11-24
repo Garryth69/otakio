@@ -77,7 +77,9 @@ Everything in CI (`.github/workflows/ci.yml`) must pass before a change is done.
 - **`regen.yml`, weekly:**
   - follows keiyoushi through `tools/prune_repo.py`: domain changes after a live probe, upstream removals;
   - removes non-keiyoushi sources dead for 90 days, at most 8 a week;
-  - adds new keiyoushi sources that pass a live test, through `tools/add_sources.py`.
+  - adds new keiyoushi sources that pass a live test, through `tools/add_sources.py`;
+  - brings keiyoushi's fixes to sources that don't work here, through `tools/update_sources.py`: regenerated from
+    their current code and kept only when a live test does better (working sources are never touched).
 
   It commits to `main`. Safety limits hold back anything unusual: more than 8 upstream removals, a broken clone, or a
   third of the catalog dead at once. `sync.json` records each run.

@@ -104,10 +104,12 @@ def main():
                 out.append("- %s (%s)" % (label(r["id"]), r["reason"]))
         if sync.get("deferred"):
             out.append("- %d more sources dead for 90 days leave in the next weeks (at most 8 a week)" % len(sync["deferred"]))
+        for u in (sync.get("updated") or [])[:25]:
+            out.append("- fixed from keiyoushi's code: %s (`%s`), %s -> %s" % (u.get("name", u["id"]), u["id"], u.get("from"), u.get("to")))
         if sync.get("kept"):
             out.append("- %d sources dead for 90 days kept: their site refuses the robot's machine only, the console may "
                        "still read them (%s)" % (len(sync["kept"]), ", ".join("`%s`" % k for k in sync["kept"][:10])))
-        if not (sync.get("added") or sync.get("moved") or sync.get("removed") or held or sync.get("deferred") or sync.get("kept")):
+        if not (sync.get("added") or sync.get("moved") or sync.get("removed") or held or sync.get("deferred") or sync.get("kept") or sync.get("updated")):
             out.append("Nothing to do.")
     else:
         out.append("No sync recorded yet.")

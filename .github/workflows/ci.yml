@@ -42,7 +42,7 @@ jobs:
         run: python tools/check_syntax.py
 
       - name: Core tests (JSON, HTML, serialization)
-        run: python tools/run_lua.py tools/tests/test_core.lua tools/tests/test_diag.lua tools/tests/test_browselang.lua tools/tests/test_sourceprefs.lua tools/tests/test_remoteconfig.lua
+        run: python tools/run_lua.py tools/tests/test_core.lua tools/tests/test_diag.lua tools/tests/test_browselang.lua tools/tests/test_sourceprefs.lua tools/tests/test_remoteconfig.lua tools/tests/test_proxy_switch.lua
 
       - name: Data migrations and source health history
         run: |
@@ -52,11 +52,13 @@ jobs:
           python tools/tests/test_madara_fallback.py
           python tools/tests/test_system_sandbox.py
           python tools/tests/test_prune_limits.py
+          python tools/tests/test_update_sources.py
 
       - name: Unattended maintenance in the simulator (remote settings, replaced extensions)
         run: |
           python tools/tests/test_sim_maintenance.py
           python tools/tests/test_sim_patches.py
+          python tools/tests/test_sim_backup.py
 
       - name: Translations
         run: python tools/check_lang.py

@@ -174,6 +174,7 @@ starts). Editing it on GitHub changes installed apps without a new version:
 |---|---|
 | `userAgent` | the browser identification sent to sites (must start with `Mozilla/5.0`); update it when sites start refusing an old one |
 | `imageProxy` | the image converter, `https://` with one `%s` for the escaped image address (it must accept `&w=` too, like wsrv.nl) |
+| `imageProxies` | several converters in order (up to 5, same format): the app moves to the next one when the one in use fails 4 times in a row. Keep `imageProxy` equal to the first, for 1.1.5 |
 | `disabledExtensions` | extension ids whose sources are switched off, for one that misbehaves |
 | `notice` | `{"id": "...", "until": "YYYY-MM-DD", "text": {"English": "...", "PortugueseBR": "..."}}`: shown once to every user |
 
@@ -184,7 +185,8 @@ Wrong values are ignored, never applied (`tools/tests/test_remoteconfig.lua` che
 The extension repository runs on its own:
 - **daily health check:** tests every source, records domain moves and refreshes the README;
 - **weekly sync:** follows keiyoushi (new domains after a live probe, removals), adds new keiyoushi sources that pass a
-  live test and drops sources down for 90 days (at most 8 a week).
+  live test, takes keiyoushi's fixes for sources that don't work (kept only when a live test does better) and drops
+  sources down for 90 days (at most 8 a week).
   It commits to `main`, but holds every removal back when there are more than 8, or when the keiyoushi clone looks
   broken;
 - **status issue:** a pinned issue, *Catalog status*, is rewritten every week and whenever a robot fails. A keepalive
