@@ -20,7 +20,14 @@ All notable changes to Otakio. Each `## x.y.z` section becomes the notes of the 
   without the buttons. The "no connection" message closes with a tap, and an app update download can be canceled
   by tapping Cancel.
 
+- **Smoother scrolling while pages load:** source lists (JSON and HTML) are read in short steps sized to the console's
+  speed, and covers and thumbnails are prepared a few at a time, visible ones first. Browsing a large catalog such as
+  MangaDex, or opening History, no longer stops the screen for a fraction of a second.
+
 ### Fixed
+- **Quick taps no longer lost:** while the app was busy loading a page, a short tap could fall between two frames and
+  do nothing, so touch seemed to stop working. Lists now take a tap from its first frame, and a finger kept on the
+  screen is never taken for a new tap.
 - **Chapter list cursor in newest-first order:** moving with the d-pad scrolled the list but the highlight was drawn
   on the mirrored row, off screen; it now sits on the chapter it selects.
 - **Imported chapters and pages in number order:** "Chapter 2" before "Chapter 10" and "2.jpg" before "10.jpg"
